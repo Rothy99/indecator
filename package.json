@@ -1,0 +1,20 @@
+{
+  "name": "xauusd-gold-signal-indicator",
+  "version": "1.0.0",
+  "description": "Gold (XAU/USD) Intraday & Scalping Signal Indicator powered by Hono (EMA Cross, RSI, MACD, ATR)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
