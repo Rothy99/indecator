@@ -19,8 +19,6 @@ interface RawTimeframeStore {
   fetchedAt: number;
 }
 
-const rawStore = new Map<SupportedTimeframe, RawTimeframeStore>();
-
 let latestSpotQuote: LiveSpotQuote = {
   bid: 4051.0,
   ask: 4051.6,
@@ -29,6 +27,18 @@ let latestSpotQuote: LiveSpotQuote = {
   timestamp: Date.now(),
   source: 'MT5 Spot XAU/USD (Swissquote Institutional Feed)',
 };
+
+const rawStore = new Map<SupportedTimeframe, RawTimeframeStore>();
+
+// Pre-populate rawStore with baseline candles so serverless cold starts never block
+for (const tf of ALL_TIMEFRAMES) {
+  const sim = generateSimulatedGoldCandles(tf, 240);
+  rawStore.set(tf, {
+    rawCandles: sim,
+    lastRawClose: sim[sim.length - 1].close,
+    fetchedAt: Date.now(),
+  });
+}
 
 let basisOffset = 0; // Difference between Spot XAU/USD and COMEX GC=F Futures
 let isInitialized = false;
@@ -257,19 +267,22 @@ export async function initRealtimeMarketEngine(): Promise<void> {
   if (isInitialized) return;
   isInitialized = true;
 
-  // 1. Initial fetch of Swissquote Spot XAU/USD + all 6 timeframes in parallel
+  // 1. Fetch live Swissquote Spot XAU/USD immediately
   await pollSwissquoteSpotXau();
-  await Promise.all(ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForTf(tf)));
 
-  // 2. Poll Swissquote Spot XAU/USD every 900ms for sub-second MT5 price accuracy
-  setInterval(() => {
-    void pollSwissquoteSpotXau();
-  }, 900);
+  // 2. Fetch Yahoo candles in background (non-blocking for fast serverless response)
+  void Promise.all(ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForTf(tf)));
 
-  // 3. Refresh historical candle structures in the background every 15 seconds
-  setInterval(() => {
-    void Promise.all(ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForTf(tf)));
-  }, 15000);
+  // 3. Periodic polling for long-running / local instances
+  if (!process.env.VERCEL) {
+    setInterval(() => {
+      void pollSwissquoteSpotXau();
+    }, 900);
+
+    setInterval(() => {
+      void Promise.all(ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForTf(tf)));
+    }, 15000);
+  }
 }
 
 /**
@@ -281,6 +294,9 @@ export async function getGoldCandles(
 ): Promise<{ candles: Candle[]; source: string; spotQuote: LiveSpotQuote }> {
   if (!isInitialized) {
     await initRealtimeMarketEngine();
+  } else if (process.env.VERCEL) {
+    // In Vercel serverless, quick poll Swissquote to get fresh price on each invocation
+    await pollSwissquoteSpotXau();
   }
 
   let stored = rawStore.get(timeframe);

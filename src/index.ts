@@ -15,15 +15,16 @@ import { DASHBOARD_HTML } from './dashboardHtml.js';
 
 const app = new Hono();
 
-app.use('/api/*', cors());
+app.use('*', cors());
 
 void initRealtimeMarketEngine();
 
-app.get('/', (c) => {
-  return c.html(DASHBOARD_HTML);
-});
+const handleRoot = (c: any) => c.html(DASHBOARD_HTML);
 
-app.get('/api/signal', async (c) => {
+app.get('/', handleRoot);
+app.get('/api', handleRoot);
+
+const handleSignal = async (c: any) => {
   const rawTf = (c.req.query('tf') || '15m').toLowerCase();
   const tf: SupportedTimeframe = ALL_TIMEFRAMES.includes(rawTf as SupportedTimeframe)
     ? (rawTf as SupportedTimeframe)
@@ -36,9 +37,12 @@ app.get('/api/signal', async (c) => {
     ...analysis,
     spotQuote,
   });
-});
+};
 
-app.get('/api/mtf', async (c) => {
+app.get('/api/signal', handleSignal);
+app.get('/signal', handleSignal);
+
+const handleMtf = async (c: any) => {
   const results = await Promise.all(
     ALL_TIMEFRAMES.map(async (tf) => {
       const { candles, source } = await getGoldCandles(tf);
@@ -130,9 +134,12 @@ app.get('/api/mtf', async (c) => {
     timeframes: tfMap,
     allHighProbSignals: allHighProbSignals.slice(0, 35),
   });
-});
+};
 
-app.get('/api/stream', (c) => {
+app.get('/api/mtf', handleMtf);
+app.get('/mtf', handleMtf);
+
+const handleStream = (c: any) => {
   return streamSSE(c, async (stream) => {
     let closed = false;
     stream.onAbort(() => {
@@ -158,11 +165,16 @@ app.get('/api/stream', (c) => {
     }
     unsubscribe();
   });
-});
+};
 
-app.get('/api/health', (c) =>
-  c.json({ status: 'ok', service: 'xauusd-4-confluence-master-strategy', spotQuote: getLatestSpotQuote() })
-);
+app.get('/api/stream', handleStream);
+app.get('/stream', handleStream);
+
+const handleHealth = (c: any) =>
+  c.json({ status: 'ok', service: 'xauusd-4-confluence-master-strategy', spotQuote: getLatestSpotQuote() });
+
+app.get('/api/health', handleHealth);
+app.get('/health', handleHealth);
 
 const port = Number(process.env.PORT) || 3000;
 

@@ -791,17 +791,32 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     async function loadSignalData() {
       try {
-        const [sigRes, mtfRes] = await Promise.all([
+        let [sigRes, mtfRes] = await Promise.all([
           fetch(\`/api/signal?tf=\${currentTf}\`),
           fetch('/api/mtf')
         ]);
+
+        if (!sigRes.ok || !mtfRes.ok) {
+          const [f1, f2] = await Promise.all([
+            fetch(\`/signal?tf=\${currentTf}\`),
+            fetch('/mtf')
+          ]);
+          if (f1.ok) sigRes = f1;
+          if (f2.ok) mtfRes = f2;
+        }
+
+        if (!sigRes.ok || !mtfRes.ok) {
+          console.warn('API fetch warning:', sigRes.status, mtfRes.status);
+          return;
+        }
+
         const data = await sigRes.json();
         const mtf = await mtfRes.json();
         currentAnalysis = data;
         latestMtfData = mtf;
         renderDashboard(data, mtf);
       } catch (e) {
-        console.error(e);
+        console.error('Signal data fetch error:', e);
       }
     }
 
