@@ -192,7 +192,7 @@ export interface HistoricalSignal {
   stopLoss: number;
   tp1: number; // 1:2 R:R
   tp2: number; // 1:3 R:R
-  outcome: 'TP2_HIT' | 'TP1_HIT' | 'SL_HIT' | 'ACTIVE';
+  outcome: 'TP2_HIT' | 'TP1_HIT' | 'SL_HIT' | 'BE_EXIT' | 'ACTIVE';
   pnlDollarsPerOz: number;
   reason: string;
 }
@@ -583,6 +583,7 @@ function analyzeMasterConfluenceAtBar(
   isLongBias: boolean;
   score: number;
   summaryReason: string;
+  quantitativeMatrix: QuantitativeScoreMatrix;
 } {
   const cur = series[idx];
   const prev = series[idx - 1] ?? cur;

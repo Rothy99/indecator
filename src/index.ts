@@ -166,12 +166,16 @@ app.get('/api/health', (c) =>
 
 const port = Number(process.env.PORT) || 3000;
 
-serve(
-  {
-    fetch: app.fetch,
-    port,
-  },
-  (info) => {
-    console.log(`✨ XAU/USD 4-Confluence Master Strategy Terminal running at http://localhost:${info.port}`);
-  }
-);
+if (!process.env.VERCEL) {
+  serve(
+    {
+      fetch: app.fetch,
+      port,
+    },
+    (info) => {
+      console.log(`✨ XAU/USD 4-Confluence Master Strategy Terminal running at http://localhost:${info.port}`);
+    }
+  );
+}
+
+export default app;
