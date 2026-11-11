@@ -40,62 +40,65 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       background: linear-gradient(135deg, rgba(120, 53, 15, 0.38) 0%, #0c1220 65%);
       border: 1.5px solid rgba(245, 158, 11, 0.55);
     }
+    .overflow-x-auto {
+      -webkit-overflow-scrolling: touch;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
   <!-- Top Bar: MT5 Spot XAU/USD + Live Session Killzone Clock (GMT+7 Phnom Penh / UTC) -->
   <header class="border-b border-slate-800 bg-[#060911]/95 sticky top-0 z-40 backdrop-blur-md">
-    <div class="max-w-[1600px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-4 flex-wrap">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-xs mono">
+    <div class="max-w-[1600px] mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+      <div class="flex items-center gap-2 sm:gap-4 flex-wrap w-full lg:w-auto justify-between lg:justify-start">
+        <div class="flex items-center gap-2 sm:gap-2.5">
+          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-xs mono shrink-0">
             4-CONF
           </div>
           <div>
-            <div class="flex items-center gap-2">
-              <span class="font-extrabold text-base tracking-tight text-white">XAU/USD MASTER STRATEGY</span>
-              <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <span class="font-extrabold text-sm sm:text-base tracking-tight text-white">XAU/USD MASTER</span>
+              <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                MT5 SPOT 0.8s
+                LIVE 0.8s
               </span>
             </div>
-            <span id="sourceBadge" class="text-[11px] text-slate-400 block">50/200 EMA • RSI(14) Div • ICT FVG/OB • 1:2 & 1:3 R:R</span>
+            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[220px] sm:max-w-none">50/200 EMA • RSI • ICT FVG/OB • 1:2/1:3</span>
           </div>
         </div>
 
-        <!-- Live Bid / Ask / Spread Box -->
-        <div id="priceBox" class="flex items-center gap-3 px-3 py-1 rounded-xl bg-slate-900/90 border border-slate-800 transition-colors">
+        <!-- Live Bid / Ask / Spread Box (Mobile Optimized) -->
+        <div id="priceBox" class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 transition-colors w-full sm:w-auto justify-between sm:justify-start">
           <div>
-            <span class="text-[9px] uppercase font-bold text-slate-400 block">MT5 BID (SELL)</span>
-            <span id="livePrice" class="mono text-2xl sm:text-3xl font-black text-white tracking-tight">$----.--</span>
+            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 BID</span>
+            <span id="livePrice" class="mono text-lg sm:text-2xl font-black text-white tracking-tight">$----.--</span>
           </div>
-          <div class="border-l border-slate-800 pl-3">
-            <span class="text-[9px] uppercase font-bold text-slate-400 block">MT5 ASK (BUY)</span>
-            <span id="liveAsk" class="mono text-lg font-bold text-amber-300">$----.--</span>
+          <div class="border-l border-slate-800 pl-2 sm:pl-3">
+            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 ASK</span>
+            <span id="liveAsk" class="mono text-sm sm:text-base font-bold text-amber-300">$----.--</span>
           </div>
-          <div class="border-l border-slate-800 pl-3 hidden sm:block">
-            <span class="text-[9px] uppercase font-bold text-slate-400 block">MT5 SPREAD (MAX 25pt)</span>
-            <span id="liveSpread" class="mono text-xs font-bold text-emerald-400">-- points</span>
+          <div class="border-l border-slate-800 pl-2 sm:pl-3">
+            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">SPREAD</span>
+            <span id="liveSpread" class="mono text-[11px] sm:text-xs font-bold text-emerald-400">-- pt</span>
           </div>
-          <span id="spreadGuardBadge" class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300">SPREAD OK</span>
-          <span id="priceDirArrow" class="text-base font-bold text-amber-400">●</span>
+          <span id="spreadGuardBadge" class="px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">SPREAD OK</span>
+          <span id="priceDirArrow" class="text-sm sm:text-base font-bold text-amber-400">●</span>
         </div>
       </div>
 
       <!-- Timeframe Selector + Circuit Breaker Indicator -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <div id="circuitBreakerPill" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-          🛡️ Circuit Breaker: 0/2 Losses
+      <div class="flex items-center justify-between sm:justify-end gap-2 w-full lg:w-auto flex-wrap">
+        <div id="circuitBreakerPill" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          🛡️ Breaker: 0/2
         </div>
 
-        <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800">
-          <button onclick="switchTimeframe('1m')" id="tf-1m" class="px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M1</button>
-          <button onclick="switchTimeframe('5m')" id="tf-5m" class="px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M5</button>
-          <button onclick="switchTimeframe('15m')" id="tf-15m" class="px-2.5 py-1.5 rounded-md text-xs font-bold transition-all bg-amber-400 text-slate-950">M15</button>
-          <button onclick="switchTimeframe('30m')" id="tf-30m" class="px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M30</button>
-          <button onclick="switchTimeframe('1h')" id="tf-1h" class="px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">H1</button>
-          <button onclick="switchTimeframe('4h')" id="tf-4h" class="px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">H4</button>
+        <div class="inline-flex rounded-lg bg-slate-900 p-0.5 sm:p-1 border border-slate-800 overflow-x-auto">
+          <button onclick="switchTimeframe('1m')" id="tf-1m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M1</button>
+          <button onclick="switchTimeframe('5m')" id="tf-5m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M5</button>
+          <button onclick="switchTimeframe('15m')" id="tf-15m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all bg-amber-400 text-slate-950">M15</button>
+          <button onclick="switchTimeframe('30m')" id="tf-30m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M30</button>
+          <button onclick="switchTimeframe('1h')" id="tf-1h" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">H1</button>
+          <button onclick="switchTimeframe('4h')" id="tf-4h" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">H4</button>
         </div>
       </div>
     </div>
@@ -119,22 +122,22 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <!-- Institutional Liquidity Levels (PDH, PDL, Asian High, Asian Low) -->
-      <div class="lg:col-span-4 panel rounded-xl p-3.5 grid grid-cols-4 gap-2 text-center mono">
+      <div class="lg:col-span-4 panel rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center mono">
         <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 font-bold block">PDH (Prev High)</span>
-          <span id="lvlPdh" class="text-xs font-extrabold text-rose-300">$----</span>
+          <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block">PDH (Prev High)</span>
+          <span id="lvlPdh" class="text-xs sm:text-sm font-extrabold text-rose-300">$----</span>
         </div>
         <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 font-bold block">PDL (Prev Low)</span>
-          <span id="lvlPdl" class="text-xs font-extrabold text-emerald-300">$----</span>
+          <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block">PDL (Prev Low)</span>
+          <span id="lvlPdl" class="text-xs sm:text-sm font-extrabold text-emerald-300">$----</span>
         </div>
         <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-amber-300/80 font-bold block">Asian High</span>
-          <span id="lvlAsianHigh" class="text-xs font-extrabold text-amber-300">$----</span>
+          <span class="text-[9px] sm:text-[10px] text-amber-300/80 font-bold block">Asian High</span>
+          <span id="lvlAsianHigh" class="text-xs sm:text-sm font-extrabold text-amber-300">$----</span>
         </div>
         <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-amber-300/80 font-bold block">Asian Low</span>
-          <span id="lvlAsianLow" class="text-xs font-extrabold text-amber-300">$----</span>
+          <span class="text-[9px] sm:text-[10px] text-amber-300/80 font-bold block">Asian Low</span>
+          <span id="lvlAsianLow" class="text-xs sm:text-sm font-extrabold text-amber-300">$----</span>
         </div>
       </div>
 
@@ -272,29 +275,29 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
           </div>
 
-          <!-- Hard SL ($3–$5), TP1 (1:2 R:R 50% Partial + BE), TP2 (1:3 R:R Runner) -->
-          <div class="grid grid-cols-3 gap-3">
+          <!-- Hard SL (1.5x ATR), TP1 (1:2 R:R 50% Partial + BE), TP2 (1:3 R:R Runner) -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
             <div onclick="copyValue('setupSl')" class="cursor-pointer p-3 rounded-xl bg-rose-950/35 border border-rose-500/45 hover:border-rose-400 transition">
-              <span class="text-[10px] font-bold uppercase text-rose-300 block">🛑 Hard SL ($3–$5 Beyond Wick)</span>
-              <div id="setupSl" class="mono text-xl font-black text-rose-400 mt-1">$----.--</div>
+              <span class="text-[10px] font-bold uppercase text-rose-300 block">🛑 Hard SL (1.5x ATR Dynamic)</span>
+              <div id="setupSl" class="mono text-lg sm:text-xl font-black text-rose-400 mt-1">$----.--</div>
               <span id="setupSlPips" class="mono text-[11px] text-rose-300/80 mt-0.5 block">Risk: -- pips ($--/oz)</span>
             </div>
 
             <div onclick="copyValue('setupTp1')" class="cursor-pointer p-3 rounded-xl bg-emerald-950/35 border border-emerald-500/45 hover:border-emerald-400 transition">
               <span class="text-[10px] font-bold uppercase text-emerald-300 block">🎯 TP 1 (1:2 RR • Take 50% + BE)</span>
-              <div id="setupTp1" class="mono text-xl font-black text-emerald-400 mt-1">$----.--</div>
+              <div id="setupTp1" class="mono text-lg sm:text-xl font-black text-emerald-400 mt-1">$----.--</div>
               <span id="setupTp1Pips" class="mono text-[11px] text-emerald-300/80 mt-0.5 block">+-- pips (Move SL→BE)</span>
             </div>
 
             <div onclick="copyValue('setupTp2')" class="cursor-pointer p-3 rounded-xl bg-emerald-950/55 border border-emerald-400/60 hover:border-emerald-300 transition">
               <span class="text-[10px] font-bold uppercase text-emerald-200 block">🏆 TP 2 (1:3 RR • H4 Runner)</span>
-              <div id="setupTp2" class="mono text-xl font-black text-emerald-300 mt-1">$----.--</div>
+              <div id="setupTp2" class="mono text-lg sm:text-xl font-black text-emerald-300 mt-1">$----.--</div>
               <span id="setupTp2Pips" class="mono text-[11px] text-emerald-200/90 mt-0.5 block">+-- pips (3× Reward)</span>
             </div>
           </div>
 
           <!-- Universal Risk Rule: Strict 1% Risk Per Trade Calculator -->
-          <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 grid grid-cols-2 sm:grid-cols-5 gap-2.5 items-center text-xs">
+          <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 items-center text-xs">
             <div>
               <label class="text-[10px] text-slate-400 font-bold block">Account Equity ($)</label>
               <input id="calcBalance" type="number" value="1000" oninput="updateRiskCalc()" class="w-full mt-0.5 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-white font-bold mono" />
@@ -311,7 +314,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <span class="text-[9px] text-amber-300 uppercase block">MT5 Lot Size</span>
               <span id="calcLots" class="mono font-black text-amber-300">0.02 Lots</span>
             </div>
-            <div class="text-center p-1.5 rounded bg-slate-900 border border-slate-800">
+            <div class="col-span-2 sm:col-span-1 text-center p-1.5 rounded bg-slate-900 border border-slate-800">
               <span class="text-[9px] text-slate-400 uppercase block">1:2 / 1:3 Profit</span>
               <span id="calcRewardUsd" class="mono font-bold text-emerald-400">+$20 / +$30</span>
             </div>
@@ -343,7 +346,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </button>
           </div>
         </div>
-        <div id="priceChart" class="w-full h-[430px] rounded-xl overflow-hidden"></div>
+        <div id="priceChart" class="w-full h-[320px] sm:h-[430px] rounded-xl overflow-hidden"></div>
       </div>
 
       <div class="lg:col-span-4 panel rounded-2xl p-4 space-y-3">
@@ -392,8 +395,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
+      <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
+      <div class="overflow-x-auto rounded-xl border border-slate-800/60">
+        <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
           <thead>
             <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
               <th class="py-2.5 px-3">Time</th>
@@ -434,8 +438,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
+      <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
+      <div class="overflow-x-auto rounded-xl border border-slate-800/60">
+        <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
           <thead>
             <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
               <th class="py-2.5 px-3">#</th>
@@ -534,7 +539,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
         rightPriceScale: { borderColor: '#1e293b' },
         timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false },
-        height: 430,
+        height: window.innerWidth < 640 ? 320 : 430,
       });
 
       candleSeries = priceChart.addCandlestickSeries({
@@ -551,7 +556,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       ema200Series = priceChart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
 
       window.addEventListener('resize', () => {
-        priceChart.applyOptions({ width: priceEl.clientWidth });
+        const isMob = window.innerWidth < 640;
+        priceChart.applyOptions({
+          width: priceEl.clientWidth,
+          height: isMob ? 320 : 430,
+        });
       });
     }
 
@@ -583,10 +592,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       if (spBadge) {
         if (spread <= 2.5) {
           spBadge.textContent = 'SPREAD OK';
-          spBadge.className = 'hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+          spBadge.className = 'px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
         } else {
           spBadge.textContent = 'WIDE SPREAD';
-          spBadge.className = 'hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-black mono bg-rose-500 text-white animate-pulse';
+          spBadge.className = 'px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black mono bg-rose-500 text-white animate-pulse';
         }
       }
 
