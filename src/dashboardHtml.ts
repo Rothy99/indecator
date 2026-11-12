@@ -169,12 +169,15 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 flex-wrap gap-0.5">
             <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
               🔲 Grid View
             </button>
             <button id="btnViewTable" onclick="setMtfView('table')" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">
               📋 Table View
+            </button>
+            <button id="btnViewConfident" onclick="setMtfView('confident')" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">
+              ⭐ 85%+ Entries View
             </button>
           </div>
           <span id="mtfMasterSummary" class="text-xs text-slate-300 font-semibold hidden md:inline">--</span>
@@ -209,6 +212,20 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <!-- Populated dynamically -->
           </tbody>
         </table>
+      </div>
+
+      <!-- Alternative 85%+ Entries View (Directly Inside Matrix Card) -->
+      <div id="mtfConfidentContainer" class="space-y-3 hidden">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800 text-xs">
+          <span class="text-slate-300 font-bold">⭐ All 85%+ High-Confidence Entries Across 6 Timeframes:</span>
+          <div class="flex gap-2">
+            <button onclick="toggleAllCollapses(true)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold transition">Expand All</button>
+            <button onclick="toggleAllCollapses(false)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold transition">Collapse All</button>
+          </div>
+        </div>
+        <div id="matrixConfidentCardsContainer" class="space-y-2.5">
+          <!-- Populated dynamically -->
+        </div>
       </div>
     </section>
 
@@ -524,27 +541,29 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       mtfViewMode = mode;
       const gridEl = document.getElementById('mtfGridContainer');
       const tableEl = document.getElementById('mtfTableContainer');
+      const confEl = document.getElementById('mtfConfidentContainer');
       const btnGrid = document.getElementById('btnViewGrid');
       const btnTable = document.getElementById('btnViewTable');
+      const btnConf = document.getElementById('btnViewConfident');
 
-      if (mode === 'grid') {
-        if (gridEl) gridEl.classList.remove('hidden');
-        if (tableEl) tableEl.classList.add('hidden');
-        if (btnGrid) {
-          btnGrid.className = 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm';
-        }
-        if (btnTable) {
-          btnTable.className = 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
-        }
-      } else {
-        if (gridEl) gridEl.classList.add('hidden');
-        if (tableEl) tableEl.classList.remove('hidden');
-        if (btnGrid) {
-          btnGrid.className = 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
-        }
-        if (btnTable) {
-          btnTable.className = 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm';
-        }
+      if (gridEl) gridEl.classList.toggle('hidden', mode !== 'grid');
+      if (tableEl) tableEl.classList.toggle('hidden', mode !== 'table');
+      if (confEl) confEl.classList.toggle('hidden', mode !== 'confident');
+
+      if (btnGrid) {
+        btnGrid.className = mode === 'grid'
+          ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm'
+          : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
+      }
+      if (btnTable) {
+        btnTable.className = mode === 'table'
+          ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm'
+          : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
+      }
+      if (btnConf) {
+        btnConf.className = mode === 'confident'
+          ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm'
+          : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
       }
     }
 
@@ -900,6 +919,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             if (!r || !r.entryTiming?.lifecycle) return '';
             const et = r.entryTiming;
             const lc = et.lifecycle;
+            const confSigs = (mtf.highConfidenceByTf && mtf.highConfidenceByTf[tf]) || [];
             const isSelected = tf === currentTf;
             const cardCls = isSelected
               ? 'border-2 border-amber-400 bg-amber-400/[0.08] shadow-lg shadow-amber-400/10 ring-1 ring-amber-400/30'
@@ -963,6 +983,42 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <div class="text-[9px] uppercase font-bold text-emerald-300/80">🏆 TP2 (1:3)</div>
                     <div class="font-extrabold text-emerald-300 text-xs">$\${lc.tp2.toFixed(2)}</div>
                   </div>
+                </div>
+
+                <!-- Collapsible 85%+ Entries for this Timeframe Card -->
+                <div class="mb-3" onclick="event.stopPropagation();">
+                  <details class="group rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden">
+                    <summary class="cursor-pointer py-1.5 px-2.5 flex items-center justify-between text-xs select-none hover:bg-slate-800/60 transition">
+                      <span class="font-extrabold text-amber-300 text-[11px] flex items-center gap-1.5">
+                        <span>⭐ Top 85%+ Entries</span>
+                        <span class="px-1.5 py-0.2 rounded text-[10px] font-black \${confSigs.length > 0 ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'}">\${confSigs.length}</span>
+                      </span>
+                      <span class="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="p-2 border-t border-slate-800/80 bg-slate-950 space-y-2 max-h-[220px] overflow-y-auto">
+                      \${confSigs.length === 0
+                        ? '<div class="text-[11px] text-slate-500 text-center py-2 mono">No 85%+ entries in scan window</div>'
+                        : confSigs.map((cs, cIdx) => {
+                            const cIsB = cs.type === 'BUY';
+                            const cTypeCls = cIsB ? 'text-emerald-400' : 'text-rose-400';
+                            return \`
+                              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800 text-xs space-y-1">
+                                <div class="flex items-center justify-between text-[11px]">
+                                  <span class="font-black mono \${cTypeCls}">\${cs.type} #\${cIdx + 1}</span>
+                                  <span class="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[9px]">\${cs.grade} \${cs.probability || cs.confidence}%</span>
+                                </div>
+                                <div class="mono text-[11px] space-y-0.5 text-slate-300 pt-0.5">
+                                  <div class="text-amber-300 font-bold">• <strong>entry</strong>: \${cs.entry.toFixed(2)}</div>
+                                  <div class="text-rose-400">• <strong>stop loss</strong>: \${cs.stopLoss.toFixed(2)}</div>
+                                  <div class="text-emerald-400">• <strong>tp1</strong>: \${cs.tp1.toFixed(2)}</div>
+                                  <div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: \${cs.tp2.toFixed(2)}</div>
+                                </div>
+                              </div>
+                            \`;
+                          }).join('')
+                      }
+                    </div>
+                  </details>
                 </div>
 
                 <!-- Footer -->
@@ -1162,7 +1218,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     function toggleAllCollapses(expand) {
-      document.querySelectorAll('#highConfidenceCollapseContainer details').forEach((el) => {
+      document.querySelectorAll('#highConfidenceCollapseContainer details, #matrixConfidentCardsContainer details, #mtfGridContainer details').forEach((el) => {
         el.open = expand;
       });
     }
@@ -1178,10 +1234,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     function renderHighConfidenceCollapse(highConfidenceByTf) {
       const container = document.getElementById('highConfidenceCollapseContainer');
-      if (!container) return;
+      const matrixContainer = document.getElementById('matrixConfidentCardsContainer');
+      if (!container && !matrixContainer) return;
 
       const order = ['15m', '5m', '1m', '30m', '1h', '4h'];
-      container.innerHTML = order.map((tf, index) => {
+      const html = order.map((tf, index) => {
         const sigs = highConfidenceByTf[tf] || [];
         const title = TF_COLLAPSE_TITLES[tf] || tf.toUpperCase();
         const isOpen = index === 0;
@@ -1266,6 +1323,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </details>
         \`;
       }).join('');
+
+      if (container) container.innerHTML = html;
+      if (matrixContainer) matrixContainer.innerHTML = html;
     }
 
     function renderAllHighProbSignalsTable(allSignals) {
