@@ -132,7 +132,7 @@ const handleMtf = async (c: any) => {
     weightedScore,
     alignmentSummary,
     timeframes: tfMap,
-    allHighProbSignals: allHighProbSignals.slice(0, 35),
+    allHighProbSignals: allHighProbSignals.slice(0, 60),
   });
 };
 

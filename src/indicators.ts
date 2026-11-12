@@ -991,7 +991,8 @@ function scanMasterStrategySignals(
     if (!cur || !prev || cur.ema50 === null || cur.rsi14 === null || cur.atr14 === null) continue;
     if (i - lastSignalIdx < 8) continue;
 
-    const evalBar = analyzeMasterConfluenceAtBar(series, i, liquidity, session);
+    const barSession = evaluateSessionTiming(new Date(cur.time * 1000));
+    const evalBar = analyzeMasterConfluenceAtBar(series, i, liquidity, barSession);
     if (evalBar.gatesPassed < 4) continue;
 
     // Require Engulfing / Pin Bar or FVG retest confirmation in alignment with 50 EMA
