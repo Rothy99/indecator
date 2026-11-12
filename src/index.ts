@@ -125,9 +125,47 @@ const handleMtf = async (c: any) => {
 
   const highConfidenceByTf: Record<string, any[]> = {};
   for (const { tf, analysis } of results) {
-    highConfidenceByTf[tf] = (analysis.historicalSignals || [])
-      .filter((s: any) => (s.probability || s.confidence) >= 85)
-      .slice(0, 5);
+    const hist = (analysis.historicalSignals || [])
+      .filter((s: any) => (s.probability || s.confidence) >= 85);
+
+    const lc = analysis.tradeSetup?.entryTiming?.lifecycle;
+    const entries: any[] = [];
+
+    if (lc) {
+      const isAct = Boolean(lc.isActivated);
+      entries.push({
+        isLiveCurrent: true,
+        time: lc.activatedTime || Math.floor(Date.now() / 1000),
+        timeframe: tf,
+        type: lc.direction as 'BUY' | 'SELL',
+        grade: analysis.setupGrade,
+        probability: analysis.probability,
+        confidence: analysis.probability,
+        entry: lc.entryPrice,
+        stopLoss: lc.stopLoss,
+        tp1: lc.tp1,
+        tp2: lc.tp2,
+        outcome: isAct ? 'ACTIVE' : 'WAIT_CONFIRMATION',
+        pnlDollarsPerOz: lc.floatingDollarsPerOz || 0,
+        isActivated: isAct,
+        activationState: lc.activationState,
+        statusBadge: lc.statusBadge,
+        pnlStatusText: lc.pnlStatusText,
+        distanceToEntryPips: lc.distanceToEntryPips || 0,
+        reason: lc.summaryText || '4-Confluence Setup',
+      });
+    }
+
+    for (const s of hist) {
+      if (entries.length >= 6) break;
+      // Skip duplicate if already represented by active live entry
+      if (s.outcome === 'ACTIVE' && entries.some((e) => e.isLiveCurrent && e.isActivated)) {
+        continue;
+      }
+      entries.push(s);
+    }
+
+    highConfidenceByTf[tf] = entries.slice(0, 5);
   }
 
   return c.json({
