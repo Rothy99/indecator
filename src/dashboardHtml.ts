@@ -191,7 +191,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <!-- Alternative Full Table View (Toggleable) -->
-      <div id="mtfTableContainer" class="overflow-x-auto hidden">
+      <div id="mtfTableContainer" data-scroll-key="mtf-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto hidden">
         <table class="w-full text-left border-collapse text-xs">
           <thead>
             <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
@@ -438,7 +438,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
-      <div class="overflow-x-auto rounded-xl border border-slate-800/60">
+      <div data-scroll-key="all-signals-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
         <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
           <thead>
             <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
@@ -481,7 +481,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
-      <div class="overflow-x-auto rounded-xl border border-slate-800/60">
+      <div data-scroll-key="journal-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
         <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
           <thead>
             <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
@@ -534,6 +534,45 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       '1h': 'H1 Filter',
       '4h': 'H4 Structure'
     };
+
+    // Scroll Persistence & DOM Stabilization State
+    const savedScrollPositions = new Map();
+    let lastGridSig = '';
+    let lastTableSig = '';
+    let lastHighConfSig = '';
+
+    function onInnerScroll(el) {
+      if (!el) return;
+      const key = el.getAttribute('data-scroll-key') || el.id;
+      if (key) {
+        savedScrollPositions.set(key, { top: el.scrollTop, left: el.scrollLeft });
+      }
+    }
+
+    function saveAllScrollStates() {
+      savedScrollPositions.set('__window__', { top: window.scrollY, left: window.scrollX });
+      document.querySelectorAll('[data-scroll-key]').forEach((el) => {
+        const key = el.getAttribute('data-scroll-key');
+        if (key) {
+          savedScrollPositions.set(key, { top: el.scrollTop, left: el.scrollLeft });
+        }
+      });
+    }
+
+    function restoreAllScrollStates() {
+      const win = savedScrollPositions.get('__window__');
+      if (win && (window.scrollY !== win.top || window.scrollX !== win.left)) {
+        window.scrollTo(win.left, win.top);
+      }
+      savedScrollPositions.forEach((pos, key) => {
+        if (key === '__window__') return;
+        const el = document.querySelector(\`[data-scroll-key="\${key}"]\`) || document.getElementById(key);
+        if (el) {
+          el.scrollTop = pos.top;
+          el.scrollLeft = pos.left;
+        }
+      });
+    }
 
     let mtfViewMode = 'grid';
 
@@ -889,6 +928,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     function renderDashboard(data, mtf) {
       saveOpenCollapses();
+      saveAllScrollStates();
       if (data.spotQuote) updateLiveSpotTicker(data.spotQuote);
 
       // Session & Killzone Bar (GMT+7 Phnom Penh & UTC)
@@ -935,203 +975,249 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const order = ['1m', '5m', '15m', '30m', '1h', '4h'];
 
-        // 1. Render Responsive 6-Timeframe Card Grid (Default View)
+        // 1. Render Responsive 6-Timeframe Card Grid (Default View with Scroll Retention)
         const gridContainer = document.getElementById('mtfGridContainer');
         if (gridContainer) {
-          gridContainer.innerHTML = order.map((tf) => {
+          const currentGridSig = String(currentTf) + '_' + order.map((tf) => {
             const r = mtf.timeframes[tf];
-            if (!r || !r.entryTiming?.lifecycle) return '';
-            const et = r.entryTiming;
-            const lc = et.lifecycle;
-            const confSigs = (mtf.highConfidenceByTf && mtf.highConfidenceByTf[tf]) || [];
-            const cardDetailId = 'card-conf-' + tf;
-            const isCardConfOpen = openedCollapseIds.has(cardDetailId);
-            const isSelected = tf === currentTf;
-            const cardCls = isSelected
-              ? 'border-2 border-amber-400 bg-amber-400/[0.08] shadow-lg shadow-amber-400/10 ring-1 ring-amber-400/30'
-              : 'border border-slate-800 bg-slate-900/90 hover:border-slate-700 hover:bg-slate-900/95';
+            const conf = (mtf.highConfidenceByTf && mtf.highConfidenceByTf[tf]) || [];
+            const confStr = conf.map((c) => String(c.time) + '_' + String(c.outcome)).join(',');
+            return String(tf) + ':' + String(r?.grade) + ':' + String(r?.probability) + ':' + String(r?.entryTiming?.lifecycle?.activationState) + ':' + confStr;
+          }).join('|');
 
-            const dirColor = lc.direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400';
-            const dirIcon = lc.direction === 'BUY' ? '🟢 BUY' : '🔴 SELL';
-            const structShort = r.ictStructure?.marketStructure?.includes('UPTREND') ? 'HH+HL' : 'LH+LL';
-            const emaBadge = r.ictStructure?.ema50And200Filter?.includes('BULLISH')
-              ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300">Above 50/200</span>'
-              : r.ictStructure?.ema50And200Filter?.includes('BEARISH')
-              ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-300">Below 50/200</span>'
-              : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300">Transition</span>';
+          if (currentGridSig !== lastGridSig) {
+            lastGridSig = currentGridSig;
+            saveAllScrollStates();
+            gridContainer.innerHTML = order.map((tf) => {
+              const r = mtf.timeframes[tf];
+              if (!r || !r.entryTiming?.lifecycle) return '';
+              const et = r.entryTiming;
+              const lc = et.lifecycle;
+              const confSigs = (mtf.highConfidenceByTf && mtf.highConfidenceByTf[tf]) || [];
+              const cardDetailId = 'card-conf-' + tf;
+              const isCardConfOpen = openedCollapseIds.has(cardDetailId);
+              const isSelected = tf === currentTf;
+              const cardCls = isSelected
+                ? 'border-2 border-amber-400 bg-amber-400/[0.08] shadow-lg shadow-amber-400/10 ring-1 ring-amber-400/30'
+                : 'border border-slate-800 bg-slate-900/90 hover:border-slate-700 hover:bg-slate-900/95';
 
-            const pnlCellHtml = lc.isActivated
-              ? \`<span class="font-black \${lc.floatingPips >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${lc.pnlStatusText}</span>\`
-              : \`<span class="text-amber-300 font-bold leading-relaxed break-words block w-full text-center">⏳ \${lc.pnlStatusText}</span>\`;
+              const dirColor = lc.direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400';
+              const dirIcon = lc.direction === 'BUY' ? '🟢 BUY' : '🔴 SELL';
+              const structShort = r.ictStructure?.marketStructure?.includes('UPTREND') ? 'HH+HL' : 'LH+LL';
+              const emaBadge = r.ictStructure?.ema50And200Filter?.includes('BULLISH')
+                ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300">Above 50/200</span>'
+                : r.ictStructure?.ema50And200Filter?.includes('BEARISH')
+                ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-300">Below 50/200</span>'
+                : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300">Transition</span>';
 
-            return \`
-              <div onclick="switchTimeframe('\${tf}')" class="rounded-xl p-3.5 transition-all cursor-pointer flex flex-col justify-between overflow-visible \${cardCls}">
-                <!-- Header -->
-                <div class="flex items-center justify-between gap-1 mb-2">
-                  <div class="flex items-center gap-1.5">
-                    <span class="px-2 py-0.5 rounded text-xs font-black mono bg-slate-800 text-amber-300 uppercase">\${TF_LABELS[tf] || tf.toUpperCase()}</span>
-                    <span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">\${r.grade} \${r.probability}%</span>
-                  </div>
-                  <span class="text-xs font-black \${dirColor}">\${dirIcon} (\${structShort})</span>
-                </div>
+              const pnlCellHtml = lc.isActivated
+                ? \`<span class="font-black \${lc.floatingPips >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${lc.pnlStatusText}</span>\`
+                : \`<span class="text-amber-300 font-bold leading-relaxed break-words block w-full text-center">⏳ \${lc.pnlStatusText}</span>\`;
 
-                <!-- Indicators Sub-Bar -->
-                <div class="flex items-center justify-between gap-1 mb-2 text-xs">
-                  \${emaBadge}
-                  <span class="px-2 py-0.5 rounded text-[10px] \${activationBadgeStyle(lc.activationState)}">\${lc.statusBadge}</span>
-                </div>
-
-                <!-- Live P&L or Distance Box (Full Text, Never Cut Off) -->
-                <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800/80 mb-2.5 overflow-visible">
-                  <div class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 flex items-center justify-between">
-                    <span>LIVE STATUS & P&L</span>
-                  </div>
-                  <div id="mtf-grid-pnl-\${tf}" class="mono text-xs sm:text-[12px] font-black text-center min-h-[64px] h-auto py-2.5 px-2 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-center shadow-inner overflow-visible">
-                    \${pnlCellHtml}
-                  </div>
-                </div>
-
-                <!-- Key Execution Grid (Entry, Hard SL, TP1, TP2) -->
-                <div class="grid grid-cols-2 gap-1.5 mono mb-3">
-                  <div class="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
-                    <div class="text-[9px] uppercase font-bold text-amber-400/80">📍 Entry</div>
-                    <div class="font-black text-amber-300 text-xs">$\${lc.entryPrice.toFixed(2)}</div>
-                  </div>
-                  <div class="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                    <div class="text-[9px] uppercase font-bold text-rose-400/80">🛑 Hard SL</div>
-                    <div class="font-bold text-rose-400 text-xs">$\${lc.stopLoss.toFixed(2)}</div>
-                  </div>
-                  <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <div class="text-[9px] uppercase font-bold text-emerald-400/80">🎯 TP1 (1:2)</div>
-                    <div class="font-bold text-emerald-400 text-xs">$\${lc.tp1.toFixed(2)}</div>
-                  </div>
-                  <div class="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30">
-                    <div class="text-[9px] uppercase font-bold text-emerald-300/80">🏆 TP2 (1:3)</div>
-                    <div class="font-extrabold text-emerald-300 text-xs">$\${lc.tp2.toFixed(2)}</div>
-                  </div>
-                </div>
-
-                <!-- Collapsible 85%+ Entries for this Timeframe Card -->
-                <div class="mb-3" onclick="event.stopPropagation();">
-                  <details id="card-conf-\${tf}" \${isCardConfOpen ? 'open' : ''} ontoggle="onCollapseToggle(this)" class="group rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden">
-                    <summary class="cursor-pointer py-1.5 px-2.5 flex items-center justify-between text-xs select-none hover:bg-slate-800/60 transition">
-                      <span class="font-extrabold text-amber-300 text-[11px] flex items-center gap-1.5">
-                        <span>⭐ Top 85%+ Entries</span>
-                        <span class="px-1.5 py-0.2 rounded text-[10px] font-black \${confSigs.length > 0 ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'}">\${confSigs.length}</span>
-                      </span>
-                      <span class="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
-                    </summary>
-                    <div class="p-2 border-t border-slate-800/80 bg-slate-950 space-y-2 max-h-[220px] overflow-y-auto">
-                      \${confSigs.length === 0
-                        ? '<div class="text-[11px] text-slate-500 text-center py-2 mono">No 85%+ entries in scan window</div>'
-                        : confSigs.map((cs, cIdx) => {
-                            const cIsB = cs.type === 'BUY';
-                            const cTypeCls = cIsB ? 'text-emerald-400' : 'text-rose-400';
-                            const isAct = cs.outcome === 'ACTIVE';
-                            const curBid = lastKnownBid || cs.entry;
-                            const diff = cIsB ? curBid - cs.entry : cs.entry - curBid;
-                            const pips = diff * 10;
-                            const isProf = diff >= 0;
-                            const sign = isProf ? '+' : '';
-                            const outBadge = isAct
-                              ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-sky-500/20 text-sky-300 border border-sky-400/40">⚡ ACTIVE</span>'
-                              : cs.outcome === 'TP2_HIT'
-                              ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">🏆 TP2 (1:3)</span>'
-                              : cs.outcome === 'TP1_HIT'
-                              ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">✅ TP1 (1:2)</span>'
-                              : cs.outcome === 'BE_EXIT'
-                              ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300">🛡️ BE</span>'
-                              : '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300">❌ SL</span>';
-
-                            const livePnlHtml = isAct
-                              ? \`<div class="conf-live-pnl-\${cs.timeframe || tf}-\${cs.time} pt-1">
-                                   <span class="px-2 py-0.5 rounded font-black mono text-[10px] border \${isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'}">
-                                     \${isProf ? '🟢' : '🔴'} RUNNING: \${sign}$\${Math.abs(diff).toFixed(2)}/oz (\${sign}\${pips.toFixed(1)}p)
-                                   </span>
-                                 </div>\`
-                              : \`<div class="pt-1 text-[10px] font-bold \${(cs.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">Outcome: \${(cs.pnlDollarsPerOz || 0) >= 0 ? '+' : ''}$\${(cs.pnlDollarsPerOz || 0).toFixed(2)}/oz</div>\`;
-
-                            return \`
-                              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800 text-xs space-y-1">
-                                <div class="flex items-center justify-between text-[11px]">
-                                  <div class="flex items-center gap-1.5">
-                                    <span class="font-black mono \${cTypeCls}">\${cs.type} #\${cIdx + 1}</span>
-                                    <span class="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[9px]">\${cs.grade} \${cs.probability || cs.confidence}%</span>
-                                  </div>
-                                  \${outBadge}
-                                </div>
-                                <div class="mono text-[11px] space-y-0.5 text-slate-300 pt-0.5">
-                                  <div class="text-amber-300 font-bold">• <strong>entry</strong>: \${cs.entry.toFixed(2)}</div>
-                                  <div class="text-rose-400">• <strong>stop loss</strong>: \${cs.stopLoss.toFixed(2)}</div>
-                                  <div class="text-emerald-400">• <strong>tp1</strong>: \${cs.tp1.toFixed(2)}</div>
-                                  <div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: \${cs.tp2.toFixed(2)}</div>
-                                </div>
-                                \${livePnlHtml}
-                              </div>
-                            \`;
-                          }).join('')
-                      }
+              return \`
+                <div onclick="switchTimeframe('\${tf}')" class="rounded-xl p-3.5 transition-all cursor-pointer flex flex-col justify-between overflow-visible \${cardCls}">
+                  <!-- Header -->
+                  <div class="flex items-center justify-between gap-1 mb-2">
+                    <div class="flex items-center gap-1.5">
+                      <span class="px-2 py-0.5 rounded text-xs font-black mono bg-slate-800 text-amber-300 uppercase">\${TF_LABELS[tf] || tf.toUpperCase()}</span>
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">\${r.grade} \${r.probability}%</span>
                     </div>
-                  </details>
-                </div>
+                    <span class="text-xs font-black \${dirColor}">\${dirIcon} (\${structShort})</span>
+                  </div>
 
-                <!-- Footer -->
-                <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
-                  <span class="text-slate-400 text-[11px]">Win: <strong class="text-emerald-400">\${r.winRate.toFixed(0)}%</strong></span>
-                  <button onclick="event.stopPropagation(); copyTfOrder('\${tf}')" class="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] shadow-sm transition">
-                    Copy MT5
-                  </button>
+                  <!-- Indicators Sub-Bar -->
+                  <div class="flex items-center justify-between gap-1 mb-2 text-xs">
+                    \${emaBadge}
+                    <span class="px-2 py-0.5 rounded text-[10px] \${activationBadgeStyle(lc.activationState)}">\${lc.statusBadge}</span>
+                  </div>
+
+                  <!-- Live P&L or Distance Box (Full Text, Never Cut Off) -->
+                  <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800/80 mb-2.5 overflow-visible">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 flex items-center justify-between">
+                      <span>LIVE STATUS & P&L</span>
+                    </div>
+                    <div id="mtf-grid-pnl-\${tf}" class="mono text-xs sm:text-[12px] font-black text-center min-h-[64px] h-auto py-2.5 px-2 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-center shadow-inner overflow-visible">
+                      \${pnlCellHtml}
+                    </div>
+                  </div>
+
+                  <!-- Key Execution Grid (Entry, Hard SL, TP1, TP2) -->
+                  <div class="grid grid-cols-2 gap-1.5 mono mb-3">
+                    <div class="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                      <div class="text-[9px] uppercase font-bold text-amber-400/80">📍 Entry</div>
+                      <div class="font-black text-amber-300 text-xs">$\${lc.entryPrice.toFixed(2)}</div>
+                    </div>
+                    <div class="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                      <div class="text-[9px] uppercase font-bold text-rose-400/80">🛑 Hard SL</div>
+                      <div class="font-bold text-rose-400 text-xs">$\${lc.stopLoss.toFixed(2)}</div>
+                    </div>
+                    <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <div class="text-[9px] uppercase font-bold text-emerald-400/80">🎯 TP1 (1:2)</div>
+                      <div class="font-bold text-emerald-400 text-xs">$\${lc.tp1.toFixed(2)}</div>
+                    </div>
+                    <div class="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30">
+                      <div class="text-[9px] uppercase font-bold text-emerald-300/80">🏆 TP2 (1:3)</div>
+                      <div class="font-extrabold text-emerald-300 text-xs">$\${lc.tp2.toFixed(2)}</div>
+                    </div>
+                  </div>
+
+                  <!-- Collapsible 85%+ Entries for this Timeframe Card -->
+                  <div class="mb-3" onclick="event.stopPropagation();">
+                    <details id="card-conf-\${tf}" \${isCardConfOpen ? 'open' : ''} ontoggle="onCollapseToggle(this)" class="group rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden">
+                      <summary class="cursor-pointer py-1.5 px-2.5 flex items-center justify-between text-xs select-none hover:bg-slate-800/60 transition">
+                        <span class="font-extrabold text-amber-300 text-[11px] flex items-center gap-1.5">
+                          <span>⭐ Top 85%+ Entries</span>
+                          <span class="px-1.5 py-0.2 rounded text-[10px] font-black \${confSigs.length > 0 ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'}">\${confSigs.length}</span>
+                        </span>
+                        <span class="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                      </summary>
+                      <div data-scroll-key="card-conf-scroll-\${tf}" onscroll="onInnerScroll(this)" class="p-2 border-t border-slate-800/80 bg-slate-950 space-y-2 max-h-[220px] overflow-y-auto">
+                        \${confSigs.length === 0
+                          ? '<div class="text-[11px] text-slate-500 text-center py-2 mono">No 85%+ entries in scan window</div>'
+                          : confSigs.map((cs, cIdx) => {
+                              const cIsB = cs.type === 'BUY';
+                              const cTypeCls = cIsB ? 'text-emerald-400' : 'text-rose-400';
+                              const isAct = cs.outcome === 'ACTIVE';
+                              const curBid = lastKnownBid || cs.entry;
+                              const diff = cIsB ? curBid - cs.entry : cs.entry - curBid;
+                              const pips = diff * 10;
+                              const isProf = diff >= 0;
+                              const sign = isProf ? '+' : '';
+                              const outBadge = isAct
+                                ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-sky-500/20 text-sky-300 border border-sky-400/40">⚡ ACTIVE</span>'
+                                : cs.outcome === 'TP2_HIT'
+                                ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">🏆 TP2 (1:3)</span>'
+                                : cs.outcome === 'TP1_HIT'
+                                ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">✅ TP1 (1:2)</span>'
+                                : cs.outcome === 'BE_EXIT'
+                                ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300">🛡️ BE</span>'
+                                : '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300">❌ SL</span>';
+
+                              const livePnlHtml = isAct
+                                ? \`<div class="conf-live-pnl-\${cs.timeframe || tf}-\${cs.time} pt-1">
+                                     <span class="px-2 py-0.5 rounded font-black mono text-[10px] border \${isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'}">
+                                       \${isProf ? '🟢' : '🔴'} RUNNING: \${sign}$\${Math.abs(diff).toFixed(2)}/oz (\${sign}\${pips.toFixed(1)}p)
+                                     </span>
+                                   </div>\`
+                                : \`<div class="pt-1 text-[10px] font-bold \${(cs.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">Outcome: \${(cs.pnlDollarsPerOz || 0) >= 0 ? '+' : ''}$\${(cs.pnlDollarsPerOz || 0).toFixed(2)}/oz</div>\`;
+
+                              return \`
+                                <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800 text-xs space-y-1">
+                                  <div class="flex items-center justify-between text-[11px]">
+                                    <div class="flex items-center gap-1.5">
+                                      <span class="font-black mono \${cTypeCls}">\${cs.type} #\${cIdx + 1}</span>
+                                      <span class="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[9px]">\${cs.grade} \${cs.probability || cs.confidence}%</span>
+                                    </div>
+                                    \${outBadge}
+                                  </div>
+                                  <div class="mono text-[11px] space-y-0.5 text-slate-300 pt-0.5">
+                                    <div class="text-amber-300 font-bold">• <strong>entry</strong>: \${cs.entry.toFixed(2)}</div>
+                                    <div class="text-rose-400">• <strong>stop loss</strong>: \${cs.stopLoss.toFixed(2)}</div>
+                                    <div class="text-emerald-400">• <strong>tp1</strong>: \${cs.tp1.toFixed(2)}</div>
+                                    <div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: \${cs.tp2.toFixed(2)}</div>
+                                  </div>
+                                  \${livePnlHtml}
+                                </div>
+                              \`;
+                            }).join('')
+                        }
+                      </div>
+                    </details>
+                  </div>
+
+                  <!-- Footer -->
+                  <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
+                    <span class="text-slate-400 text-[11px]">Win: <strong class="text-emerald-400">\${r.winRate.toFixed(0)}%</strong></span>
+                    <button onclick="event.stopPropagation(); copyTfOrder('\${tf}')" class="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] shadow-sm transition">
+                      Copy MT5
+                    </button>
+                  </div>
                 </div>
-              </div>
-            \`;
-          }).join('');
+              \`;
+            }).join('');
+            restoreAllScrollStates();
+            requestAnimationFrame(restoreAllScrollStates);
+          } else {
+            // Keep DOM elements intact; update live status & P&L cells without wiping scroll!
+            order.forEach((tf) => {
+              const r = mtf.timeframes[tf];
+              if (!r || !r.entryTiming?.lifecycle) return;
+              const lc = r.entryTiming.lifecycle;
+              const pnlEl = document.getElementById('mtf-grid-pnl-' + tf);
+              if (pnlEl) {
+                pnlEl.innerHTML = lc.isActivated
+                  ? \`<span class="font-black \${lc.floatingPips >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${lc.pnlStatusText}</span>\`
+                  : \`<span class="text-amber-300 font-bold leading-relaxed break-words block w-full text-center">⏳ \${lc.pnlStatusText}</span>\`;
+              }
+            });
+          }
         }
 
-        // 2. Render Full Table View (Alternative)
+        // 2. Render Full Table View (Alternative with Signature Comparison)
         const tableBody = document.getElementById('mtfMatrixBody');
         if (tableBody) {
-          tableBody.innerHTML = order.map((tf) => {
+          const currentTableSig = String(currentTf) + '_' + order.map((tf) => {
             const r = mtf.timeframes[tf];
-            if (!r || !r.entryTiming?.lifecycle) return '';
-            const et = r.entryTiming;
-            const lc = et.lifecycle;
-            const isSelected = tf === currentTf;
-            const rowBg = isSelected ? 'bg-amber-400/10 border-l-4 border-l-amber-400' : 'hover:bg-slate-900/70';
+            return String(tf) + ':' + String(r?.grade) + ':' + String(r?.probability) + ':' + String(r?.entryTiming?.lifecycle?.activationState);
+          }).join('|');
 
-            const dirColor = lc.direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400';
-            const dirIcon = lc.direction === 'BUY' ? '🟢 BUY' : '🔴 SELL';
-            const structShort = r.ictStructure?.marketStructure?.includes('UPTREND') ? 'HH+HL' : 'LH+LL';
-            const emaShort = r.ictStructure?.ema50And200Filter?.includes('BULLISH')
-              ? '<span class="text-emerald-400">Above 50/200</span>'
-              : r.ictStructure?.ema50And200Filter?.includes('BEARISH')
-              ? '<span class="text-rose-400">Below 50/200</span>'
-              : '<span class="text-amber-300">Transition</span>';
+          if (currentTableSig !== lastTableSig) {
+            lastTableSig = currentTableSig;
+            tableBody.innerHTML = order.map((tf) => {
+              const r = mtf.timeframes[tf];
+              if (!r || !r.entryTiming?.lifecycle) return '';
+              const et = r.entryTiming;
+              const lc = et.lifecycle;
+              const isSelected = tf === currentTf;
+              const rowBg = isSelected ? 'bg-amber-400/10 border-l-4 border-l-amber-400' : 'hover:bg-slate-900/70';
 
-            const pnlCellHtml = lc.isActivated
-              ? \`<span class="font-black \${lc.floatingPips >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${lc.pnlStatusText}</span>\`
-              : \`<span class="text-amber-300 font-bold leading-relaxed break-words">⏳ \${lc.pnlStatusText}</span>\`;
+              const dirColor = lc.direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400';
+              const dirIcon = lc.direction === 'BUY' ? '🟢 BUY' : '🔴 SELL';
+              const structShort = r.ictStructure?.marketStructure?.includes('UPTREND') ? 'HH+HL' : 'LH+LL';
+              const emaShort = r.ictStructure?.ema50And200Filter?.includes('BULLISH')
+                ? '<span class="text-emerald-400">Above 50/200</span>'
+                : r.ictStructure?.ema50And200Filter?.includes('BEARISH')
+                ? '<span class="text-rose-400">Below 50/200</span>'
+                : '<span class="text-amber-300">Transition</span>';
 
-            return \`
-              <tr onclick="switchTimeframe('\${tf}')" class="cursor-pointer transition \${rowBg}">
-                <td class="py-2.5 px-2.5 font-extrabold text-white">\${TF_LABELS[tf] || tf.toUpperCase()}</td>
-                <td class="py-2.5 px-2.5">
-                  <span class="font-black \${dirColor}">\${dirIcon} (\${structShort})</span>
-                  <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">\${r.grade} \${r.probability}%</span>
-                </td>
-                <td class="py-2.5 px-2.5 font-bold">\${emaShort}</td>
-                <td class="py-2.5 px-2.5"><span class="px-2 py-0.5 rounded text-[10px] \${activationBadgeStyle(lc.activationState)}">\${lc.statusBadge}</span></td>
-                <td id="mtf-table-pnl-\${tf}" class="py-2.5 px-2.5 bg-slate-900/60 border-x border-slate-800/80">\${pnlCellHtml}</td>
-                <td class="py-2.5 px-2.5 font-black text-amber-300 bg-amber-400/10 border-x border-amber-400/20">$\${lc.entryPrice.toFixed(2)}</td>
-                <td class="py-2.5 px-2.5 text-rose-400 font-bold">$\${lc.stopLoss.toFixed(2)} <span class="text-[10px] text-rose-300/70">($\${et.riskDollars.toFixed(1)})</span></td>
-                <td class="py-2.5 px-2.5 text-emerald-400 font-bold">$\${lc.tp1.toFixed(2)} <span class="text-[10px] text-emerald-300/70">(+\${et.rewardTp1Pips.toFixed(0)}p)</span></td>
-                <td class="py-2.5 px-2.5 text-emerald-300 font-extrabold">$\${lc.tp2.toFixed(2)} <span class="text-[10px] text-emerald-200/80">(+\${et.rewardTp2Pips.toFixed(0)}p)</span></td>
-                <td class="py-2.5 px-2.5"><span class="text-emerald-400 font-bold">\${r.winRate.toFixed(0)}%</span></td>
-                <td class="py-2.5 px-2.5 text-right">
-                  <button onclick="event.stopPropagation(); copyTfOrder('\${tf}')" class="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-[11px]">Copy</button>
-                </td>
-              </tr>
-            \`;
-          }).join('');
+              const pnlCellHtml = lc.isActivated
+                ? \`<span class="font-black \${lc.floatingPips >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${lc.pnlStatusText}</span>\`
+                : \`<span class="text-amber-300 font-bold leading-relaxed break-words">⏳ \${lc.pnlStatusText}</span>\`;
+
+              return \`
+                <tr onclick="switchTimeframe('\${tf}')" class="cursor-pointer transition \${rowBg}">
+                  <td class="py-2.5 px-2.5 font-extrabold text-white">\${TF_LABELS[tf] || tf.toUpperCase()}</td>
+                  <td class="py-2.5 px-2.5">
+                    <span class="font-black \${dirColor}">\${dirIcon} (\${structShort})</span>
+                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">\${r.grade} \${r.probability}%</span>
+                  </td>
+                  <td class="py-2.5 px-2.5 font-bold">\${emaShort}</td>
+                  <td class="py-2.5 px-2.5"><span class="px-2 py-0.5 rounded text-[10px] \${activationBadgeStyle(lc.activationState)}">\${lc.statusBadge}</span></td>
+                  <td id="mtf-table-pnl-\${tf}" class="py-2.5 px-2.5 bg-slate-900/60 border-x border-slate-800/80">\${pnlCellHtml}</td>
+                  <td class="py-2.5 px-2.5 font-black text-amber-300 bg-amber-400/10 border-x border-amber-400/20">$\${lc.entryPrice.toFixed(2)}</td>
+                  <td class="py-2.5 px-2.5 text-rose-400 font-bold">$\${lc.stopLoss.toFixed(2)} <span class="text-[10px] text-rose-300/70">($\${et.riskDollars.toFixed(1)})</span></td>
+                  <td class="py-2.5 px-2.5 text-emerald-400 font-bold">$\${lc.tp1.toFixed(2)} <span class="text-[10px] text-emerald-300/70">(+\${et.rewardTp1Pips.toFixed(0)}p)</span></td>
+                  <td class="py-2.5 px-2.5 text-emerald-300 font-extrabold">$\${lc.tp2.toFixed(2)} <span class="text-[10px] text-emerald-200/80">(+\${et.rewardTp2Pips.toFixed(0)}p)</span></td>
+                  <td class="py-2.5 px-2.5"><span class="text-emerald-400 font-bold">\${r.winRate.toFixed(0)}%</span></td>
+                  <td class="py-2.5 px-2.5 text-right">
+                    <button onclick="event.stopPropagation(); copyTfOrder('\${tf}')" class="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-[11px]">Copy</button>
+                  </td>
+                </tr>
+              \`;
+            }).join('');
+          } else {
+            order.forEach((tf) => {
+              const r = mtf.timeframes[tf];
+              if (!r || !r.entryTiming?.lifecycle) return;
+              const lc = r.entryTiming.lifecycle;
+              const pnlCell = document.getElementById('mtf-table-pnl-' + tf);
+              if (pnlCell) {
+                pnlCell.innerHTML = lc.isActivated
+                  ? \`<span class="font-black \${lc.floatingPips >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${lc.pnlStatusText}</span>\`
+                  : \`<span class="text-amber-300 font-bold leading-relaxed break-words">⏳ \${lc.pnlStatusText}</span>\`;
+              }
+            });
+          }
         }
 
         renderAllHighProbSignalsTable(mtf.allHighProbSignals || []);
@@ -1247,6 +1333,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         }));
       candleSeries.setMarkers(markers);
       drawSetupPriceLines(ts, data.liquidityLevels);
+      restoreAllScrollStates();
+      requestAnimationFrame(restoreAllScrollStates);
     }
 
     function updateRiskCalc() {
@@ -1309,6 +1397,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       if (!container && !matrixContainer) return;
 
       const order = ['15m', '5m', '1m', '30m', '1h', '4h'];
+      const currentHighConfSig = order.map((tf) => {
+        const sigs = highConfidenceByTf[tf] || [];
+        const sigsStr = sigs.map((s) => String(s.time) + '_' + String(s.outcome) + '_' + Number(s.pnlDollarsPerOz || 0).toFixed(1)).join(',');
+        return String(tf) + ':' + sigsStr;
+      }).join('|');
+
+      if (currentHighConfSig === lastHighConfSig) {
+        return;
+      }
+      lastHighConfSig = currentHighConfSig;
+
+      saveAllScrollStates();
 
       const generateHtmlForPrefix = (prefix) => {
         return order.map((tf, index) => {
@@ -1416,6 +1516,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       if (container) container.innerHTML = generateHtmlForPrefix('page');
       if (matrixContainer) matrixContainer.innerHTML = generateHtmlForPrefix('matrix');
       openedCollapseIds.add('init-done');
+      restoreAllScrollStates();
+      requestAnimationFrame(restoreAllScrollStates);
     }
 
     function renderAllHighProbSignalsTable(allSignals) {
