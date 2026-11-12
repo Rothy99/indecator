@@ -865,6 +865,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     function renderDashboard(data, mtf) {
+      saveOpenCollapses();
       if (data.spotQuote) updateLiveSpotTicker(data.spotQuote);
 
       // Session & Killzone Bar (GMT+7 Phnom Penh & UTC)
@@ -920,6 +921,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const et = r.entryTiming;
             const lc = et.lifecycle;
             const confSigs = (mtf.highConfidenceByTf && mtf.highConfidenceByTf[tf]) || [];
+            const cardDetailId = 'card-conf-' + tf;
+            const isCardConfOpen = openedCollapseIds.has(cardDetailId);
             const isSelected = tf === currentTf;
             const cardCls = isSelected
               ? 'border-2 border-amber-400 bg-amber-400/[0.08] shadow-lg shadow-amber-400/10 ring-1 ring-amber-400/30'
@@ -987,7 +990,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
                 <!-- Collapsible 85%+ Entries for this Timeframe Card -->
                 <div class="mb-3" onclick="event.stopPropagation();">
-                  <details class="group rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden">
+                  <details id="card-conf-\${tf}" \${isCardConfOpen ? 'open' : ''} ontoggle="onCollapseToggle(this)" class="group rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden">
                     <summary class="cursor-pointer py-1.5 px-2.5 flex items-center justify-between text-xs select-none hover:bg-slate-800/60 transition">
                       <span class="font-extrabold text-amber-300 text-[11px] flex items-center gap-1.5">
                         <span>⭐ Top 85%+ Entries</span>
@@ -1217,9 +1220,26 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       document.getElementById('calcRewardUsd').textContent = \`+$\${tp1Usd} / +$\${tp2Usd}\`;
     }
 
+    let openedCollapseIds = new Set(['page-conf-15m', 'matrix-conf-15m']);
+
+    function saveOpenCollapses() {
+      document.querySelectorAll('details[id]').forEach((el) => {
+        if (el.open) openedCollapseIds.add(el.id);
+        else openedCollapseIds.delete(el.id);
+      });
+    }
+
+    function onCollapseToggle(el) {
+      if (!el || !el.id) return;
+      if (el.open) openedCollapseIds.add(el.id);
+      else openedCollapseIds.delete(el.id);
+    }
+
     function toggleAllCollapses(expand) {
-      document.querySelectorAll('#highConfidenceCollapseContainer details, #matrixConfidentCardsContainer details, #mtfGridContainer details').forEach((el) => {
+      document.querySelectorAll('details[id]').forEach((el) => {
         el.open = expand;
+        if (expand) openedCollapseIds.add(el.id);
+        else openedCollapseIds.delete(el.id);
       });
     }
 
@@ -1238,94 +1258,99 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       if (!container && !matrixContainer) return;
 
       const order = ['15m', '5m', '1m', '30m', '1h', '4h'];
-      const html = order.map((tf, index) => {
-        const sigs = highConfidenceByTf[tf] || [];
-        const title = TF_COLLAPSE_TITLES[tf] || tf.toUpperCase();
-        const isOpen = index === 0;
 
-        if (sigs.length === 0) {
-          return \`
-            <details \${isOpen ? 'open' : ''} class="group rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-              <summary class="cursor-pointer p-3 sm:p-4 flex items-center justify-between gap-2 select-none bg-slate-900/90 group-open:bg-slate-800/80 hover:bg-slate-800/50 transition">
-                <div class="flex items-center gap-2.5">
-                  <span class="font-extrabold text-white text-sm mono">\${title}</span>
-                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-400">0 Entries (85%+)</span>
+      const generateHtmlForPrefix = (prefix) => {
+        return order.map((tf, index) => {
+          const sigs = highConfidenceByTf[tf] || [];
+          const title = TF_COLLAPSE_TITLES[tf] || tf.toUpperCase();
+          const detailId = prefix + '-conf-' + tf;
+          const isOpen = openedCollapseIds.has(detailId) || (index === 0 && !openedCollapseIds.has('init-done'));
+
+          if (sigs.length === 0) {
+            return \`
+              <details id="\${detailId}" \${isOpen ? 'open' : ''} ontoggle="onCollapseToggle(this)" class="group rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+                <summary class="cursor-pointer p-3 sm:p-4 flex items-center justify-between gap-2 select-none bg-slate-900/90 group-open:bg-slate-800/80 hover:bg-slate-800/50 transition">
+                  <div class="flex items-center gap-2.5">
+                    <span class="font-extrabold text-white text-sm mono">\${title}</span>
+                    <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-400">0 Entries (85%+)</span>
+                  </div>
+                  <span class="text-xs text-slate-500">None Available</span>
+                </summary>
+                <div class="p-3 text-xs text-slate-500 text-center mono">No 85%+ entries in current window</div>
+              </details>
+            \`;
+          }
+
+          const cards = sigs.slice(0, 5).map((s, idx) => {
+            const dt = new Date(s.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const isB = s.type === 'BUY';
+            const typeCls = isB ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+            const outBadge = s.outcome === 'TP2_HIT'
+              ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/25 text-emerald-300 font-bold">🏆 TP2 (1:3)</span>'
+              : s.outcome === 'TP1_HIT'
+              ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 font-bold">✅ TP1 (1:2)</span>'
+              : s.outcome === 'BE_EXIT'
+              ? '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-300 font-bold">🛡️ BE</span>'
+              : s.outcome === 'SL_HIT'
+              ? '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">❌ SL</span>'
+              : '<span class="px-2 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 font-bold">⚡ ACTIVE</span>';
+
+            const copyTxt = \`\${s.type} \${tf.toUpperCase()} @ \${s.entry} | SL: \${s.stopLoss} | TP1: \${s.tp1} | TP2: \${s.tp2}\`;
+
+            return \`
+              <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 hover:border-amber-400/40 transition flex flex-col justify-between">
+                <div class="flex items-center justify-between gap-1 mb-2">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="px-1.5 py-0.5 rounded text-[11px] font-black mono \${typeCls}">\${s.type} #\${idx + 1}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px]">\${s.grade} \${s.probability || s.confidence}%</span>
+                    <span class="text-[11px] text-slate-400">\${dt}</span>
+                  </div>
+                  \${outBadge}
                 </div>
-                <span class="text-xs text-slate-500">None Available</span>
+
+                <div class="mono text-xs space-y-1 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80 mb-2">
+                  <div class="text-amber-300 font-black">• <strong>entry</strong>: \${s.entry.toFixed(2)}</div>
+                  <div class="text-rose-400 font-semibold">• <strong>stop loss</strong>: \${s.stopLoss.toFixed(2)}</div>
+                  <div class="text-emerald-400 font-semibold">• <strong>tp1</strong>: \${s.tp1.toFixed(2)}</div>
+                  <div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: \${s.tp2.toFixed(2)}</div>
+                </div>
+
+                <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+                  <span class="text-[11px] text-slate-400">P&L: <strong class="\${(s.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${(s.pnlDollarsPerOz || 0) >= 0 ? '+' : ''}$\${(s.pnlDollarsPerOz || 0).toFixed(2)}</strong></span>
+                  <button onclick="navigator.clipboard.writeText('\${copyTxt}'); showToast('Copied: \${copyTxt}');" class="px-2 py-0.5 rounded bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 text-[10px] font-bold transition">
+                    Copy
+                  </button>
+                </div>
+              </div>
+            \`;
+          }).join('');
+
+          return \`
+            <details id="\${detailId}" \${isOpen ? 'open' : ''} ontoggle="onCollapseToggle(this)" class="group rounded-xl border border-slate-800/80 bg-slate-900/60 overflow-hidden shadow-sm">
+              <summary class="cursor-pointer p-3 sm:p-4 flex items-center justify-between gap-2 select-none bg-slate-900/90 group-open:bg-slate-850 hover:bg-slate-800/60 transition">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-black text-amber-300 text-sm mono uppercase">\${title}</span>
+                  <span class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">\${sigs.length} Entries (85%+)</span>
+                  <span class="hidden sm:inline text-xs text-slate-400 font-sans">• Strict 1:2 / 1:3 R:R</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-amber-400/80 font-bold group-open:hidden">Expand ▶</span>
+                  <span class="text-xs text-slate-400 font-bold hidden group-open:inline">Collapse ▼</span>
+                </div>
               </summary>
-              <div class="p-3 text-xs text-slate-500 text-center mono">No 85%+ entries in current window</div>
+              <div class="p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/40">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
+                  \${cards}
+                </div>
+              </div>
             </details>
           \`;
-        }
-
-        const cards = sigs.slice(0, 5).map((s, idx) => {
-          const dt = new Date(s.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-          const isB = s.type === 'BUY';
-          const typeCls = isB ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
-          const outBadge = s.outcome === 'TP2_HIT'
-            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/25 text-emerald-300 font-bold">🏆 TP2 (1:3)</span>'
-            : s.outcome === 'TP1_HIT'
-            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 font-bold">✅ TP1 (1:2)</span>'
-            : s.outcome === 'BE_EXIT'
-            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-300 font-bold">🛡️ BE</span>'
-            : s.outcome === 'SL_HIT'
-            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">❌ SL</span>'
-            : '<span class="px-2 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 font-bold">⚡ ACTIVE</span>';
-
-          const copyTxt = \`\${s.type} \${tf.toUpperCase()} @ \${s.entry} | SL: \${s.stopLoss} | TP1: \${s.tp1} | TP2: \${s.tp2}\`;
-
-          return \`
-            <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 hover:border-amber-400/40 transition flex flex-col justify-between">
-              <div class="flex items-center justify-between gap-1 mb-2">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="px-1.5 py-0.5 rounded text-[11px] font-black mono \${typeCls}">\${s.type} #\${idx + 1}</span>
-                  <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px]">\${s.grade} \${s.probability || s.confidence}%</span>
-                  <span class="text-[11px] text-slate-400">\${dt}</span>
-                </div>
-                \${outBadge}
-              </div>
-
-              <div class="mono text-xs space-y-1 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80 mb-2">
-                <div class="text-amber-300 font-black">• <strong>entry</strong>: \${s.entry.toFixed(2)}</div>
-                <div class="text-rose-400 font-semibold">• <strong>stop loss</strong>: \${s.stopLoss.toFixed(2)}</div>
-                <div class="text-emerald-400 font-semibold">• <strong>tp1</strong>: \${s.tp1.toFixed(2)}</div>
-                <div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: \${s.tp2.toFixed(2)}</div>
-              </div>
-
-              <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
-                <span class="text-[11px] text-slate-400">P&L: <strong class="\${(s.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${(s.pnlDollarsPerOz || 0) >= 0 ? '+' : ''}$\${(s.pnlDollarsPerOz || 0).toFixed(2)}</strong></span>
-                <button onclick="navigator.clipboard.writeText('\${copyTxt}'); showToast('Copied: \${copyTxt}');" class="px-2 py-0.5 rounded bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 text-[10px] font-bold transition">
-                  Copy
-                </button>
-              </div>
-            </div>
-          \`;
         }).join('');
+      };
 
-        return \`
-          <details \${isOpen ? 'open' : ''} class="group rounded-xl border border-slate-800/80 bg-slate-900/60 overflow-hidden shadow-sm">
-            <summary class="cursor-pointer p-3 sm:p-4 flex items-center justify-between gap-2 select-none bg-slate-900/90 group-open:bg-slate-850 hover:bg-slate-800/60 transition">
-              <div class="flex items-center gap-2.5">
-                <span class="font-black text-amber-300 text-sm mono uppercase">\${title}</span>
-                <span class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">\${sigs.length} Entries (85%+)</span>
-                <span class="hidden sm:inline text-xs text-slate-400 font-sans">• Strict 1:2 / 1:3 R:R</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-amber-400/80 font-bold group-open:hidden">Expand ▶</span>
-                <span class="text-xs text-slate-400 font-bold hidden group-open:inline">Collapse ▼</span>
-              </div>
-            </summary>
-            <div class="p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/40">
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
-                \${cards}
-              </div>
-            </div>
-          </details>
-        \`;
-      }).join('');
-
-      if (container) container.innerHTML = html;
-      if (matrixContainer) matrixContainer.innerHTML = html;
+      if (container) container.innerHTML = generateHtmlForPrefix('page');
+      if (matrixContainer) matrixContainer.innerHTML = generateHtmlForPrefix('matrix');
+      openedCollapseIds.add('init-done');
     }
 
     function renderAllHighProbSignalsTable(allSignals) {
