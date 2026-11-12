@@ -123,6 +123,13 @@ const handleMtf = async (c: any) => {
 
   const refSession = results.find((r) => r.tf === '15m')?.analysis.session ?? results[0].analysis.session;
 
+  const highConfidenceByTf: Record<string, any[]> = {};
+  for (const { tf, analysis } of results) {
+    highConfidenceByTf[tf] = (analysis.historicalSignals || [])
+      .filter((s: any) => (s.probability || s.confidence) >= 85)
+      .slice(0, 5);
+  }
+
   return c.json({
     symbol: 'XAU/USD',
     spotQuote: getLatestSpotQuote(),
@@ -132,6 +139,7 @@ const handleMtf = async (c: any) => {
     weightedScore,
     alignmentSummary,
     timeframes: tfMap,
+    highConfidenceByTf,
     allHighProbSignals: allHighProbSignals.slice(0, 60),
   });
 };

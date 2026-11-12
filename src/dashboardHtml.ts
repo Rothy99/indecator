@@ -370,6 +370,31 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- ========================================================================= -->
+    <!-- ⭐ 85%+ HIGH-CONFIDENCE ENTRIES (COLLAPSIBLE PER TIMEFRAME)                -->
+    <!-- ========================================================================= -->
+    <section class="panel rounded-2xl p-4 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div>
+          <h2 class="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
+            <span>⭐ 85%+ High-Confidence Entries</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950 uppercase">Collapsible per Timeframe</span>
+          </h2>
+          <p class="text-xs text-slate-400">
+            Institutional Grade A / A+ entries with 85%+ confidence (Limit 5 per timeframe) with entry, stop loss, and 1:2 / 1:3 targets.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleAllCollapses(true)" class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Expand All</button>
+          <button onclick="toggleAllCollapses(false)" class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Collapse All</button>
+        </div>
+      </div>
+
+      <div id="highConfidenceCollapseContainer" class="space-y-3">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
     <!-- 4. ACTIVATED SIGNALS LOG ACROSS TIMEFRAMES (1:2 & 1:3 R:R OUTCOMES)       -->
     <!-- ========================================================================= -->
     <section class="panel rounded-2xl p-4 space-y-3">
@@ -1000,6 +1025,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         }
 
         renderAllHighProbSignalsTable(mtf.allHighProbSignals || []);
+        renderHighConfidenceCollapse(mtf.highConfidenceByTf || {});
       }
 
       // Hero Card & Exact 3-Step M15 Entry Checklist
@@ -1133,6 +1159,113 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       document.getElementById('calcRiskUsd').textContent = '-$' + riskUsd.toFixed(2);
       document.getElementById('calcLots').textContent = lots.toFixed(2) + ' Lots';
       document.getElementById('calcRewardUsd').textContent = \`+$\${tp1Usd} / +$\${tp2Usd}\`;
+    }
+
+    function toggleAllCollapses(expand) {
+      document.querySelectorAll('#highConfidenceCollapseContainer details').forEach((el) => {
+        el.open = expand;
+      });
+    }
+
+    const TF_COLLAPSE_TITLES = {
+      '15m': '15Mins (15m)',
+      '1m': '1Min (1m)',
+      '5m': '5Mins (5m)',
+      '30m': '30Mins (30m)',
+      '1h': '1Hour (1h)',
+      '4h': '4Hours (4h)',
+    };
+
+    function renderHighConfidenceCollapse(highConfidenceByTf) {
+      const container = document.getElementById('highConfidenceCollapseContainer');
+      if (!container) return;
+
+      const order = ['15m', '5m', '1m', '30m', '1h', '4h'];
+      container.innerHTML = order.map((tf, index) => {
+        const sigs = highConfidenceByTf[tf] || [];
+        const title = TF_COLLAPSE_TITLES[tf] || tf.toUpperCase();
+        const isOpen = index === 0;
+
+        if (sigs.length === 0) {
+          return \`
+            <details \${isOpen ? 'open' : ''} class="group rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+              <summary class="cursor-pointer p-3 sm:p-4 flex items-center justify-between gap-2 select-none bg-slate-900/90 group-open:bg-slate-800/80 hover:bg-slate-800/50 transition">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-extrabold text-white text-sm mono">\${title}</span>
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-400">0 Entries (85%+)</span>
+                </div>
+                <span class="text-xs text-slate-500">None Available</span>
+              </summary>
+              <div class="p-3 text-xs text-slate-500 text-center mono">No 85%+ entries in current window</div>
+            </details>
+          \`;
+        }
+
+        const cards = sigs.slice(0, 5).map((s, idx) => {
+          const dt = new Date(s.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+          const isB = s.type === 'BUY';
+          const typeCls = isB ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+          const outBadge = s.outcome === 'TP2_HIT'
+            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/25 text-emerald-300 font-bold">🏆 TP2 (1:3)</span>'
+            : s.outcome === 'TP1_HIT'
+            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 font-bold">✅ TP1 (1:2)</span>'
+            : s.outcome === 'BE_EXIT'
+            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-300 font-bold">🛡️ BE</span>'
+            : s.outcome === 'SL_HIT'
+            ? '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">❌ SL</span>'
+            : '<span class="px-2 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 font-bold">⚡ ACTIVE</span>';
+
+          const copyTxt = \`\${s.type} \${tf.toUpperCase()} @ \${s.entry} | SL: \${s.stopLoss} | TP1: \${s.tp1} | TP2: \${s.tp2}\`;
+
+          return \`
+            <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 hover:border-amber-400/40 transition flex flex-col justify-between">
+              <div class="flex items-center justify-between gap-1 mb-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="px-1.5 py-0.5 rounded text-[11px] font-black mono \${typeCls}">\${s.type} #\${idx + 1}</span>
+                  <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px]">\${s.grade} \${s.probability || s.confidence}%</span>
+                  <span class="text-[11px] text-slate-400">\${dt}</span>
+                </div>
+                \${outBadge}
+              </div>
+
+              <div class="mono text-xs space-y-1 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80 mb-2">
+                <div class="text-amber-300 font-black">• <strong>entry</strong>: \${s.entry.toFixed(2)}</div>
+                <div class="text-rose-400 font-semibold">• <strong>stop loss</strong>: \${s.stopLoss.toFixed(2)}</div>
+                <div class="text-emerald-400 font-semibold">• <strong>tp1</strong>: \${s.tp1.toFixed(2)}</div>
+                <div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: \${s.tp2.toFixed(2)}</div>
+              </div>
+
+              <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+                <span class="text-[11px] text-slate-400">P&L: <strong class="\${(s.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${(s.pnlDollarsPerOz || 0) >= 0 ? '+' : ''}$\${(s.pnlDollarsPerOz || 0).toFixed(2)}</strong></span>
+                <button onclick="navigator.clipboard.writeText('\${copyTxt}'); showToast('Copied: \${copyTxt}');" class="px-2 py-0.5 rounded bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 text-[10px] font-bold transition">
+                  Copy
+                </button>
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        return \`
+          <details \${isOpen ? 'open' : ''} class="group rounded-xl border border-slate-800/80 bg-slate-900/60 overflow-hidden shadow-sm">
+            <summary class="cursor-pointer p-3 sm:p-4 flex items-center justify-between gap-2 select-none bg-slate-900/90 group-open:bg-slate-850 hover:bg-slate-800/60 transition">
+              <div class="flex items-center gap-2.5">
+                <span class="font-black text-amber-300 text-sm mono uppercase">\${title}</span>
+                <span class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">\${sigs.length} Entries (85%+)</span>
+                <span class="hidden sm:inline text-xs text-slate-400 font-sans">• Strict 1:2 / 1:3 R:R</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-amber-400/80 font-bold group-open:hidden">Expand ▶</span>
+                <span class="text-xs text-slate-400 font-bold hidden group-open:inline">Collapse ▼</span>
+              </div>
+            </summary>
+            <div class="p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/40">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
+                \${cards}
+              </div>
+            </div>
+          </details>
+        \`;
+      }).join('');
     }
 
     function renderAllHighProbSignalsTable(allSignals) {
