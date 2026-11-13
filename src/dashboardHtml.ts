@@ -63,7 +63,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 LIVE 0.8s
               </span>
             </div>
-            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[220px] sm:max-w-none">50/200 EMA • RSI • ICT FVG/OB • 1:2/1:3</span>
+            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[220px] sm:max-w-none">⚡ Liquidity Sweep + BOS + FVG PRO • 1:2 & 1:3 R:R</span>
           </div>
         </div>
 
@@ -258,7 +258,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           <!-- Exact 3-Step M15 Entry Checklist -->
           <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-2">
             <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-              🎯 Exact 3-Step ICT / Price Action Entry Checklist
+              🎯 3-Step Strategy: Liquidity Sweep + BOS + FVG PRO
             </div>
             <div id="m15ChecklistContainer" class="space-y-1.5">
               <!-- Populated dynamically -->
@@ -266,7 +266,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <button onclick="copyTradeSignal()" class="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 transition">
-            📋 Copy 4-Confluence Setup (1:2 Partial + 1:3 Runner)
+            📋 Copy Liquidity Sweep + BOS + FVG PRO Setup
           </button>
         </div>
 
@@ -284,11 +284,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
             <div id="waitEntryCard" onclick="copyValue('waitEntryVal')" class="cursor-pointer p-3 rounded-xl bg-amber-500/10 border-2 border-amber-400/70 transition">
               <div class="flex items-center justify-between">
-                <span id="waitCardTitle" class="text-[11px] font-extrabold uppercase text-amber-300">Option B: FVG / OB / 50 EMA Entry</span>
+                <span id="waitCardTitle" class="text-[11px] font-extrabold uppercase text-amber-300">Option B: FVG PRO Retest (CE 50%)</span>
                 <span id="waitOrderTypeTag" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950">LIMIT / RETEST</span>
               </div>
               <div id="waitEntryVal" class="mono text-2xl font-black text-amber-300 mt-1">$----.--</div>
-              <div id="waitEntryNote" class="text-[11px] text-amber-200/80 mt-0.5">Wait for FVG / Order Block + Rejection Close</div>
+              <div id="waitEntryNote" class="text-[11px] text-amber-200/80 mt-0.5">Retest to Consequent Encroachment (CE 50%)</div>
             </div>
           </div>
 
@@ -1699,14 +1699,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       const r = latestMtfData.timeframes[tf];
       const et = r.entryTiming;
       const lc = et.lifecycle;
-      const text = \`🪙 XAU/USD [\${tf.toUpperCase()}] — 4-CONFLUENCE MASTER SETUP (Grade \${r.grade} • \${r.probability}%)
+      const text = \`🪙 XAU/USD [\${tf.toUpperCase()}] — LIQUIDITY SWEEP + BOS + FVG PRO (Grade \${r.grade} • \${r.probability}%)
 📊 Structure: \${r.ictStructure?.marketStructure} | \${lc.statusBadge}
 📍 Entry: $\${lc.entryPrice.toFixed(2)} (\${et.recommendedOrderType})
-🛑 Hard Stop-Loss ($3–$5): $\${lc.stopLoss.toFixed(2)} (-\${et.riskPips.toFixed(0)} pips)
+🛑 Hard Stop-Loss (Beyond Sweep Wick): $\${lc.stopLoss.toFixed(2)} (-\${et.riskPips.toFixed(0)} pips)
 🎯 TP 1 (1:2 RR • Take 50% + Move SL→BE): $\${lc.tp1.toFixed(2)} (+\${et.rewardTp1Pips.toFixed(0)} pips)
 🏆 TP 2 (1:3 RR • H4 Liquidity Runner): $\${lc.tp2.toFixed(2)} (+\${et.rewardTp2Pips.toFixed(0)} pips)\`;
       navigator.clipboard.writeText(text);
-      showToast(\`Copied \${tf.toUpperCase()} 4-Confluence Setup!\`);
+      showToast(\`Copied \${tf.toUpperCase()} Sweep + BOS + FVG PRO Setup!\`);
     }
 
     function filterSignalList(tf) {

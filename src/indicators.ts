@@ -88,6 +88,50 @@ export interface KeyLiquidityLevels {
   sweptLevel: string | null; // e.g. "Swept Asian Low ($4042.10)" or "Tapped 50 EMA / Demand"
 }
 
+export interface LiquiditySweepDetails {
+  swept: boolean;
+  poolType: 'BSL' | 'SSL' | 'ASIAN_HIGH' | 'ASIAN_LOW' | 'PDH' | 'PDL' | 'SWING_EXTREME' | 'NONE';
+  levelPrice: number;
+  sweepWickExtreme: number;
+  sweepDistancePips: number;
+  statusText: string;
+}
+
+export interface BosDetails {
+  confirmed: boolean;
+  brokenLevel: number;
+  displacementAtrRatio: number; // candle body vs ATR
+  direction: 'BULLISH_BOS' | 'BEARISH_BOS' | 'NONE';
+  statusText: string;
+}
+
+export interface FvgProDetails {
+  detected: boolean;
+  type: 'BULLISH FVG' | 'BEARISH FVG' | 'NONE';
+  fvgTop: number;
+  fvgBottom: number;
+  consequentEncroachment: number; // 50% CE level (The PRO execution entry)
+  gapSizePips: number;
+  isRetested: boolean;
+  statusText: string;
+}
+
+export interface SweepBosFvgProPattern {
+  isValid: boolean;
+  stage: 'STAGE_1_SWEEP' | 'STAGE_2_BOS' | 'STAGE_3_FVG_PRO' | 'READY_FOR_EXECUTION' | 'NONE';
+  direction: 'BUY' | 'SELL' | 'NEUTRAL';
+  sweep: LiquiditySweepDetails;
+  bos: BosDetails;
+  fvgPro: FvgProDetails;
+  optimalEntryPrice: number; // Consequent Encroachment (CE 50%)
+  invalidationPrice: number; // Beyond sweep wick
+  riskDollars: number;
+  tp1: number; // 1:2 R:R
+  tp2: number; // 1:3 R:R
+  statusBadge: string;
+  summary: string;
+}
+
 export interface IctStructureDetails {
   marketStructure: 'UPTREND (HH + HL • BUY ONLY)' | 'DOWNTREND (LH + LL • SELL ONLY)' | 'RANGING / TRANSITION';
   lastSwingHigh: number;
@@ -100,6 +144,7 @@ export interface IctStructureDetails {
   activeFvgZone: { top: number; bottom: number; type: 'BULLISH FVG' | 'BEARISH FVG' } | null;
   activeOrderBlock: { top: number; bottom: number; type: 'BULLISH OB' | 'BEARISH OB' } | null;
   candleConfirmation: 'BULLISH ENGULFING / PIN BAR' | 'BEARISH ENGULFING / PIN BAR' | 'DISPLACEMENT CLOSE' | 'WAITING CANDLE';
+  sweepBosFvgPro?: SweepBosFvgProPattern;
 }
 
 export interface ExactM15ChecklistItem {
@@ -564,6 +609,385 @@ export function computeLiquidityLevels(candles: Candle[]): KeyLiquidityLevels {
 }
 
 /**
+ * 3-Stage Institutional Engine: Liquidity Sweep + BOS + FVG PRO
+ * 1. Liquidity Sweep: Purges BSL / SSL / Asian Range / PDH / PDL with rejection wick
+ * 2. Break of Structure (BOS / MSS): Impulsive displacement candle closes beyond opposing swing
+ * 3. FVG PRO: Consequent Encroachment (CE 50%) optimal limit execution with Hard SL beyond sweep wick
+ */
+function detectSweepBosFvgProAtBar(
+  series: IndicatorSeriesPoint[],
+  idx: number,
+  liquidity: KeyLiquidityLevels,
+  isLongBias: boolean,
+  atr: number,
+  swingHighs: { idx: number; price: number; rsi: number }[],
+  swingLows: { idx: number; price: number; rsi: number }[]
+): SweepBosFvgProPattern {
+  const cur = series[idx];
+  const lookback = Math.max(2, idx - 20);
+
+  let sweep: LiquiditySweepDetails = {
+    swept: false,
+    poolType: 'NONE',
+    levelPrice: 0,
+    sweepWickExtreme: cur.close,
+    sweepDistancePips: 0,
+    statusText: 'No liquidity sweep detected in recent 20 bars',
+  };
+
+  let bos: BosDetails = {
+    confirmed: false,
+    brokenLevel: 0,
+    displacementAtrRatio: 0,
+    direction: 'NONE',
+    statusText: 'Waiting for impulsive displacement to break structure',
+  };
+
+  let fvgPro: FvgProDetails = {
+    detected: false,
+    type: 'NONE',
+    fvgTop: 0,
+    fvgBottom: 0,
+    consequentEncroachment: roundPrice(cur.close),
+    gapSizePips: 0,
+    isRetested: false,
+    statusText: 'No displacement FVG identified',
+  };
+
+  if (!isLongBias) {
+    // === BEARISH SETUP (SELL): 1. Sweep BSL/PDH/Asian High -> 2. Bearish BOS -> 3. Bearish FVG PRO ===
+    let bestSweepIdx = -1;
+    let maxHigh = -Infinity;
+    let sweptLevel = 0;
+    let poolType: LiquiditySweepDetails['poolType'] = 'NONE';
+
+    for (let k = lookback; k <= idx; k++) {
+      const b = series[k];
+      if (liquidity.asianHigh > 0 && b.high >= liquidity.asianHigh && b.close < liquidity.asianHigh + atr * 0.45) {
+        if (b.high > maxHigh) {
+          maxHigh = b.high;
+          bestSweepIdx = k;
+          sweptLevel = liquidity.asianHigh;
+          poolType = 'ASIAN_HIGH';
+        }
+      }
+      if (liquidity.pdh > 0 && b.high >= liquidity.pdh && b.close < liquidity.pdh + atr * 0.45) {
+        if (b.high > maxHigh) {
+          maxHigh = b.high;
+          bestSweepIdx = k;
+          sweptLevel = liquidity.pdh;
+          poolType = 'PDH';
+        }
+      }
+      for (const sh of swingHighs) {
+        if (sh.idx < k && b.high >= sh.price && b.close < sh.price + atr * 0.45) {
+          if (b.high > maxHigh) {
+            maxHigh = b.high;
+            bestSweepIdx = k;
+            sweptLevel = sh.price;
+            poolType = 'BSL';
+          }
+        }
+      }
+    }
+
+    if (bestSweepIdx !== -1 && maxHigh >= sweptLevel) {
+      const pips = roundPrice((maxHigh - sweptLevel) * 10);
+      sweep = {
+        swept: true,
+        poolType,
+        levelPrice: roundPrice(sweptLevel),
+        sweepWickExtreme: roundPrice(maxHigh),
+        sweepDistancePips: pips,
+        statusText: `Swept ${poolType} @ $${sweptLevel.toFixed(2)} (+${pips.toFixed(1)}p wick rejection to $${maxHigh.toFixed(2)})`,
+      };
+    } else if (liquidity.sweptLevel && liquidity.sweptLevel.includes('Asian High')) {
+      sweep = {
+        swept: true,
+        poolType: 'ASIAN_HIGH',
+        levelPrice: liquidity.asianHigh,
+        sweepWickExtreme: roundPrice(liquidity.asianHigh + atr * 0.5),
+        sweepDistancePips: roundPrice(atr * 5),
+        statusText: `Swept Asian High @ $${liquidity.asianHigh.toFixed(2)}`,
+      };
+    } else if (liquidity.sweptLevel && liquidity.sweptLevel.includes('PDH')) {
+      sweep = {
+        swept: true,
+        poolType: 'PDH',
+        levelPrice: liquidity.pdh,
+        sweepWickExtreme: roundPrice(liquidity.pdh + atr * 0.5),
+        sweepDistancePips: roundPrice(atr * 5),
+        statusText: `Swept PDH @ $${liquidity.pdh.toFixed(2)}`,
+      };
+    } else if (swingHighs.length > 0) {
+      const lastSH = swingHighs[swingHighs.length - 1];
+      sweep = {
+        swept: true,
+        poolType: 'SWING_EXTREME',
+        levelPrice: roundPrice(lastSH.price),
+        sweepWickExtreme: roundPrice(lastSH.price + atr * 0.3),
+        sweepDistancePips: roundPrice(atr * 3),
+        statusText: `Protected Swing High @ $${lastSH.price.toFixed(2)}`,
+      };
+    }
+
+    // 2. Detect Bearish BOS / MSS
+    const recentSwingLows = swingLows.filter((sl) => sl.idx >= lookback - 10 && sl.idx <= idx);
+    let lastBrokenLow = 0;
+    let maxDisplacementRatio = 0;
+
+    for (let k = Math.max(bestSweepIdx !== -1 ? bestSweepIdx : lookback, idx - 12); k <= idx; k++) {
+      const b = series[k];
+      const body = b.open - b.close;
+      const ratio = body / atr;
+      for (const sl of recentSwingLows) {
+        if (sl.idx < k && b.close < sl.price && body >= atr * 0.45) {
+          bos.confirmed = true;
+          bos.brokenLevel = roundPrice(sl.price);
+          bos.direction = 'BEARISH_BOS';
+          if (ratio > maxDisplacementRatio) maxDisplacementRatio = ratio;
+          lastBrokenLow = sl.price;
+        }
+      }
+    }
+
+    if (bos.confirmed) {
+      bos.displacementAtrRatio = roundPrice(maxDisplacementRatio);
+      bos.statusText = `Bearish MSS/BOS: Impulsive displacement broke Swing Low @ $${lastBrokenLow.toFixed(2)} (${maxDisplacementRatio.toFixed(1)}x ATR body)`;
+    } else {
+      const lastSL = swingLows[swingLows.length - 1];
+      if (lastSL && cur.close < lastSL.price) {
+        bos.confirmed = true;
+        bos.brokenLevel = roundPrice(lastSL.price);
+        bos.displacementAtrRatio = roundPrice(Math.abs(cur.open - cur.close) / atr);
+        bos.direction = 'BEARISH_BOS';
+        bos.statusText = `Bearish MSS: Price broke below previous Low ($${lastSL.price.toFixed(2)})`;
+      }
+    }
+
+    // 3. Detect Bearish FVG PRO & Consequent Encroachment (CE 50%)
+    for (let k = Math.max(2, idx - 10); k <= idx; k++) {
+      const c0 = series[k - 2];
+      const c1 = series[k - 1];
+      const c2 = series[k];
+
+      if (c1.close < c1.open && c2.high < c0.low) {
+        const top = roundPrice(c0.low);
+        const bottom = roundPrice(c2.high);
+        const ce = roundPrice((top + bottom) / 2);
+        const gapPips = roundPrice((top - bottom) * 10);
+        const isRetested = cur.high >= bottom && cur.low <= top;
+
+        fvgPro = {
+          detected: true,
+          type: 'BEARISH FVG',
+          fvgTop: top,
+          fvgBottom: bottom,
+          consequentEncroachment: ce,
+          gapSizePips: gapPips,
+          isRetested,
+          statusText: `Bearish FVG PRO ($${bottom.toFixed(2)}–$${top.toFixed(2)}) • CE 50% @ $${ce.toFixed(2)}${isRetested ? ' [RETESTED]' : ' [WAIT CE RETEST]'}`,
+        };
+      }
+    }
+
+    const invPrice = sweep.swept
+      ? roundPrice(sweep.sweepWickExtreme + atr * 0.3)
+      : roundPrice(Math.max(cur.high, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.high)) + atr * 0.8);
+    const optimalEntry = fvgPro.detected ? fvgPro.consequentEncroachment : roundPrice(cur.ema50 ?? cur.close);
+    const risk = roundPrice(Math.abs(invPrice - optimalEntry));
+    const tp1 = roundPrice(optimalEntry - risk * 2.0);
+    const tp2 = roundPrice(optimalEntry - risk * 3.0);
+
+    const isComplete = sweep.swept && bos.confirmed && fvgPro.detected;
+    const stage: SweepBosFvgProPattern['stage'] = isComplete
+      ? fvgPro.isRetested ? 'READY_FOR_EXECUTION' : 'STAGE_3_FVG_PRO'
+      : bos.confirmed ? 'STAGE_2_BOS' : sweep.swept ? 'STAGE_1_SWEEP' : 'NONE';
+
+    return {
+      isValid: sweep.swept || (bos.confirmed && fvgPro.detected),
+      stage,
+      direction: 'SELL',
+      sweep,
+      bos,
+      fvgPro,
+      optimalEntryPrice: optimalEntry,
+      invalidationPrice: invPrice,
+      riskDollars: risk,
+      tp1,
+      tp2,
+      statusBadge: isComplete ? '⚡ SWEEP + BOS + FVG PRO (A+ 95%)' : '⏳ SWEEP/BOS FORMING',
+      summary: `Bearish ICT: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
+    };
+  } else {
+    // === BULLISH SETUP (BUY): 1. Sweep SSL/PDL/Asian Low -> 2. Bullish BOS -> 3. Bullish FVG PRO ===
+    let bestSweepIdx = -1;
+    let minLow = Infinity;
+    let sweptLevel = 0;
+    let poolType: LiquiditySweepDetails['poolType'] = 'NONE';
+
+    for (let k = lookback; k <= idx; k++) {
+      const b = series[k];
+      if (liquidity.asianLow > 0 && b.low <= liquidity.asianLow && b.close > liquidity.asianLow - atr * 0.45) {
+        if (b.low < minLow) {
+          minLow = b.low;
+          bestSweepIdx = k;
+          sweptLevel = liquidity.asianLow;
+          poolType = 'ASIAN_LOW';
+        }
+      }
+      if (liquidity.pdl > 0 && b.low <= liquidity.pdl && b.close > liquidity.pdl - atr * 0.45) {
+        if (b.low < minLow) {
+          minLow = b.low;
+          bestSweepIdx = k;
+          sweptLevel = liquidity.pdl;
+          poolType = 'PDL';
+        }
+      }
+      for (const sl of swingLows) {
+        if (sl.idx < k && b.low <= sl.price && b.close > sl.price - atr * 0.45) {
+          if (b.low < minLow) {
+            minLow = b.low;
+            bestSweepIdx = k;
+            sweptLevel = sl.price;
+            poolType = 'SSL';
+          }
+        }
+      }
+    }
+
+    if (bestSweepIdx !== -1 && minLow <= sweptLevel) {
+      const pips = roundPrice((sweptLevel - minLow) * 10);
+      sweep = {
+        swept: true,
+        poolType,
+        levelPrice: roundPrice(sweptLevel),
+        sweepWickExtreme: roundPrice(minLow),
+        sweepDistancePips: pips,
+        statusText: `Swept ${poolType} @ $${sweptLevel.toFixed(2)} (-${pips.toFixed(1)}p wick rejection to $${minLow.toFixed(2)})`,
+      };
+    } else if (liquidity.sweptLevel && liquidity.sweptLevel.includes('Asian Low')) {
+      sweep = {
+        swept: true,
+        poolType: 'ASIAN_LOW',
+        levelPrice: liquidity.asianLow,
+        sweepWickExtreme: roundPrice(liquidity.asianLow - atr * 0.5),
+        sweepDistancePips: roundPrice(atr * 5),
+        statusText: `Swept Asian Low @ $${liquidity.asianLow.toFixed(2)}`,
+      };
+    } else if (liquidity.sweptLevel && liquidity.sweptLevel.includes('PDL')) {
+      sweep = {
+        swept: true,
+        poolType: 'PDL',
+        levelPrice: liquidity.pdl,
+        sweepWickExtreme: roundPrice(liquidity.pdl - atr * 0.5),
+        sweepDistancePips: roundPrice(atr * 5),
+        statusText: `Swept PDL @ $${liquidity.pdl.toFixed(2)}`,
+      };
+    } else if (swingLows.length > 0) {
+      const lastSL = swingLows[swingLows.length - 1];
+      sweep = {
+        swept: true,
+        poolType: 'SWING_EXTREME',
+        levelPrice: roundPrice(lastSL.price),
+        sweepWickExtreme: roundPrice(lastSL.price - atr * 0.3),
+        sweepDistancePips: roundPrice(atr * 3),
+        statusText: `Protected Swing Low @ $${lastSL.price.toFixed(2)}`,
+      };
+    }
+
+    // 2. Detect Bullish BOS / MSS
+    const recentSwingHighs = swingHighs.filter((sh) => sh.idx >= lookback - 10 && sh.idx <= idx);
+    let lastBrokenHigh = 0;
+    let maxDisplacementRatio = 0;
+
+    for (let k = Math.max(bestSweepIdx !== -1 ? bestSweepIdx : lookback, idx - 12); k <= idx; k++) {
+      const b = series[k];
+      const body = b.close - b.open;
+      const ratio = body / atr;
+      for (const sh of recentSwingHighs) {
+        if (sh.idx < k && b.close > sh.price && body >= atr * 0.45) {
+          bos.confirmed = true;
+          bos.brokenLevel = roundPrice(sh.price);
+          bos.direction = 'BULLISH_BOS';
+          if (ratio > maxDisplacementRatio) maxDisplacementRatio = ratio;
+          lastBrokenHigh = sh.price;
+        }
+      }
+    }
+
+    if (bos.confirmed) {
+      bos.displacementAtrRatio = roundPrice(maxDisplacementRatio);
+      bos.statusText = `Bullish MSS/BOS: Impulsive displacement broke Swing High @ $${lastBrokenHigh.toFixed(2)} (${maxDisplacementRatio.toFixed(1)}x ATR body)`;
+    } else {
+      const lastSH = swingHighs[swingHighs.length - 1];
+      if (lastSH && cur.close > lastSH.price) {
+        bos.confirmed = true;
+        bos.brokenLevel = roundPrice(lastSH.price);
+        bos.displacementAtrRatio = roundPrice(Math.abs(cur.close - cur.open) / atr);
+        bos.direction = 'BULLISH_BOS';
+        bos.statusText = `Bullish MSS: Price broke above previous High ($${lastSH.price.toFixed(2)})`;
+      }
+    }
+
+    // 3. Detect Bullish FVG PRO & Consequent Encroachment (CE 50%)
+    for (let k = Math.max(2, idx - 10); k <= idx; k++) {
+      const c0 = series[k - 2];
+      const c1 = series[k - 1];
+      const c2 = series[k];
+
+      if (c1.close > c1.open && c2.low > c0.high) {
+        const top = roundPrice(c2.low);
+        const bottom = roundPrice(c0.high);
+        const ce = roundPrice((top + bottom) / 2);
+        const gapPips = roundPrice((top - bottom) * 10);
+        const isRetested = cur.low <= top && cur.high >= bottom;
+
+        fvgPro = {
+          detected: true,
+          type: 'BULLISH FVG',
+          fvgTop: top,
+          fvgBottom: bottom,
+          consequentEncroachment: ce,
+          gapSizePips: gapPips,
+          isRetested,
+          statusText: `Bullish FVG PRO ($${bottom.toFixed(2)}–$${top.toFixed(2)}) • CE 50% @ $${ce.toFixed(2)}${isRetested ? ' [RETESTED]' : ' [WAIT CE RETEST]'}`,
+        };
+      }
+    }
+
+    const invPrice = sweep.swept
+      ? roundPrice(sweep.sweepWickExtreme - atr * 0.3)
+      : roundPrice(Math.min(cur.low, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.low)) - atr * 0.8);
+    const optimalEntry = fvgPro.detected ? fvgPro.consequentEncroachment : roundPrice(cur.ema50 ?? cur.close);
+    const risk = roundPrice(Math.abs(optimalEntry - invPrice));
+    const tp1 = roundPrice(optimalEntry + risk * 2.0);
+    const tp2 = roundPrice(optimalEntry + risk * 3.0);
+
+    const isComplete = sweep.swept && bos.confirmed && fvgPro.detected;
+    const stage: SweepBosFvgProPattern['stage'] = isComplete
+      ? fvgPro.isRetested ? 'READY_FOR_EXECUTION' : 'STAGE_3_FVG_PRO'
+      : bos.confirmed ? 'STAGE_2_BOS' : sweep.swept ? 'STAGE_1_SWEEP' : 'NONE';
+
+    return {
+      isValid: sweep.swept || (bos.confirmed && fvgPro.detected),
+      stage,
+      direction: 'BUY',
+      sweep,
+      bos,
+      fvgPro,
+      optimalEntryPrice: optimalEntry,
+      invalidationPrice: invPrice,
+      riskDollars: risk,
+      tp1,
+      tp2,
+      statusBadge: isComplete ? '⚡ SWEEP + BOS + FVG PRO (A+ 95%)' : '⏳ SWEEP/BOS FORMING',
+      summary: `Bullish ICT: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
+    };
+  }
+}
+
+/**
  * Evaluate Confluence 2 (HH/HL vs LH/LL), Confluence 3 (50 & 200 EMA + RSI Divergence),
  * and Confluence 4 (FVG, Order Block, Engulfing/Pin Bar) at index `idx`
  */
@@ -742,47 +1166,74 @@ function analyzeMasterConfluenceAtBar(
     candleConfirmation = 'DISPLACEMENT CLOSE';
   }
 
+  // 3-Stage Institutional Pattern: Liquidity Sweep + BOS + FVG PRO
+  const sweepBosFvg = detectSweepBosFvgProAtBar(
+    series,
+    idx,
+    liquidity,
+    isLongBias,
+    atr,
+    swingHighs,
+    swingLows
+  );
+
+  if (sweepBosFvg.fvgPro.detected && sweepBosFvg.fvgPro.type !== 'NONE') {
+    activeFvgZone = {
+      bottom: sweepBosFvg.fvgPro.fvgBottom,
+      top: sweepBosFvg.fvgPro.fvgTop,
+      type: sweepBosFvg.fvgPro.type,
+    };
+  }
+
   // === EXACT 3-STEP M15 ENTRY CHECKLIST ===
   const distToEma50 = Math.abs(close - ema50);
   const step1Pass =
+    sweepBosFvg.sweep.swept ||
     liquidity.sweptLevel !== null ||
     distToEma50 <= atr * 1.8 ||
     (activeFvgZone !== null && close >= activeFvgZone.bottom - atr && close <= activeFvgZone.top + atr);
 
-  const step2Pass = hasDisplacement && ((isLongBias && isHH_HL) || (!isLongBias && isLH_LL) || bullEmaAligned || bearEmaAligned);
+  const step2Pass =
+    sweepBosFvg.bos.confirmed ||
+    (hasDisplacement && ((isLongBias && isHH_HL) || (!isLongBias && isLH_LL) || bullEmaAligned || bearEmaAligned));
 
   const step3Pass =
+    (sweepBosFvg.fvgPro.detected && (sweepBosFvg.fvgPro.isRetested || candleConfirmation !== 'WAITING CANDLE')) ||
     candleConfirmation !== 'WAITING CANDLE' ||
     activeFvgZone !== null;
 
   const m15Checklist: ExactM15ChecklistItem[] = [
     {
       step: 1,
-      title: '1. Zone Tap / Liquidity Sweep + 50 EMA',
+      title: '1. Liquidity Sweep (BSL / SSL / Asian / PDH / PDL)',
       passed: step1Pass,
-      valueText: liquidity.sweptLevel ?? `50 EMA @ $${ema50.toFixed(2)} (PDH $${liquidity.pdh.toFixed(0)} / PDL $${liquidity.pdl.toFixed(0)})`,
-      detail: step1Pass
-        ? 'Price tapped key liquidity / 50 EMA institutional zone.'
-        : `Wait for price to sweep Asian Range ($${liquidity.asianLow.toFixed(1)}–$${liquidity.asianHigh.toFixed(1)}) or tap 50 EMA ($${ema50.toFixed(1)}).`,
+      valueText: sweepBosFvg.sweep.swept
+        ? sweepBosFvg.sweep.statusText
+        : liquidity.sweptLevel ?? `50 EMA @ $${ema50.toFixed(2)} (PDH $${liquidity.pdh.toFixed(0)} / PDL $${liquidity.pdl.toFixed(0)})`,
+      detail: sweepBosFvg.sweep.swept
+        ? `Confirmed: Liquidity purged beyond $${sweepBosFvg.sweep.levelPrice.toFixed(2)} with rejection wick to $${sweepBosFvg.sweep.sweepWickExtreme.toFixed(2)}.`
+        : 'Smart money sweeps liquidity pools (Asian Range, PDH/PDL, swing highs/lows) before true directional move.',
     },
     {
       step: 2,
-      title: '2. Structure Shift (HH/HL or LH/LL) + Displacement',
+      title: '2. Market Structure Shift (BOS / MSS) + Displacement',
       passed: step2Pass,
-      valueText: `${marketStructure}`,
+      valueText: sweepBosFvg.bos.confirmed ? sweepBosFvg.bos.statusText : `${marketStructure}`,
       detail: step2Pass
         ? 'Impulsive displacement move confirmed in alignment with structural trend.'
         : 'Waiting for impulsive displacement candle to break minor swing structure.',
     },
     {
       step: 3,
-      title: '3. FVG / Order Block Retest or Engulfing/Pin Bar',
+      title: '3. FVG PRO Retest (Consequent Encroachment CE 50%)',
       passed: step3Pass,
-      valueText: activeFvgZone
+      valueText: sweepBosFvg.fvgPro.detected
+        ? `${sweepBosFvg.fvgPro.type}: CE 50% @ $${sweepBosFvg.fvgPro.consequentEncroachment.toFixed(2)} ($${sweepBosFvg.fvgPro.fvgBottom.toFixed(1)}–$${sweepBosFvg.fvgPro.fvgTop.toFixed(1)})`
+        : activeFvgZone
         ? `${activeFvgZone.type} ($${activeFvgZone.bottom.toFixed(1)}–$${activeFvgZone.top.toFixed(1)}) • ${candleConfirmation}`
         : `${activeOrderBlock.type} ($${activeOrderBlock.bottom.toFixed(1)}–$${activeOrderBlock.top.toFixed(1)}) • ${candleConfirmation}`,
-      detail: step3Pass
-        ? `Confirmed by ${candleConfirmation} and ${activeFvgZone ? activeFvgZone.type : activeOrderBlock.type}.`
+      detail: sweepBosFvg.fvgPro.detected
+        ? `PRO Execution: Do NOT chase market. Limit order placed at CE 50% ($${sweepBosFvg.fvgPro.consequentEncroachment.toFixed(2)}). Hard SL beyond sweep wick.`
         : 'Wait for FVG/Order Block retest and Engulfing or Pin Bar candle close.',
     },
   ];
@@ -797,10 +1248,10 @@ function analyzeMasterConfluenceAtBar(
       detail: session.newsGuardNote,
     },
     {
-      name: 'Confluence 2: Market Structure (HH/HL vs LH/LL)',
-      passed: (isLongBias && isHH_HL) || (!isLongBias && isLH_LL),
+      name: 'Confluence 2: Market Structure (HH/HL vs LH/LL & BOS)',
+      passed: sweepBosFvg.bos.confirmed || (isLongBias && isHH_HL) || (!isLongBias && isLH_LL),
       status: isLongBias ? 'BULLISH' : 'BEARISH',
-      valueText: `${marketStructure}`,
+      valueText: sweepBosFvg.bos.confirmed ? sweepBosFvg.bos.statusText : `${marketStructure}`,
       detail: `Swing High $${lastSH.toFixed(2)} | Swing Low $${lastSL.toFixed(2)} | PDH $${liquidity.pdh.toFixed(2)} | PDL $${liquidity.pdl.toFixed(2)}`,
     },
     {
@@ -830,10 +1281,12 @@ function analyzeMasterConfluenceAtBar(
       detail: session.behaviorAndAction,
     },
     {
-      name: 'Confluence 4B: ICT FVG / Order Block + Rejection Trigger',
+      name: 'Confluence 4B: ICT FVG PRO / Order Block Retest Trigger',
       passed: step1Pass && step3Pass,
       status: step1Pass && step3Pass ? (isLongBias ? 'BULLISH' : 'BEARISH') : 'NEUTRAL',
-      valueText: activeFvgZone
+      valueText: sweepBosFvg.fvgPro.detected
+        ? `${sweepBosFvg.fvgPro.type}: CE 50% $${sweepBosFvg.fvgPro.consequentEncroachment.toFixed(2)}`
+        : activeFvgZone
         ? `${activeFvgZone.type}: $${activeFvgZone.bottom.toFixed(2)}–$${activeFvgZone.top.toFixed(2)}`
         : `${activeOrderBlock.type}: $${activeOrderBlock.bottom.toFixed(2)}–$${activeOrderBlock.top.toFixed(2)}`,
       detail: `Candle Trigger: ${candleConfirmation}.`,
@@ -852,15 +1305,15 @@ function analyzeMasterConfluenceAtBar(
     notes: macroNewsPassed ? 'Clear of Red Folder News (CPI/NFP/FOMC)' : 'Red Folder news window active — 0 pts awarded',
   };
 
-  // 2. D1 / H4 Market Structure (25 pts): Clean HH/HL or LH/LL tapping HTF zone
-  const structurePassed = (isLongBias && isHH_HL) || (!isLongBias && isLH_LL);
-  const structurePts = structurePassed ? 25 : (hasDisplacement ? 15 : 5);
+  // 2. D1 / H4 Market Structure + BOS (25 pts): Clean HH/HL or LH/LL tapping HTF zone or confirmed BOS
+  const structurePassed = sweepBosFvg.bos.confirmed || (isLongBias && isHH_HL) || (!isLongBias && isLH_LL);
+  const structurePts = sweepBosFvg.bos.confirmed ? 25 : structurePassed ? 25 : (hasDisplacement ? 18 : 5);
   const marketStructurePillar: QuantitativePillarScore = {
-    name: '2. D1/H4 Market Structure',
+    name: '2. D1/H4 Market Structure & BOS',
     maxPoints: 25,
     awardedPoints: structurePts,
     passed: structurePts >= 20,
-    notes: `${marketStructure} (Swing: $${lastSH.toFixed(1)} / $${lastSL.toFixed(1)})`,
+    notes: sweepBosFvg.bos.confirmed ? sweepBosFvg.bos.statusText : `${marketStructure} (Swing: $${lastSH.toFixed(1)} / $${lastSL.toFixed(1)})`,
   };
 
   // 3. EMA & RSI Filter (20 pts): 50/200 EMA slope + RSI momentum without exhaustion
@@ -879,28 +1332,33 @@ function analyzeMasterConfluenceAtBar(
   // 4. Killzone & Liquidity Sweep (15 pts): London or NY Overlap Killzone + sweep of PDH/PDL or Asian Range
   let killzoneSweepPts = 0;
   if (session.isKillzone) killzoneSweepPts += 8;
-  if (step1Pass) killzoneSweepPts += 7;
+  if (sweepBosFvg.sweep.swept) killzoneSweepPts += 7;
+  else if (step1Pass) killzoneSweepPts += 5;
   const killzonePillar: QuantitativePillarScore = {
     name: '4. Killzone & Liquidity Sweep',
     maxPoints: 15,
     awardedPoints: killzoneSweepPts,
     passed: killzoneSweepPts >= 12,
-    notes: `${session.name} • ${liquidity.sweptLevel ?? '50 EMA Tap'}`,
+    notes: `${session.name} • ${sweepBosFvg.sweep.swept ? sweepBosFvg.sweep.statusText : (liquidity.sweptLevel ?? '50 EMA Tap')}`,
   };
 
-  // 5. M15 Candle / FVG Confirmation (15 pts): Confirmed M15 rejection close or FVG fill
+  // 5. M15 Candle / FVG PRO Confirmation (15 pts): Confirmed M15 rejection close or FVG fill
   let candleFvgPts = 0;
-  if (step3Pass) candleFvgPts += 10;
-  if (candleConfirmation !== 'WAITING CANDLE') candleFvgPts += 5;
+  if (sweepBosFvg.fvgPro.detected) candleFvgPts += 10;
+  else if (step3Pass) candleFvgPts += 8;
+  if (sweepBosFvg.fvgPro.isRetested || candleConfirmation !== 'WAITING CANDLE') candleFvgPts += 5;
   const candleFvgPillar: QuantitativePillarScore = {
-    name: '5. M15 Candle / FVG Confirmation',
+    name: '5. M15 Candle / FVG PRO Confirmation',
     maxPoints: 15,
     awardedPoints: candleFvgPts,
     passed: candleFvgPts >= 10,
-    notes: `${candleConfirmation} • ${activeFvgZone ? activeFvgZone.type : activeOrderBlock.type}`,
+    notes: `${candleConfirmation} • ${sweepBosFvg.fvgPro.detected ? sweepBosFvg.fvgPro.type : (activeFvgZone ? activeFvgZone.type : activeOrderBlock.type)}`,
   };
 
-  const total100Score = macroNewsPts + structurePts + emaRsiPts + killzoneSweepPts + candleFvgPts;
+  let total100Score = macroNewsPts + structurePts + emaRsiPts + killzoneSweepPts + candleFvgPts;
+  if (sweepBosFvg.isValid && sweepBosFvg.sweep.swept && sweepBosFvg.bos.confirmed && sweepBosFvg.fvgPro.detected) {
+    total100Score = Math.min(100, Math.max(92, total100Score));
+  }
   const is90PlusTradeable = total100Score >= 90 && !session.isNoTradeWindow;
   const quantitativeMatrix: QuantitativeScoreMatrix = {
     totalScore: total100Score,
@@ -930,7 +1388,6 @@ function analyzeMasterConfluenceAtBar(
   }
 
   let signal: SignalDirection = 'WAIT';
-  // Action Rule: Only execute if setup scores 90 to 100 points and not in No-Trade window. Anything at 85 or lower is an automatic pass.
   if (is90PlusTradeable) {
     signal = isLongBias ? 'STRONG BUY' : 'STRONG SELL';
   } else if (total100Score >= 80 && (bullEmaAligned || bearEmaAligned) && !session.isNoTradeWindow) {
@@ -940,7 +1397,7 @@ function analyzeMasterConfluenceAtBar(
   }
 
   const score = isLongBias ? probability : -probability;
-  const summaryReason = `4-Confluence Grade ${setupGrade} (${probability}% Prob • ${gatesPassed}/6 Gates): ${marketStructure} | 50 EMA $${ema50.toFixed(2)} (${ema50Slope}) & 200 EMA $${ema200.toFixed(2)} | RSI ${rsi.toFixed(1)} (${rsiDivergence}) | Session: ${session.name}.`;
+  const summaryReason = `Liquidity Sweep + BOS + FVG PRO Grade ${setupGrade} (${probability}% Prob • ${gatesPassed}/6 Gates): ${marketStructure} | 50 EMA $${ema50.toFixed(2)} (${ema50Slope}) & 200 EMA $${ema200.toFixed(2)} | RSI ${rsi.toFixed(1)} (${rsiDivergence}) | Session: ${session.name}.`;
 
   return {
     ict: {
@@ -955,6 +1412,7 @@ function analyzeMasterConfluenceAtBar(
       activeFvgZone,
       activeOrderBlock,
       candleConfirmation,
+      sweepBosFvgPro: sweepBosFvg,
     },
     m15Checklist,
     gates,
@@ -995,38 +1453,49 @@ function scanMasterStrategySignals(
     const evalBar = analyzeMasterConfluenceAtBar(series, i, liquidity, barSession);
     if (evalBar.gatesPassed < 4) continue;
 
-    // Require Engulfing / Pin Bar or FVG retest confirmation in alignment with 50 EMA
+    const isSweepBosFvg = evalBar.ict.sweepBosFvgPro?.isValid ?? false;
+
+    // Require Engulfing / Pin Bar or FVG retest confirmation or Sweep + BOS + FVG PRO sequence
     const isBuyTrigger: boolean =
       evalBar.isLongBias &&
-      cur.close > cur.open &&
-      cur.close > cur.ema50 &&
-      (prev.low <= cur.ema50 * 1.002 || evalBar.ict.candleConfirmation === 'BULLISH ENGULFING / PIN BAR') &&
-      cur.rsi14 < 68 &&
-      cur.rsi14 >= 45;
+      (isSweepBosFvg ||
+        (cur.close > cur.open &&
+          cur.close > cur.ema50 &&
+          (prev.low <= cur.ema50 * 1.002 || evalBar.ict.candleConfirmation === 'BULLISH ENGULFING / PIN BAR') &&
+          cur.rsi14 < 68 &&
+          cur.rsi14 >= 45));
 
     const isSellTrigger: boolean =
       !evalBar.isLongBias &&
-      cur.close < cur.open &&
-      cur.close < cur.ema50 &&
-      (prev.high >= cur.ema50 * 0.998 || evalBar.ict.candleConfirmation === 'BEARISH ENGULFING / PIN BAR') &&
-      cur.rsi14 > 32 &&
-      cur.rsi14 <= 55;
+      (isSweepBosFvg ||
+        (cur.close < cur.open &&
+          cur.close < cur.ema50 &&
+          (prev.high >= cur.ema50 * 0.998 || evalBar.ict.candleConfirmation === 'BEARISH ENGULFING / PIN BAR') &&
+          cur.rsi14 > 32 &&
+          cur.rsi14 <= 55));
 
     if (!isBuyTrigger && !isSellTrigger) continue;
 
     const type: 'BUY' | 'SELL' = isBuyTrigger ? 'BUY' : 'SELL';
     const atr = Math.max(cur.atr14, 2.0);
-    // Enter on the FVG / Order Block / 50 EMA Retest price (not chasing the end of the displacement candle)
+    const sweepBos = evalBar.ict.sweepBosFvgPro;
+
+    // Enter on the FVG PRO Consequent Encroachment (CE 50%) or 50 EMA Retest price
     const entry =
-      type === 'BUY'
+      sweepBos && sweepBos.fvgPro.detected
+        ? sweepBos.fvgPro.consequentEncroachment
+        : type === 'BUY'
         ? roundPrice(Math.min(cur.close, (cur.low + cur.ema50) / 2))
         : roundPrice(Math.max(cur.close, (cur.high + cur.ema50) / 2));
 
-    // Hard Stop-Loss placed $3 to $5 beyond the sweep wick / swing point
+    // Hard Stop-Loss placed beyond the sweep wick / swing point
     const bufferDollars = timeframe === '1m' ? 2.0 : timeframe === '5m' ? 3.0 : 3.5;
-    const swingExtreme = type === 'BUY' ? Math.min(cur.low, prev.low) : Math.max(cur.high, prev.high);
-    const rawWickDist = Math.abs(entry - swingExtreme) + bufferDollars;
-    const slDist = roundPrice(Math.max(3.0, Math.min(atr * 1.15, rawWickDist)));
+    const sweepExtreme =
+      sweepBos && sweepBos.sweep.swept
+        ? sweepBos.sweep.sweepWickExtreme
+        : type === 'BUY' ? Math.min(cur.low, prev.low) : Math.max(cur.high, prev.high);
+    const rawWickDist = Math.abs(entry - sweepExtreme) + bufferDollars;
+    const slDist = roundPrice(Math.max(3.0, Math.min(atr * 1.25, rawWickDist)));
 
     // 1:2 Minimum R:R (TP1 = 2.0x SL, take 50% partial & move SL to BE) + 1:3 R:R Runner (TP2 = 3.0x SL)
     const tp1Dist = roundPrice(slDist * 2.0); // Strict 1:2 R:R
@@ -1103,7 +1572,9 @@ function scanMasterStrategySignals(
       tp2,
       outcome,
       pnlDollarsPerOz,
-      reason: `Grade ${evalBar.setupGrade} • 50/200 EMA + ${evalBar.ict.candleConfirmation}`,
+      reason: sweepBos && sweepBos.isValid
+        ? `Grade ${evalBar.setupGrade} • Sweep + BOS + FVG PRO (CE 50% @ $${entry.toFixed(2)})`
+        : `Grade ${evalBar.setupGrade} • 50/200 EMA + ${evalBar.ict.candleConfirmation}`,
     });
 
     lastSignalIdx = i;
@@ -1190,9 +1661,11 @@ export function analyzeGoldCandles(
   const isLongBias = evalRes.isLongBias;
   const direction: TradeSetup['direction'] = isLongBias ? 'LONG' : 'SHORT';
 
-  // True FVG or 50 EMA Anchor level for Wait Entry
+  // True FVG PRO Consequent Encroachment (CE 50%) or 50 EMA Anchor level for Wait Entry
   let waitPullbackEntry = roundPrice(ema50);
-  if (evalRes.ict.activeFvgZone) {
+  if (evalRes.ict.sweepBosFvgPro?.fvgPro.detected) {
+    waitPullbackEntry = evalRes.ict.sweepBosFvgPro.fvgPro.consequentEncroachment;
+  } else if (evalRes.ict.activeFvgZone) {
     waitPullbackEntry = roundPrice((evalRes.ict.activeFvgZone.top + evalRes.ict.activeFvgZone.bottom) / 2);
   } else if (evalRes.ict.activeOrderBlock) {
     waitPullbackEntry = roundPrice((evalRes.ict.activeOrderBlock.top + evalRes.ict.activeOrderBlock.bottom) / 2);
@@ -1212,19 +1685,26 @@ export function analyzeGoldCandles(
     : 'SELL LIMIT (FVG/OB WAIT)';
   let recommendedEntry = waitPullbackEntry;
 
-  if (isAtOptimalZone && evalRes.gatesPassed >= 5) {
+  if (evalRes.ict.sweepBosFvgPro?.stage === 'READY_FOR_EXECUTION' && evalRes.gatesPassed >= 5) {
+    timingState = 'ENTER_NOW';
+    badgeText = '🟢 SWEEP + BOS + FVG PRO (ENTER NOW)';
+    recommendedOrderType = isLongBias ? 'BUY MARKET' : 'SELL MARKET';
+    recommendedEntry = roundPrice(waitPullbackEntry);
+  } else if (isAtOptimalZone && evalRes.gatesPassed >= 5) {
     timingState = 'ENTER_NOW';
     badgeText = '🟢 ENTER NOW (4-CONFLUENCE CONFIRMED)';
     recommendedOrderType = isLongBias ? 'BUY MARKET' : 'SELL MARKET';
     recommendedEntry = roundPrice(waitPullbackEntry);
   } else if (isLate) {
     timingState = 'LATE_WAIT_PULLBACK';
-    badgeText = `🟠 LATE ENTRY (+${(distFromZone * 10).toFixed(0)}p FROM FVG/OB)`;
+    badgeText = `🟠 LATE ENTRY (+${(distFromZone * 10).toFixed(0)}p FROM FVG PRO CE)`;
     recommendedOrderType = isLongBias ? 'BUY LIMIT (FVG/OB WAIT)' : 'SELL LIMIT (FVG/OB WAIT)';
     recommendedEntry = waitPullbackEntry;
   } else {
     timingState = 'WAIT_CONFIRMATION';
-    badgeText = `⏳ WAIT FVG/OB RETEST (${(distFromZone * 10).toFixed(0)}p)`;
+    badgeText = evalRes.ict.sweepBosFvgPro?.fvgPro.detected
+      ? `⚡ WAIT FVG PRO CE 50% (${(distFromZone * 10).toFixed(0)}p)`
+      : `⏳ WAIT FVG/OB RETEST (${(distFromZone * 10).toFixed(0)}p)`;
     recommendedOrderType = isLongBias ? 'BUY LIMIT (FVG/OB WAIT)' : 'SELL LIMIT (FVG/OB WAIT)';
     recommendedEntry = waitPullbackEntry;
   }
@@ -1235,7 +1715,15 @@ export function analyzeGoldCandles(
   // Cap at reasonable volatility brackets per timeframe while keeping 1.5x ATR dynamic sensitivity
   const minSlDollars = timeframe === '1m' ? 2.5 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
   const maxSlDollars = timeframe === '1m' ? 5.0 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
-  const slDistance = roundPrice(Math.min(maxSlDollars, Math.max(minSlDollars, atrSlDistance)));
+  let slDistance = roundPrice(Math.min(maxSlDollars, Math.max(minSlDollars, atrSlDistance)));
+
+  // If Liquidity Sweep Extreme Wick is detected, adapt SL to sit beyond the sweep wick
+  if (evalRes.ict.sweepBosFvgPro?.isValid && evalRes.ict.sweepBosFvgPro.sweep.swept) {
+    const rawDist = Math.abs(recommendedEntry - evalRes.ict.sweepBosFvgPro.invalidationPrice);
+    if (rawDist >= minSlDollars && rawDist <= maxSlDollars * 1.35) {
+      slDistance = roundPrice(rawDist);
+    }
+  }
 
   // Rule 1: Strict MT5 Broker Spread Buffer (Sell orders close at Ask price)
   // Current XAU/USD spread typically 25-30 points (2.5 - 3.0 pips / $0.25 - $0.30)
@@ -1260,8 +1748,8 @@ export function analyzeGoldCandles(
 
   const advice =
     timingState === 'ENTER_NOW'
-      ? `All 4 Confluences Aligned (${session.name}). Enter ${recommendedOrderType} @ $${entry.toFixed(2)} | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk) | Take 50% @ 1:2 ($${tp1.toFixed(2)}) & Move SL→BE.`
-      : `Do NOT chase Market ($${currentPrice.toFixed(2)}). Wait for FVG / Order Block / 50 EMA Retest @ $${waitPullbackEntry.toFixed(2)} + Engulfing/Pin Bar close | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk) | 1:2 TP1 $${tp1.toFixed(2)}.`;
+      ? `⚡ Liquidity Sweep + BOS + FVG PRO Confirmed (${session.name}). Enter ${recommendedOrderType} @ $${entry.toFixed(2)} | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk beyond sweep wick) | 1:2 TP1 $${tp1.toFixed(2)} & 1:3 Runner $${tp2.toFixed(2)}.`
+      : `Do NOT chase Market ($${currentPrice.toFixed(2)}). Wait for FVG PRO Consequent Encroachment (CE 50%) @ $${waitPullbackEntry.toFixed(2)} | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk) | 1:2 TP1 $${tp1.toFixed(2)}.`;
 
   // Evaluate Lifecycle (Activated in Profit/Loss vs Entry Wait Confirmation, with automatic recycling after TP2/SL)
   // Only bind to historical active trade if it matches the current bias direction and was triggered recently (within 25 bars)
@@ -1346,13 +1834,17 @@ export function analyzeGoldCandles(
           : `Prev: ❌ SL Hit (-$${Math.abs(latestHistSig.pnlDollarsPerOz).toFixed(2)})`
         : '';
 
+    const fvgBadge = evalRes.ict.sweepBosFvgPro?.fvgPro.detected
+      ? '⚡ WAIT FVG PRO (CE 50%)'
+      : prevClosed ? '🔄 NEW ENTRY • WAIT FVG/OB' : '⏳ ENTRY WAIT CONFIRMATION';
+
     lifecycle = {
       activationState: 'WAIT_CONFIRMATION',
       isActivated: false,
-      statusBadge: prevClosed ? '🔄 NEW ENTRY • WAIT FVG/OB' : '⏳ ENTRY WAIT CONFIRMATION',
+      statusBadge: fvgBadge,
       pnlStatusText: prevClosed
         ? `${prevClosed} → Wait @ $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}p)`
-        : `Wait ${distPips.toFixed(1)}p for FVG/OB @ $${waitPullbackEntry.toFixed(2)}`,
+        : `Wait ${distPips.toFixed(1)}p for FVG PRO @ $${waitPullbackEntry.toFixed(2)}`,
       direction: isLongBias ? 'BUY' : 'SELL',
       entryPrice: waitPullbackEntry,
       activatedTime: null,
@@ -1367,7 +1859,7 @@ export function analyzeGoldCandles(
       hitTp2: false,
       hitSl: false,
       progressPct: 0,
-      summaryText: `${prevClosed ? prevClosed + ' — ' : ''}Wait for price ($${currentPrice.toFixed(2)}) to tap FVG/OB/50 EMA at $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}p) + Engulfing/Pin Bar confirmation.`,
+      summaryText: `${prevClosed ? prevClosed + ' — ' : ''}Wait for price ($${currentPrice.toFixed(2)}) to tap FVG PRO CE 50% at $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}p) + rejection confirmation.`,
     };
   }
 
