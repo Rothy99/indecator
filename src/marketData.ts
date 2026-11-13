@@ -16,6 +16,7 @@ export interface LiveSpotQuote {
 interface RawTimeframeStore {
   rawCandles: Candle[];
   lastRawClose: number;
+  calibratedBasis: number;
   fetchedAt: number;
 }
 
@@ -36,6 +37,7 @@ for (const tf of ALL_TIMEFRAMES) {
   rawStore.set(tf, {
     rawCandles: sim,
     lastRawClose: sim[sim.length - 1].close,
+    calibratedBasis: 0,
     fetchedAt: Date.now(),
   });
 }
@@ -174,15 +176,17 @@ async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
 
     const sliced = finalCandles.slice(-260);
     const lastRawClose = sliced[sliced.length - 1].close;
+    const basis = latestSpotQuote.bid > 0 ? round2(latestSpotQuote.bid - lastRawClose) : basisOffset;
 
     rawStore.set(tf, {
       rawCandles: sliced,
       lastRawClose,
+      calibratedBasis: basis,
       fetchedAt: Date.now(),
     });
 
     if (latestSpotQuote.bid > 0) {
-      basisOffset = round2(latestSpotQuote.bid - lastRawClose);
+      basisOffset = basis;
     }
   } catch {
     // Fallback if offline
@@ -191,6 +195,7 @@ async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
       rawStore.set(tf, {
         rawCandles: sim,
         lastRawClose: sim[sim.length - 1].close,
+        calibratedBasis: 0,
         fetchedAt: Date.now(),
       });
     }
@@ -306,15 +311,19 @@ export async function getGoldCandles(
   }
 
   const rawList = stored?.rawCandles ?? generateSimulatedGoldCandles(timeframe, 240);
-  const lastRaw = stored?.lastRawClose ?? rawList[rawList.length - 1].close;
-  const currentBasis = latestSpotQuote.bid > 0 ? round2(latestSpotQuote.bid - lastRaw) : basisOffset;
+  const basis =
+    stored && typeof stored.calibratedBasis === 'number' && stored.calibratedBasis !== 0
+      ? stored.calibratedBasis
+      : latestSpotQuote.bid > 0
+      ? round2(latestSpotQuote.bid - rawList[rawList.length - 1].close)
+      : basisOffset;
 
   const calibrated: Candle[] = rawList.map((c, idx) => {
     const isLast = idx === rawList.length - 1;
-    const open = round2(c.open + currentBasis);
-    let close = round2(c.close + currentBasis);
-    let high = round2(c.high + currentBasis);
-    let low = round2(c.low + currentBasis);
+    const open = round2(c.open + basis);
+    let close = round2(c.close + basis);
+    let high = round2(c.high + basis);
+    let low = round2(c.low + basis);
 
     if (isLast && latestSpotQuote.bid > 0) {
       close = latestSpotQuote.bid;

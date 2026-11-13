@@ -1427,6 +1427,52 @@ function analyzeMasterConfluenceAtBar(
   };
 }
 
+export interface LockedActivePosition {
+  id: string;
+  timeframe: string;
+  time: number;
+  type: 'BUY' | 'SELL';
+  grade: SetupGrade;
+  probability: number;
+  confidence: number;
+  entry: number; // LOCKED FOREVER!
+  stopLoss: number; // LOCKED FOREVER!
+  tp1: number; // LOCKED FOREVER!
+  tp2: number; // LOCKED FOREVER!
+  beTrigger: number;
+  hitBeLock: boolean;
+  hitTp1: boolean;
+  hitTp2: boolean;
+  hitSl: boolean;
+  outcome: 'ACTIVE' | 'TP1_HIT' | 'TP2_HIT' | 'BE_EXIT' | 'SL_HIT';
+  pnlDollarsPerOz: number;
+  reason: string;
+}
+
+export const lockedActiveTradesByTf = new Map<string, LockedActivePosition>();
+export const lockedClosedHistoryByTf = new Map<string, HistoricalSignal[]>();
+
+function archiveClosedTrade(timeframe: string, trade: LockedActivePosition): void {
+  const list = lockedClosedHistoryByTf.get(timeframe) || [];
+  if (!list.some((e) => e.time === trade.time)) {
+    list.unshift({
+      time: trade.time,
+      type: trade.type,
+      grade: trade.grade,
+      probability: trade.probability,
+      confidence: trade.confidence,
+      entry: trade.entry,
+      stopLoss: trade.stopLoss,
+      tp1: trade.tp1,
+      tp2: trade.tp2,
+      outcome: trade.outcome,
+      pnlDollarsPerOz: trade.pnlDollarsPerOz,
+      reason: trade.reason,
+    });
+    lockedClosedHistoryByTf.set(timeframe, list.slice(0, 20));
+  }
+}
+
 /**
  * Scan Historical Bars using the 4-Confluence Master Strategy + Strict $3–$5 Stop Loss & 1:2 / 1:3 R:R
  */
@@ -1442,7 +1488,62 @@ function scanMasterStrategySignals(
   const signals: HistoricalSignal[] = [];
   let lastSignalIdx = -10;
   const startIdx = Math.max(55, series.length - 190);
+  const curPrice = series[series.length - 1].close;
 
+  // 1. If an active position was already locked for this timeframe, update live floating PnL and verify exits
+  const locked = lockedActiveTradesByTf.get(timeframe);
+  if (locked && locked.outcome === 'ACTIVE') {
+    const lastBar = series[series.length - 1];
+    if (locked.type === 'BUY') {
+      if (lastBar.high >= locked.beTrigger) locked.hitBeLock = true;
+      if (lastBar.high >= locked.tp1) locked.hitTp1 = true;
+      if (lastBar.high >= locked.tp2) {
+        locked.hitTp2 = true;
+        locked.outcome = 'TP2_HIT';
+        locked.pnlDollarsPerOz = roundPrice(locked.tp2 - locked.entry);
+        archiveClosedTrade(timeframe, locked);
+        lockedActiveTradesByTf.delete(timeframe);
+      } else if (locked.hitBeLock && lastBar.low <= locked.entry) {
+        locked.outcome = locked.hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
+        locked.pnlDollarsPerOz = locked.hitTp1 ? roundPrice(locked.tp1 - locked.entry) : 0;
+        archiveClosedTrade(timeframe, locked);
+        lockedActiveTradesByTf.delete(timeframe);
+      } else if (!locked.hitBeLock && lastBar.low <= locked.stopLoss) {
+        locked.hitSl = true;
+        locked.outcome = 'SL_HIT';
+        locked.pnlDollarsPerOz = roundPrice(locked.stopLoss - locked.entry);
+        archiveClosedTrade(timeframe, locked);
+        lockedActiveTradesByTf.delete(timeframe);
+      } else {
+        locked.pnlDollarsPerOz = roundPrice(curPrice - locked.entry);
+      }
+    } else {
+      if (lastBar.low <= locked.beTrigger) locked.hitBeLock = true;
+      if (lastBar.low <= locked.tp1) locked.hitTp1 = true;
+      if (lastBar.low <= locked.tp2) {
+        locked.hitTp2 = true;
+        locked.outcome = 'TP2_HIT';
+        locked.pnlDollarsPerOz = roundPrice(locked.entry - locked.tp2);
+        archiveClosedTrade(timeframe, locked);
+        lockedActiveTradesByTf.delete(timeframe);
+      } else if (locked.hitBeLock && lastBar.high >= locked.entry) {
+        locked.outcome = locked.hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
+        locked.pnlDollarsPerOz = locked.hitTp1 ? roundPrice(locked.entry - locked.tp1) : 0;
+        archiveClosedTrade(timeframe, locked);
+        lockedActiveTradesByTf.delete(timeframe);
+      } else if (!locked.hitBeLock && lastBar.high >= locked.stopLoss) {
+        locked.hitSl = true;
+        locked.outcome = 'SL_HIT';
+        locked.pnlDollarsPerOz = roundPrice(locked.entry - locked.stopLoss);
+        archiveClosedTrade(timeframe, locked);
+        lockedActiveTradesByTf.delete(timeframe);
+      } else {
+        locked.pnlDollarsPerOz = roundPrice(locked.entry - curPrice);
+      }
+    }
+  }
+
+  // 2. Scan historical bars up to series.length - 1
   for (let i = startIdx; i < series.length; i++) {
     const cur = series[i];
     const prev = series[i - 1];
@@ -1498,8 +1599,8 @@ function scanMasterStrategySignals(
     const slDist = roundPrice(Math.max(3.0, Math.min(atr * 1.25, rawWickDist)));
 
     // 1:2 Minimum R:R (TP1 = 2.0x SL, take 50% partial & move SL to BE) + 1:3 R:R Runner (TP2 = 3.0x SL)
-    const tp1Dist = roundPrice(slDist * 2.0); // Strict 1:2 R:R
-    const tp2Dist = roundPrice(slDist * 3.0); // 1:3 H4 Liquidity Runner
+    const tp1Dist = roundPrice(slDist * 2.0);
+    const tp2Dist = roundPrice(slDist * 3.0);
 
     const stopLoss = type === 'BUY' ? roundPrice(entry - slDist) : roundPrice(entry + slDist);
     const tp1 = type === 'BUY' ? roundPrice(entry + tp1Dist) : roundPrice(entry - tp1Dist);
@@ -1520,7 +1621,6 @@ function scanMasterStrategySignals(
           break;
         }
         if (hitBeLock && bar.low <= entry) {
-          // Stopped out at Break-Even after locking profit / TP1
           outcome = hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
           break;
         }
@@ -1536,7 +1636,6 @@ function scanMasterStrategySignals(
           break;
         }
         if (hitBeLock && bar.high >= entry) {
-          // Stopped out at Break-Even after locking profit / TP1
           outcome = hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
           break;
         }
@@ -1547,17 +1646,40 @@ function scanMasterStrategySignals(
       }
     }
 
-    // A signal remains ACTIVE until it hits TP2, SL, or after TP1 retests breakeven
-    // Do NOT automatically convert an in-flight ACTIVE trade just because it hit partial TP1 or BE trigger
-
     let pnlDollarsPerOz = 0;
     if (outcome === 'TP2_HIT') pnlDollarsPerOz = roundPrice(tp2Dist);
     else if (outcome === 'TP1_HIT') pnlDollarsPerOz = roundPrice(tp1Dist);
     else if (outcome === 'BE_EXIT') pnlDollarsPerOz = 0;
     else if (outcome === 'SL_HIT') pnlDollarsPerOz = roundPrice(-slDist);
     else {
-      const lastClose = series[series.length - 1].close;
-      pnlDollarsPerOz = roundPrice(type === 'BUY' ? lastClose - entry : entry - lastClose);
+      pnlDollarsPerOz = roundPrice(type === 'BUY' ? curPrice - entry : entry - curPrice);
+    }
+
+    // If signal is ACTIVE and no active trade is locked yet, permanently lock it
+    if (outcome === 'ACTIVE' && !lockedActiveTradesByTf.has(timeframe)) {
+      lockedActiveTradesByTf.set(timeframe, {
+        id: `TF_${timeframe}_${cur.time}`,
+        timeframe,
+        time: cur.time,
+        type,
+        grade: evalBar.setupGrade,
+        probability: evalBar.probability,
+        confidence: evalBar.probability,
+        entry, // LOCKED!
+        stopLoss, // LOCKED!
+        tp1, // LOCKED!
+        tp2, // LOCKED!
+        beTrigger,
+        hitBeLock,
+        hitTp1,
+        hitTp2: false,
+        hitSl: false,
+        outcome: 'ACTIVE',
+        pnlDollarsPerOz,
+        reason: sweepBos && sweepBos.isValid
+          ? `Grade ${evalBar.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${entry.toFixed(2)})`
+          : `Grade ${evalBar.setupGrade} • 50/200 EMA + ${evalBar.ict.candleConfirmation}`,
+      });
     }
 
     signals.push({
@@ -1580,16 +1702,53 @@ function scanMasterStrategySignals(
     lastSignalIdx = i;
   }
 
-  const wins = signals.filter((s) => s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT').length;
-  const losses = signals.filter((s) => s.outcome === 'SL_HIT').length;
-  const active = signals.filter((s) => s.outcome === 'ACTIVE').length;
+  // 3. Guarantee that the active trade (if present) is at index 0 and 100% locked
+  const activeNow = lockedActiveTradesByTf.get(timeframe);
+  const returnedSignals: HistoricalSignal[] = [];
+
+  if (activeNow && activeNow.outcome === 'ACTIVE') {
+    returnedSignals.push({
+      time: activeNow.time,
+      type: activeNow.type,
+      grade: activeNow.grade,
+      probability: activeNow.probability,
+      confidence: activeNow.confidence,
+      entry: activeNow.entry, // LOCKED!
+      stopLoss: activeNow.stopLoss, // LOCKED!
+      tp1: activeNow.tp1, // LOCKED!
+      tp2: activeNow.tp2, // LOCKED!
+      outcome: 'ACTIVE',
+      pnlDollarsPerOz: activeNow.pnlDollarsPerOz,
+      reason: activeNow.reason,
+    });
+  }
+
+  // Add historical closed trades, avoiding duplicate timestamps
+  const closedFromScan = signals.filter((s) => s.outcome !== 'ACTIVE').reverse();
+  const closedFromArchive = lockedClosedHistoryByTf.get(timeframe) || [];
+  const mergedClosed = [...closedFromArchive];
+  for (const cs of closedFromScan) {
+    if (!mergedClosed.some((m) => m.time === cs.time)) {
+      mergedClosed.push(cs);
+    }
+  }
+  mergedClosed.sort((a, b) => b.time - a.time);
+
+  for (const cs of mergedClosed) {
+    if (returnedSignals.length >= 15) break;
+    returnedSignals.push(cs);
+  }
+
+  const wins = returnedSignals.filter((s) => s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT').length;
+  const losses = returnedSignals.filter((s) => s.outcome === 'SL_HIT').length;
+  const active = returnedSignals.filter((s) => s.outcome === 'ACTIVE').length;
   const closedSignals = wins + losses;
   const winRate = closedSignals > 0 ? Math.round((wins / closedSignals) * 1000) / 10 : 0;
-  const netPnlPerOz = roundPrice(signals.reduce((acc, s) => acc + s.pnlDollarsPerOz, 0));
+  const netPnlPerOz = roundPrice(returnedSignals.reduce((acc, s) => acc + s.pnlDollarsPerOz, 0));
 
   // 2-Loss Daily Circuit Breaker check
   const todayStartSec = Math.floor(Date.now() / 86400000) * 86400;
-  const todayClosed = signals.filter((s) => s.time >= todayStartSec && s.outcome !== 'ACTIVE');
+  const todayClosed = returnedSignals.filter((s) => s.time >= todayStartSec && s.outcome !== 'ACTIVE');
   let consecutiveLossesToday = 0;
   for (let k = todayClosed.length - 1; k >= 0; k--) {
     if (todayClosed[k].outcome === 'SL_HIT') consecutiveLossesToday++;
@@ -1597,9 +1756,9 @@ function scanMasterStrategySignals(
   }
 
   return {
-    signals: signals.slice(-15).reverse(),
+    signals: returnedSignals,
     backtest: {
-      totalSignals: signals.length,
+      totalSignals: returnedSignals.length,
       closedSignals,
       wins,
       losses,
@@ -1739,33 +1898,29 @@ export function analyzeGoldCandles(
 
   const entry = recommendedEntry;
   // For Shorts: Add broker spread buffer to Stop-Loss because Short positions close at ASK
-  const stopLoss = isLongBias
+  let stopLoss = isLongBias
     ? roundPrice(entry - slDistance)
     : roundPrice(entry + slDistance + spreadBufferDollars);
-  const tp1 = isLongBias ? roundPrice(entry + tp1Distance) : roundPrice(entry - tp1Distance);
-  const tp2 = isLongBias ? roundPrice(entry + tp2Distance) : roundPrice(entry - tp2Distance);
-  const tp3 = isLongBias ? roundPrice(entry + tp3Distance) : roundPrice(entry - tp3Distance);
+  let tp1 = isLongBias ? roundPrice(entry + tp1Distance) : roundPrice(entry - tp1Distance);
+  let tp2 = isLongBias ? roundPrice(entry + tp2Distance) : roundPrice(entry - tp2Distance);
+  let tp3 = isLongBias ? roundPrice(entry + tp3Distance) : roundPrice(entry - tp3Distance);
 
-  const advice =
-    timingState === 'ENTER_NOW'
-      ? `⚡ Liquidity Sweep + BOS + FVG PRO Confirmed (${session.name}). Enter ${recommendedOrderType} @ $${entry.toFixed(2)} | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk beyond sweep wick) | 1:2 TP1 $${tp1.toFixed(2)} & 1:3 Runner $${tp2.toFixed(2)}.`
-      : `Do NOT chase Market ($${currentPrice.toFixed(2)}). Wait for FVG PRO Consequent Encroachment (CE 50%) @ $${waitPullbackEntry.toFixed(2)} | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk) | 1:2 TP1 $${tp1.toFixed(2)}.`;
-
-  // Evaluate Lifecycle (Activated in Profit/Loss vs Entry Wait Confirmation, with automatic recycling after TP2/SL)
-  // Only bind to historical active trade if it matches the current bias direction and was triggered recently (within 25 bars)
-  const latestHistSig = historicalSignals[0];
-  const isHistSigMatchingDirection = latestHistSig && (
-    (isLongBias && latestHistSig.type === 'BUY') || (!isLongBias && latestHistSig.type === 'SELL')
-  );
+  // Check if an active trade is already locked for this timeframe
+  const lockedActive = lockedActiveTradesByTf.get(timeframe);
   let lifecycle: EntryLifecycleTracker;
 
-  if (latestHistSig && latestHistSig.outcome === 'ACTIVE' && isHistSigMatchingDirection) {
-    const sigDir = latestHistSig.type;
-    const actEntry = latestHistSig.entry;
-    const actSl = latestHistSig.stopLoss;
-    const actTp1 = latestHistSig.tp1;
-    const actTp2 = latestHistSig.tp2;
-    const rawDiff = sigDir === 'BUY' ? currentPrice - actEntry : actEntry - currentPrice;
+  if (lockedActive && lockedActive.outcome === 'ACTIVE') {
+    // 100% Locked with history: Entry, StopLoss, TP1, TP2 never change after activated!
+    const actEntry = lockedActive.entry;
+    stopLoss = lockedActive.stopLoss;
+    tp1 = lockedActive.tp1;
+    tp2 = lockedActive.tp2;
+    timingState = 'ENTER_NOW';
+    recommendedOrderType = lockedActive.type === 'BUY' ? 'BUY MARKET' : 'SELL MARKET';
+    recommendedEntry = actEntry;
+    badgeText = `🟢 ACTIVATED • ${lockedActive.type} @ $${actEntry.toFixed(2)}`;
+
+    const rawDiff = lockedActive.type === 'BUY' ? currentPrice - actEntry : actEntry - currentPrice;
     const livePips = roundPrice(rawDiff * 10);
     const liveDollars = roundPrice(rawDiff);
 
@@ -1778,23 +1933,47 @@ export function analyzeGoldCandles(
       isActivated: true,
       statusBadge: badge,
       pnlStatusText: pnlText,
-      direction: sigDir,
-      entryPrice: actEntry,
-      activatedTime: latestHistSig.time,
+      direction: lockedActive.type,
+      entryPrice: actEntry, // LOCKED!
+      activatedTime: lockedActive.time,
       currentPrice,
-      stopLoss: actSl,
-      tp1: actTp1,
-      tp2: actTp2,
+      stopLoss: lockedActive.stopLoss, // LOCKED!
+      tp1: lockedActive.tp1, // LOCKED!
+      tp2: lockedActive.tp2, // LOCKED!
       floatingPips: livePips,
       floatingDollarsPerOz: liveDollars,
       distanceToEntryPips: 0,
+      hitTp1: lockedActive.hitTp1,
+      hitTp2: lockedActive.hitTp2,
+      hitSl: lockedActive.hitSl,
+      progressPct: Math.max(-100, Math.min(100, Math.round((rawDiff / (Math.abs(lockedActive.tp2 - actEntry) || 1)) * 100))),
+      summaryText: `Locked ${lockedActive.type} Entry @ $${actEntry.toFixed(2)} — Currently ${pnlText}. Take 50% at 1:2 ($${lockedActive.tp1.toFixed(2)}) & move SL to BE.`,
+    };
+  } else if (timingState === 'ENTER_NOW') {
+    // New activation: lock immediately into persistent store
+    const newLocked: LockedActivePosition = {
+      id: `TF_${timeframe}_${cur.time}`,
+      timeframe,
+      time: cur.time,
+      type: isLongBias ? 'BUY' : 'SELL',
+      grade: evalRes.setupGrade,
+      probability: evalRes.probability,
+      confidence: evalRes.probability,
+      entry, // LOCKED!
+      stopLoss, // LOCKED!
+      tp1, // LOCKED!
+      tp2, // LOCKED!
+      beTrigger: isLongBias ? roundPrice(entry + slDistance) : roundPrice(entry - slDistance),
+      hitBeLock: false,
       hitTp1: false,
       hitTp2: false,
       hitSl: false,
-      progressPct: Math.max(-100, Math.min(100, Math.round((rawDiff / (Math.abs(actTp2 - actEntry) || 1)) * 100))),
-      summaryText: `Activated @ $${actEntry.toFixed(2)} — Currently ${pnlText}. Take 50% at 1:2 ($${actTp1.toFixed(2)}) & move SL to BE.`,
+      outcome: 'ACTIVE',
+      pnlDollarsPerOz: 0,
+      reason: `Grade ${evalRes.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${entry.toFixed(2)})`,
     };
-  } else if (timingState === 'ENTER_NOW') {
+    lockedActiveTradesByTf.set(timeframe, newLocked);
+
     const rawDiff = isLongBias ? currentPrice - entry : entry - currentPrice;
     const livePips = roundPrice(rawDiff * 10);
     const liveDollars = roundPrice(rawDiff);
@@ -1821,18 +2000,18 @@ export function analyzeGoldCandles(
       hitTp2: false,
       hitSl: false,
       progressPct: Math.max(-100, Math.min(100, Math.round((rawDiff / (Math.abs(tp2 - entry) || 1)) * 100))),
-      summaryText: `4-Confluence Confirmed @ $${entry.toFixed(2)}. Currently ${pnlText}. Hard SL $${stopLoss.toFixed(2)}, 1:2 TP1 $${tp1.toFixed(2)}, 1:3 Runner $${tp2.toFixed(2)}.`,
+      summaryText: `Locked ${isLongBias ? 'BUY' : 'SELL'} Entry @ $${entry.toFixed(2)}. Currently ${pnlText}. Hard SL $${stopLoss.toFixed(2)}, 1:2 TP1 $${tp1.toFixed(2)}, 1:3 Runner $${tp2.toFixed(2)}.`,
     };
   } else {
     const distPips = roundPrice(Math.abs(currentPrice - waitPullbackEntry) * 10);
-    const prevClosed =
-      latestHistSig && latestHistSig.outcome !== 'ACTIVE'
-        ? latestHistSig.outcome === 'TP2_HIT'
-          ? `Prev: 🏆 1:3 Runner Hit (+$${latestHistSig.pnlDollarsPerOz.toFixed(2)})`
-          : latestHistSig.outcome === 'TP1_HIT'
-          ? `Prev: ✅ 1:2 TP1 Hit (+$${latestHistSig.pnlDollarsPerOz.toFixed(2)})`
-          : `Prev: ❌ SL Hit (-$${Math.abs(latestHistSig.pnlDollarsPerOz).toFixed(2)})`
-        : '';
+    const latestClosed = historicalSignals.find((s) => s.outcome !== 'ACTIVE');
+    const prevClosed = latestClosed
+      ? latestClosed.outcome === 'TP2_HIT'
+        ? `Prev: 🏆 1:3 Runner Hit (+$${latestClosed.pnlDollarsPerOz.toFixed(2)})`
+        : latestClosed.outcome === 'TP1_HIT'
+        ? `Prev: ✅ 1:2 TP1 Hit (+$${latestClosed.pnlDollarsPerOz.toFixed(2)})`
+        : `Prev: ❌ SL Hit (-$${Math.abs(latestClosed.pnlDollarsPerOz).toFixed(2)})`
+      : '';
 
     const fvgBadge = evalRes.ict.sweepBosFvgPro?.fvgPro.detected
       ? '⚡ WAIT FVG PRO (CE 50%)'
@@ -1862,6 +2041,11 @@ export function analyzeGoldCandles(
       summaryText: `${prevClosed ? prevClosed + ' — ' : ''}Wait for price ($${currentPrice.toFixed(2)}) to tap FVG PRO CE 50% at $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}p) + rejection confirmation.`,
     };
   }
+
+  const advice =
+    timingState === 'ENTER_NOW'
+      ? `⚡ Liquidity Sweep + BOS + FVG PRO Confirmed (${session.name}). Enter ${recommendedOrderType} @ $${(lockedActive?.entry ?? entry).toFixed(2)} | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk beyond sweep wick) | 1:2 TP1 $${tp1.toFixed(2)} & 1:3 Runner $${tp2.toFixed(2)}.`
+      : `Do NOT chase Market ($${currentPrice.toFixed(2)}). Wait for FVG PRO Consequent Encroachment (CE 50%) @ $${waitPullbackEntry.toFixed(2)} | Hard SL $${stopLoss.toFixed(2)} ($${slDistance.toFixed(2)} risk) | 1:2 TP1 $${tp1.toFixed(2)}.`;
 
   const entryTiming: EntryTimingAnalysis = {
     state: timingState,
