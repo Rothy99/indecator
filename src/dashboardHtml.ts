@@ -195,7 +195,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 flex-wrap gap-0.5">
-            <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
+            <button id="btnViewEasy" onclick="setMtfView('easy')" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
+              ✨ Easy View
+            </button>
+            <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">
               🔲 Grid View
             </button>
             <button id="btnViewTable" onclick="setMtfView('table')" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">
@@ -210,8 +213,22 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- Easy View: 6-Timeframe Quick Status Strip (Compact, High-Focus) -->
+      <div id="mtfEasyContainer" class="space-y-2">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span class="font-bold uppercase tracking-wider text-[11px] text-amber-300 flex items-center gap-1.5">
+            <span>⚡ Multi-Timeframe Status Strip</span>
+            <span class="text-[10px] text-slate-400 font-normal">(Click any card to switch main focus)</span>
+          </span>
+          <span class="mono text-[10px] text-slate-500 hidden sm:inline">Real-Time Sub-Second P&L</span>
+        </div>
+        <div id="mtfEasyStripContainer" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <!-- Populated dynamically with 6 sleek interactive chips -->
+        </div>
+      </div>
+
       <!-- Responsive 6-Timeframe Card Grid (Default, Perfect for Mobile & Desktop) -->
-      <div id="mtfGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3">
+      <div id="mtfGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 hidden">
         <!-- Populated dynamically with responsive cards -->
       </div>
 
@@ -300,7 +317,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div id="marketEntryCard" onclick="copyValue('marketEntryVal')" class="cursor-pointer p-3 rounded-xl bg-slate-900/90 border border-slate-700 transition">
               <div class="flex items-center justify-between">
-                <span class="text-[11px] font-extrabold uppercase text-slate-300">Option A: Market Price (Now)</span>
+                <span id="marketCardTitle" class="text-[11px] font-extrabold uppercase text-slate-300">Option A: Market Price (Now)</span>
                 <span id="marketEntryStatusTag" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-300">--</span>
               </div>
               <div id="marketEntryVal" class="mono text-2xl font-black text-white mt-1">$----.--</div>
@@ -638,36 +655,38 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       });
     }
 
-    let mtfViewMode = 'grid';
+    let mtfViewMode = 'easy';
+    try {
+      const savedMode = localStorage.getItem('indecator_view_mode');
+      if (savedMode && ['easy', 'grid', 'table', 'confident'].includes(savedMode)) {
+        mtfViewMode = savedMode;
+      }
+    } catch {}
 
     function setMtfView(mode) {
       mtfViewMode = mode;
+      try { localStorage.setItem('indecator_view_mode', mode); } catch {}
+      const easyEl = document.getElementById('mtfEasyContainer');
       const gridEl = document.getElementById('mtfGridContainer');
       const tableEl = document.getElementById('mtfTableContainer');
       const confEl = document.getElementById('mtfConfidentContainer');
+      const btnEasy = document.getElementById('btnViewEasy');
       const btnGrid = document.getElementById('btnViewGrid');
       const btnTable = document.getElementById('btnViewTable');
       const btnConf = document.getElementById('btnViewConfident');
 
+      if (easyEl) easyEl.classList.toggle('hidden', mode !== 'easy');
       if (gridEl) gridEl.classList.toggle('hidden', mode !== 'grid');
       if (tableEl) tableEl.classList.toggle('hidden', mode !== 'table');
       if (confEl) confEl.classList.toggle('hidden', mode !== 'confident');
 
-      if (btnGrid) {
-        btnGrid.className = mode === 'grid'
-          ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm'
-          : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
-      }
-      if (btnTable) {
-        btnTable.className = mode === 'table'
-          ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm'
-          : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
-      }
-      if (btnConf) {
-        btnConf.className = mode === 'confident'
-          ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm'
-          : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
-      }
+      const activeBtnCls = 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm';
+      const inactiveBtnCls = 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
+
+      if (btnEasy) btnEasy.className = mode === 'easy' ? activeBtnCls : inactiveBtnCls;
+      if (btnGrid) btnGrid.className = mode === 'grid' ? activeBtnCls : inactiveBtnCls;
+      if (btnTable) btnTable.className = mode === 'table' ? activeBtnCls : inactiveBtnCls;
+      if (btnConf) btnConf.className = mode === 'confident' ? activeBtnCls : inactiveBtnCls;
     }
 
     function initCharts() {
@@ -852,6 +871,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           }
           if (gridCell) gridCell.innerHTML = pnlHtml;
           if (tableCell) tableCell.innerHTML = pnlHtml;
+
+          const easyCell = document.getElementById('easy-strip-pnl-' + tf);
+          if (easyCell) {
+            if (lc.isActivated) {
+              const diff = lc.direction === 'BUY' ? bid - lc.entryPrice : lc.entryPrice - bid;
+              const pips = diff * uInfo.mult;
+              const sign = pips >= 0 ? '+' : '';
+              const colorClass = pips >= 0 ? 'text-emerald-400' : 'text-rose-400';
+              const pipsStr = pips.toFixed(1);
+              const diffStr = Math.abs(diff).toFixed(2);
+              easyCell.innerHTML = '<span class="font-black ' + colorClass + '">' + sign + pipsStr + uInfo.unit[0] + ' (' + sign + '$' + diffStr + ')</span>';
+            } else {
+              easyCell.innerHTML = '<span class="text-amber-300 font-bold">⏳ Wait</span>';
+            }
+          }
         });
       }
 
@@ -1067,6 +1101,46 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         document.getElementById('mtfMasterBadge').textContent = \`MASTER: \${mtf.masterSignal}\`;
 
         const order = ['1m', '5m', '15m', '30m', '1h', '4h'];
+        const uInfo = getAssetUnitInfo();
+
+        // 0. Render Easy View: 6-Timeframe Quick Status Strip (Compact, High-Focus)
+        const easyStripContainer = document.getElementById('mtfEasyStripContainer');
+        if (easyStripContainer) {
+          easyStripContainer.innerHTML = order.map((tf) => {
+            const r = mtf.timeframes[tf];
+            if (!r || !r.entryTiming?.lifecycle) return '';
+            const lc = r.entryTiming.lifecycle;
+            const isSelected = tf === currentTf;
+            const cardBorder = isSelected
+              ? 'border-2 border-amber-400 bg-amber-400/[0.12] shadow-md shadow-amber-400/20 ring-1 ring-amber-400/40'
+              : 'border border-slate-800 bg-slate-900/90 hover:border-slate-700 hover:bg-slate-900/95';
+            const dirBg = lc.direction === 'BUY'
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+              : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+            const pnlHtml = lc.isActivated
+              ? (lc.floatingPips >= 0
+                  ? '<span class="text-emerald-400 font-black">+' + lc.floatingPips.toFixed(1) + uInfo.unit[0] + ' (+$' + lc.floatingDollarsPerOz.toFixed(2) + ')</span>'
+                  : '<span class="text-rose-400 font-black">' + lc.floatingPips.toFixed(1) + uInfo.unit[0] + ' (-$' + Math.abs(lc.floatingDollarsPerOz).toFixed(2) + ')</span>')
+              : '<span class="text-amber-300 font-bold">⏳ Wait FVG</span>';
+
+            return \`
+              <div onclick="switchTimeframe('\${tf}')" class="rounded-xl p-2.5 transition-all cursor-pointer flex flex-col justify-between \${cardBorder}">
+                <div class="flex items-center justify-between gap-1 mb-1.5">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-black mono bg-slate-800 uppercase \${isSelected ? 'text-amber-300' : 'text-white'}">\${TF_LABELS[tf] || tf.toUpperCase()}</span>
+                  <span class="px-1.5 py-0.2 rounded text-[10px] font-black border \${dirBg}">\${lc.direction}</span>
+                </div>
+                <div class="flex items-center justify-between text-xs my-1 bg-slate-950/80 px-2 py-1 rounded border border-slate-800/80">
+                  <span class="text-[9px] uppercase font-bold text-slate-400">\${lc.isActivated ? 'P&L' : 'STATE'}</span>
+                  <span id="easy-strip-pnl-\${tf}" class="mono text-[11px] font-black">\${pnlHtml}</span>
+                </div>
+                <div class="text-[10px] mono text-slate-400 flex items-center justify-between pt-1">
+                  <span class="text-[9px] uppercase text-slate-500">Entry:</span>
+                  <span class="font-extrabold text-amber-300">$\${lc.entryPrice.toFixed(2)}</span>
+                </div>
+              </div>
+            \`;
+          }).join('');
+        }
 
         // 1. Render Responsive 6-Timeframe Card Grid (Default View with Scroll Retention)
         const gridContainer = document.getElementById('mtfGridContainer');
@@ -1124,33 +1198,31 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <span class="px-2 py-0.5 rounded text-[10px] \${activationBadgeStyle(lc.activationState)}">\${lc.statusBadge}</span>
                   </div>
 
-                  <!-- Live P&L or Distance Box (Full Text, Never Cut Off) -->
-                  <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800/80 mb-2.5 overflow-visible">
-                    <div class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 flex items-center justify-between">
-                      <span>LIVE STATUS & P&L</span>
-                    </div>
-                    <div id="mtf-grid-pnl-\${tf}" class="mono text-xs sm:text-[12px] font-black text-center min-h-[64px] h-auto py-2.5 px-2 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-center shadow-inner overflow-visible">
+                  <!-- Live P&L or Distance Box (Streamlined & Compact) -->
+                  <div class="px-2.5 py-2 rounded-lg bg-slate-950/90 border border-slate-800/80 mb-2.5 flex items-center justify-between shadow-inner">
+                    <span class="text-[9px] uppercase font-bold text-slate-400">\${lc.isActivated ? 'LIVE P&L' : 'STATUS'}</span>
+                    <div id="mtf-grid-pnl-\${tf}" class="mono text-xs font-black">
                       \${pnlCellHtml}
                     </div>
                   </div>
 
                   <!-- Key Execution Grid (Entry, Hard SL, TP1, TP2) -->
                   <div class="grid grid-cols-2 gap-1.5 mono mb-3">
-                    <div class="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
-                      <div class="text-[9px] uppercase font-bold text-amber-400/80">📍 Entry</div>
-                      <div class="font-black text-amber-300 text-xs">$\${lc.entryPrice.toFixed(2)}</div>
+                    <div class="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-between">
+                      <span class="text-[9px] uppercase font-bold text-amber-400/80">📍 Entry</span>
+                      <span class="font-black text-amber-300 text-xs">$\${lc.entryPrice.toFixed(2)}</span>
                     </div>
-                    <div class="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                      <div class="text-[9px] uppercase font-bold text-rose-400/80">🛑 Hard SL</div>
-                      <div class="font-bold text-rose-400 text-xs">$\${lc.stopLoss.toFixed(2)}</div>
+                    <div class="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-between">
+                      <span class="text-[9px] uppercase font-bold text-rose-400/80">🛑 Hard SL</span>
+                      <span class="font-bold text-rose-400 text-xs">$\${lc.stopLoss.toFixed(2)}</span>
                     </div>
-                    <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                      <div class="text-[9px] uppercase font-bold text-emerald-400/80">🎯 TP1 (1:2)</div>
-                      <div class="font-bold text-emerald-400 text-xs">$\${lc.tp1.toFixed(2)}</div>
+                    <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                      <span class="text-[9px] uppercase font-bold text-emerald-400/80">🎯 TP1 (1:2)</span>
+                      <span class="font-bold text-emerald-400 text-xs">$\${lc.tp1.toFixed(2)}</span>
                     </div>
-                    <div class="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30">
-                      <div class="text-[9px] uppercase font-bold text-emerald-300/80">🏆 TP2 (1:3)</div>
-                      <div class="font-extrabold text-emerald-300 text-xs">$\${lc.tp2.toFixed(2)}</div>
+                    <div class="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between">
+                      <span class="text-[9px] uppercase font-bold text-emerald-300/80">🏆 TP2 (1:3)</span>
+                      <span class="font-extrabold text-emerald-300 text-xs">$\${lc.tp2.toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -1365,7 +1437,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       }).join('');
 
       // Entry Cards & Hard SL (1.5x ATR dynamic rule) + 1:2 TP1 + 1:3 TP2
+      const mktTitle = document.getElementById('marketCardTitle');
       if (lc.isActivated) {
+        if (mktTitle) mktTitle.textContent = 'Active Position (Locked Entry)';
         document.getElementById('marketEntryVal').textContent = '$' + lc.entryPrice.toFixed(2);
         document.getElementById('marketEntryStatusTag').textContent = '🔒 ENTRY LOCKED';
         document.getElementById('marketEntryStatusTag').className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse';
@@ -1376,6 +1450,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         document.getElementById('waitOrderTypeTag').textContent = '1:2 TP1';
         document.getElementById('waitEntryNote').textContent = 'Move SL to Breakeven @ $' + lc.entryPrice.toFixed(2) + ' when hit';
       } else {
+        if (mktTitle) mktTitle.textContent = 'Option A: Market Price (Now)';
         document.getElementById('marketEntryVal').textContent = '$' + et.marketEntry.toFixed(2);
         document.getElementById('marketEntryStatusTag').textContent = et.isLate ? '⚠️ LATE CHASE' : 'SPOT NOW';
         document.getElementById('marketEntryStatusTag').className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-300';
@@ -1853,6 +1928,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     function startApp() {
+      try { setMtfView(mtfViewMode); } catch (e) { console.error('setMtfView err:', e); }
       try { updateSymbolButtons(); } catch (e) { console.error('updateSymbolButtons err:', e); }
       try { initCharts(); } catch (e) { console.error('initCharts err:', e); }
       try { connectRealtimeTickStream(); } catch (e) { console.error('stream err:', e); }
