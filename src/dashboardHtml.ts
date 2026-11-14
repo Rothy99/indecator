@@ -400,11 +400,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         <div class="flex items-center gap-2 flex-wrap">
           <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
-            <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
-              🔲 6-TF Grid
+            <button id="btnViewTable" onclick="setMtfView('table')" class="px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
+              📊 Multi-TF Table
             </button>
-            <button id="btnViewTable" onclick="setMtfView('table')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
-              📊 Alignment Table
+            <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+              🔲 6-TF Grid
             </button>
             <button id="btnViewConfident" onclick="setMtfView('confident')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               ⭐ 85%+ Setups
@@ -423,33 +423,33 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Tab Pane 1: 6-Timeframe Responsive Cards Grid -->
-      <div id="mtfGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3">
-        <!-- Populated dynamically with responsive cards -->
-      </div>
-
-      <!-- Tab Pane 2: Multi-Timeframe Alignment Table -->
-      <div id="mtfTableContainer" data-scroll-key="mtf-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto hidden">
+            <!-- Tab Pane 1: Multi-Timeframe Alignment Table (Default Primary Table View) -->
+      <div id="mtfTableContainer" data-scroll-key="mtf-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/80">
         <table class="w-full text-left border-collapse text-xs">
           <thead>
-            <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
-              <th class="py-2.5 px-2.5">Timeframe</th>
-              <th class="py-2.5 px-2.5">Structure & Grade</th>
-              <th class="py-2.5 px-2.5">50 & 200 EMA</th>
-              <th class="py-2.5 px-2.5">Activation Status</th>
-              <th class="py-2.5 px-2.5 bg-slate-900/90 border-x border-slate-800">Live P&L or Wait Distance</th>
-              <th class="py-2.5 px-2.5 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
-              <th class="py-2.5 px-2.5">Hard SL (1.5x ATR)</th>
-              <th class="py-2.5 px-2.5">TP 1 (1:2 • 50% + BE)</th>
-              <th class="py-2.5 px-2.5">TP 2 (1:3 • H4 Runner)</th>
-              <th class="py-2.5 px-2.5">Win Rate</th>
-              <th class="py-2.5 px-2.5 text-right">Copy</th>
+            <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px] bg-slate-950/70">
+              <th class="py-2.5 px-3">Timeframe</th>
+              <th class="py-2.5 px-3">Structure & Grade</th>
+              <th class="py-2.5 px-3">50 & 200 EMA</th>
+              <th class="py-2.5 px-3">Activation Status</th>
+              <th class="py-2.5 px-3 bg-slate-900/90 border-x border-slate-800">Live P&L or Wait Distance</th>
+              <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
+              <th class="py-2.5 px-3">Hard SL (1.5x ATR)</th>
+              <th class="py-2.5 px-3">TP 1 (1:2 • 50% + BE)</th>
+              <th class="py-2.5 px-3">TP 2 (1:3 • H4 Runner)</th>
+              <th class="py-2.5 px-3">Win Rate</th>
+              <th class="py-2.5 px-3 text-right">Copy</th>
             </tr>
           </thead>
           <tbody id="mtfMatrixBody" class="divide-y divide-slate-800/70 mono">
             <!-- Populated dynamically -->
           </tbody>
         </table>
+      </div>
+
+      <!-- Tab Pane 2: 6-Timeframe Responsive Cards Grid -->
+      <div id="mtfGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 hidden">
+        <!-- Populated dynamically with responsive cards -->
       </div>
 
       <!-- Tab Pane 3: ⭐ 85%+ High-Confidence Setups per Timeframe -->
@@ -551,6 +551,27 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- REAL-TIME INSTITUTIONAL TERMINAL FEED (BLOTTER)                            -->
+    <!-- ========================================================================= -->
+    <section class="panel rounded-2xl p-3.5 space-y-2 border-slate-800 bg-slate-950/95 mono text-xs">
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+          <span class="font-extrabold uppercase text-emerald-400 tracking-wider">⚡ Real-Time Institutional Terminal Feed</span>
+          <span class="text-[10px] text-slate-400 px-2 py-0.5 rounded bg-slate-900 border border-slate-800">SSE 0.8s Sub-Second Stream</span>
+        </div>
+        <div class="flex items-center gap-3 text-[11px] text-slate-400">
+          <span id="termStreamStatus" class="text-emerald-400 font-bold">● CONNECTED</span>
+          <span id="termTickCounter" class="text-amber-300">Ticks: 0</span>
+          <button onclick="clearTerminalLogs()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition">Clear</button>
+        </div>
+      </div>
+      <div id="realtimeTerminalLogs" class="h-24 overflow-y-auto space-y-1 text-[11px] text-slate-300 select-none scrollbar-thin divide-y divide-slate-900/60">
+        <div class="text-slate-500 py-0.5">[SYSTEM] Terminal initialized. Subscribed to sub-second tick stream...</div>
+      </div>
     </section>
 
   </main>
@@ -658,16 +679,47 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       });
     }
 
-    let mtfViewMode = 'grid';
+    let mtfViewMode = 'table';
+    let terminalTickCount = 0;
+
+    function appendTerminalLog(type, text) {
+      const container = document.getElementById('realtimeTerminalLogs');
+      if (!container) return;
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      const div = document.createElement('div');
+      div.className = 'py-0.5 flex items-start gap-2';
+      let badgeColor = 'bg-slate-800 text-slate-300';
+      if (type.includes('UP')) badgeColor = 'bg-emerald-500/20 text-emerald-400 font-bold';
+      else if (type.includes('DN') || type.includes('DOWN')) badgeColor = 'bg-rose-500/20 text-rose-400 font-bold';
+      else if (type === 'SIGNAL') badgeColor = 'bg-amber-400/20 text-amber-300 font-bold';
+      else if (type === 'STATUS' || type === 'EXEC') badgeColor = 'bg-sky-500/20 text-sky-300 font-bold';
+
+      div.innerHTML = '<span class="text-slate-500">[' + timeStr + ']</span><span class="px-1.5 py-0.2 rounded text-[9px] ' + badgeColor + '">' + type + '</span><span class="text-slate-200">' + text + '</span>';
+      container.appendChild(div);
+      while (container.childNodes.length > 50) {
+        container.removeChild(container.firstChild);
+      }
+      container.scrollTop = container.scrollHeight;
+      terminalTickCount++;
+      const countEl = document.getElementById('termTickCounter');
+      if (countEl) countEl.textContent = 'Ticks: ' + terminalTickCount;
+    }
+
+    function clearTerminalLogs() {
+      const container = document.getElementById('realtimeTerminalLogs');
+      if (container) container.innerHTML = '<div class="text-slate-500 py-0.5">[SYSTEM] Terminal logs cleared. Active stream ongoing...</div>';
+    }
+
     try {
       const savedMode = localStorage.getItem('indecator_view_mode');
-      if (savedMode && ['grid', 'table', 'confident', 'signals', 'journal'].includes(savedMode)) {
+      if (savedMode && ['table', 'grid', 'confident', 'signals', 'journal'].includes(savedMode)) {
         mtfViewMode = savedMode;
       }
     } catch {}
 
     function setMtfView(mode) {
-      if (mode === 'easy') mode = 'grid';
+      if (mode === 'easy') mode = 'table';
       mtfViewMode = mode;
       try { localStorage.setItem('indecator_view_mode', mode); } catch {}
       const tabPanes = {
@@ -810,10 +862,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           boxEl.classList.add('tick-up');
           arrowEl.textContent = '▲';
           arrowEl.className = 'text-base font-bold text-emerald-400';
+          appendTerminalLog('TICK_UP', quote.symbol + ' Bid: $' + bid.toFixed(2) + ' (▲) | Ask: $' + ask.toFixed(2) + ' | Spread: ' + spreadPoints + ' ' + uInfo.unit);
         } else {
           boxEl.classList.add('tick-down');
           arrowEl.textContent = '▼';
           arrowEl.className = 'text-base font-bold text-rose-400';
+          appendTerminalLog('TICK_DN', quote.symbol + ' Bid: $' + bid.toFixed(2) + ' (▼) | Ask: $' + ask.toFixed(2) + ' | Spread: ' + spreadPoints + ' ' + uInfo.unit);
         }
       }
       lastKnownBid = bid;
