@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import fs from 'node:fs';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { streamSSE } from 'hono/streaming';
@@ -23,6 +24,20 @@ app.use('*', cors());
 
 void initRealtimeMarketEngine();
 void initD1Database();
+
+let localChartsJs = '';
+try {
+  if (fs.existsSync('public/lightweight-charts.js')) {
+    localChartsJs = fs.readFileSync('public/lightweight-charts.js', 'utf8');
+  }
+} catch {}
+
+app.get('/js/lightweight-charts.js', (c: any) => {
+  if (localChartsJs) {
+    return c.text(localChartsJs, 200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+  }
+  return c.redirect('https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js');
+});
 
 function parseSymbol(raw: any): SupportedSymbol {
   const s = String(raw || 'XAUUSD').toUpperCase().replace(/[^A-Z]/g, '');

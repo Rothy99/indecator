@@ -5,7 +5,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>XAU/USD — The 4-Confluence Master Strategy Terminal</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="/js/lightweight-charts.js"></script>
+  <script>
+    if (typeof LightweightCharts === 'undefined') {
+      document.write('<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\\/script>');
+    }
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
     body {
@@ -667,43 +672,54 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     function initCharts() {
       const priceEl = document.getElementById('priceChart');
-      priceChart = LightweightCharts.createChart(priceEl, {
-        layout: {
-          background: { type: 'solid', color: '#0c1220' },
-          textColor: '#94a3b8',
-          fontFamily: 'JetBrains Mono, monospace',
-          fontSize: 11,
-        },
-        grid: {
-          vertLines: { color: 'rgba(30, 41, 59, 0.45)' },
-          horzLines: { color: 'rgba(30, 41, 59, 0.45)' },
-        },
-        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: '#1e293b' },
-        timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false },
-        height: window.innerWidth < 640 ? 320 : 430,
-      });
-
-      candleSeries = priceChart.addCandlestickSeries({
-        upColor: '#10b981',
-        downColor: '#f43f5e',
-        borderUpColor: '#10b981',
-        borderDownColor: '#f43f5e',
-        wickUpColor: '#10b981',
-        wickDownColor: '#f43f5e',
-      });
-
-      // Clean 2-Indicator Setup: 50 EMA (Purple) & 200 EMA (Sky Blue)
-      ema50Series = priceChart.addLineSeries({ color: '#a855f7', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-      ema200Series = priceChart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-
-      window.addEventListener('resize', () => {
-        const isMob = window.innerWidth < 640;
-        priceChart.applyOptions({
-          width: priceEl.clientWidth,
-          height: isMob ? 320 : 430,
+      if (!priceEl) return;
+      if (typeof LightweightCharts === 'undefined') {
+        console.warn('LightweightCharts not ready yet, retrying in 500ms...');
+        setTimeout(initCharts, 500);
+        return;
+      }
+      try {
+        priceChart = LightweightCharts.createChart(priceEl, {
+          layout: {
+            background: { type: 'solid', color: '#0c1220' },
+            textColor: '#94a3b8',
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 11,
+          },
+          grid: {
+            vertLines: { color: 'rgba(30, 41, 59, 0.45)' },
+            horzLines: { color: 'rgba(30, 41, 59, 0.45)' },
+          },
+          crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+          rightPriceScale: { borderColor: '#1e293b' },
+          timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false },
+          height: window.innerWidth < 640 ? 320 : 430,
         });
-      });
+
+        candleSeries = priceChart.addCandlestickSeries({
+          upColor: '#10b981',
+          downColor: '#f43f5e',
+          borderUpColor: '#10b981',
+          borderDownColor: '#f43f5e',
+          wickUpColor: '#10b981',
+          wickDownColor: '#f43f5e',
+        });
+
+        // Clean 2-Indicator Setup: 50 EMA (Purple) & 200 EMA (Sky Blue)
+        ema50Series = priceChart.addLineSeries({ color: '#a855f7', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+        ema200Series = priceChart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+
+        window.addEventListener('resize', () => {
+          if (!priceChart || !priceEl) return;
+          const isMob = window.innerWidth < 640;
+          priceChart.applyOptions({
+            width: priceEl.clientWidth,
+            height: isMob ? 320 : 430,
+          });
+        });
+      } catch (err) {
+        console.warn('initCharts error caught:', err);
+      }
     }
 
     function connectRealtimeTickStream() {
@@ -892,11 +908,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     function clearSetupPriceLines() {
+      if (!candleSeries) return;
       activePriceLines.forEach((l) => { try { candleSeries.removePriceLine(l); } catch {} });
       activePriceLines = [];
     }
 
     function drawSetupPriceLines(setup, liq) {
+      if (!candleSeries) return;
       clearSetupPriceLines();
       if (!showPriceLines || !setup) return;
 
@@ -1424,32 +1442,39 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       }
 
       // Chart Update (Clean 50 EMA & 200 EMA Only)
-      document.getElementById('chartTfLabel').textContent = data.timeframe.toUpperCase();
-      const candles = [], ema50 = [], ema200 = [];
-      data.series.forEach((pt) => {
-        candles.push({ time: pt.time, open: pt.open, high: pt.high, low: pt.low, close: pt.close });
-        if (pt.ema50 !== null) ema50.push({ time: pt.time, value: pt.ema50 });
-        if (pt.ema200 !== null) ema200.push({ time: pt.time, value: pt.ema200 });
-      });
+      const chartTfLabel = document.getElementById('chartTfLabel');
+      if (chartTfLabel) chartTfLabel.textContent = data.timeframe.toUpperCase();
+      if (candleSeries && ema50Series && ema200Series && data.series) {
+        try {
+          const candles = [], ema50 = [], ema200 = [];
+          data.series.forEach((pt) => {
+            candles.push({ time: pt.time, open: pt.open, high: pt.high, low: pt.low, close: pt.close });
+            if (pt.ema50 !== null) ema50.push({ time: pt.time, value: pt.ema50 });
+            if (pt.ema200 !== null) ema200.push({ time: pt.time, value: pt.ema200 });
+          });
 
-      candleSeries.setData(candles);
-      ema50Series.setData(ema50);
-      ema200Series.setData(ema200);
-      lastCandleBar = candles[candles.length - 1] ? { ...candles[candles.length - 1] } : null;
+          candleSeries.setData(candles);
+          ema50Series.setData(ema50);
+          ema200Series.setData(ema200);
+          lastCandleBar = candles[candles.length - 1] ? { ...candles[candles.length - 1] } : null;
 
-      const minTime = candles[0]?.time ?? 0;
-      const markers = data.historicalSignals
-        .filter((s) => s.time >= minTime)
-        .sort((a, b) => a.time - b.time)
-        .map((s) => ({
-          time: s.time,
-          position: s.type === 'BUY' ? 'belowBar' : 'aboveBar',
-          color: s.type === 'BUY' ? '#10b981' : '#f43f5e',
-          shape: s.type === 'BUY' ? 'arrowUp' : 'arrowDown',
-          text: \`\${s.grade} \${s.type}\`,
-        }));
-      candleSeries.setMarkers(markers);
-      drawSetupPriceLines(ts, data.liquidityLevels);
+          const minTime = candles[0]?.time ?? 0;
+          const markers = (data.historicalSignals || [])
+            .filter((s) => s.time >= minTime)
+            .sort((a, b) => a.time - b.time)
+            .map((s) => ({
+              time: s.time,
+              position: s.type === 'BUY' ? 'belowBar' : 'aboveBar',
+              color: s.type === 'BUY' ? '#10b981' : '#f43f5e',
+              shape: s.type === 'BUY' ? 'arrowUp' : 'arrowDown',
+              text: \`\${s.grade} \${s.type}\`,
+            }));
+          candleSeries.setMarkers(markers);
+          drawSetupPriceLines(ts, data.liquidityLevels);
+        } catch (chartErr) {
+          console.warn('Chart render error:', chartErr);
+        }
+      }
       restoreAllScrollStates();
       requestAnimationFrame(restoreAllScrollStates);
     }
@@ -1831,13 +1856,19 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       copyTfOrder(currentAnalysis.timeframe);
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      updateSymbolButtons();
-      initCharts();
-      connectRealtimeTickStream();
+    function startApp() {
+      try { updateSymbolButtons(); } catch (e) { console.error('updateSymbolButtons err:', e); }
+      try { initCharts(); } catch (e) { console.error('initCharts err:', e); }
+      try { connectRealtimeTickStream(); } catch (e) { console.error('stream err:', e); }
       loadSignalData();
       setInterval(loadSignalData, 2000);
-    });
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', startApp);
+    } else {
+      startApp();
+    }
   </script>
 </body>
 </html>`;
