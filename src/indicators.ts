@@ -1,3 +1,9 @@
+import {
+  archiveD1ClosedTrade,
+  loadInitialD1State,
+  saveD1ActiveTrade,
+} from './d1Database.js';
+
 export interface Candle {
   time: number; // Unix timestamp in seconds
   open: number;
@@ -1452,6 +1458,9 @@ export interface LockedActivePosition {
 export const lockedActiveTradesByTf = new Map<string, LockedActivePosition>();
 export const lockedClosedHistoryByTf = new Map<string, HistoricalSignal[]>();
 
+// Pre-load persistent entries from Cloudflare D1 / local store
+loadInitialD1State(lockedActiveTradesByTf, lockedClosedHistoryByTf);
+
 function archiveClosedTrade(timeframe: string, trade: LockedActivePosition): void {
   const list = lockedClosedHistoryByTf.get(timeframe) || [];
   if (!list.some((e) => e.time === trade.time)) {
@@ -1471,6 +1480,7 @@ function archiveClosedTrade(timeframe: string, trade: LockedActivePosition): voi
     });
     lockedClosedHistoryByTf.set(timeframe, list.slice(0, 20));
   }
+  void archiveD1ClosedTrade(trade);
 }
 
 /**
@@ -1657,7 +1667,7 @@ function scanMasterStrategySignals(
 
     // If signal is ACTIVE and no active trade is locked yet, permanently lock it
     if (outcome === 'ACTIVE' && !lockedActiveTradesByTf.has(timeframe)) {
-      lockedActiveTradesByTf.set(timeframe, {
+      const pos: LockedActivePosition = {
         id: `TF_${timeframe}_${cur.time}`,
         timeframe,
         time: cur.time,
@@ -1679,7 +1689,9 @@ function scanMasterStrategySignals(
         reason: sweepBos && sweepBos.isValid
           ? `Grade ${evalBar.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${entry.toFixed(2)})`
           : `Grade ${evalBar.setupGrade} • 50/200 EMA + ${evalBar.ict.candleConfirmation}`,
-      });
+      };
+      lockedActiveTradesByTf.set(timeframe, pos);
+      void saveD1ActiveTrade(pos);
     }
 
     signals.push({
@@ -1973,6 +1985,7 @@ export function analyzeGoldCandles(
       reason: `Grade ${evalRes.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${entry.toFixed(2)})`,
     };
     lockedActiveTradesByTf.set(timeframe, newLocked);
+    void saveD1ActiveTrade(newLocked);
 
     const rawDiff = isLongBias ? currentPrice - entry : entry - currentPrice;
     const livePips = roundPrice(rawDiff * 10);

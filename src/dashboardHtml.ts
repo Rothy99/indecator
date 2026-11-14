@@ -86,8 +86,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Timeframe Selector + Circuit Breaker Indicator -->
+      <!-- Timeframe Selector + Circuit Breaker + Cloudflare D1 Indicator -->
       <div class="flex items-center justify-between sm:justify-end gap-2 w-full lg:w-auto flex-wrap">
+        <div id="d1DbPill" title="Cloudflare D1 Database Persistent Trade Storage" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-sky-500/15 text-sky-300 border border-sky-500/30">
+          💾 D1 DB: Active
+        </div>
+
         <div id="circuitBreakerPill" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
           🛡️ Breaker: 0/2
         </div>

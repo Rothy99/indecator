@@ -12,12 +12,14 @@ import {
   SupportedTimeframe,
 } from './marketData.js';
 import { DASHBOARD_HTML } from './dashboardHtml.js';
+import { getAllStoredD1Entries, getD1Status, initD1Database } from './d1Database.js';
 
 const app = new Hono();
 
 app.use('*', cors());
 
 void initRealtimeMarketEngine();
+void initD1Database();
 
 const handleRoot = (c: any) => c.html(DASHBOARD_HTML);
 
@@ -216,8 +218,32 @@ const handleStream = (c: any) => {
 app.get('/api/stream', handleStream);
 app.get('/stream', handleStream);
 
+app.get('/api/d1/status', (c: any) =>
+  c.json({ status: 'ok', d1: getD1Status() })
+);
+app.get('/d1/status', (c: any) =>
+  c.json({ status: 'ok', d1: getD1Status() })
+);
+
+app.get('/api/d1/entries', (c: any) =>
+  c.json({ status: 'ok', d1: getD1Status(), entries: getAllStoredD1Entries() })
+);
+app.get('/d1/entries', (c: any) =>
+  c.json({ status: 'ok', d1: getD1Status(), entries: getAllStoredD1Entries() })
+);
+
+app.post('/api/d1/init', async (c: any) => {
+  const success = await initD1Database(c.env?.DB);
+  return c.json({ status: success ? 'ok' : 'fallback', d1: getD1Status() });
+});
+
 const handleHealth = (c: any) =>
-  c.json({ status: 'ok', service: 'xauusd-4-confluence-master-strategy', spotQuote: getLatestSpotQuote() });
+  c.json({
+    status: 'ok',
+    service: 'xauusd-4-confluence-master-strategy',
+    spotQuote: getLatestSpotQuote(),
+    d1Database: getD1Status(),
+  });
 
 app.get('/api/health', handleHealth);
 app.get('/health', handleHealth);
