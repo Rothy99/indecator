@@ -4,12 +4,15 @@ import { cors } from 'hono/cors';
 import { streamSSE } from 'hono/streaming';
 import { analyzeGoldCandles, SignalDirection } from './indicators.js';
 import {
+  ALL_SYMBOLS,
   ALL_TIMEFRAMES,
-  getGoldCandles,
   getLatestSpotQuote,
+  getMarketCandles,
   initRealtimeMarketEngine,
   subscribeToTicks,
+  SupportedSymbol,
   SupportedTimeframe,
+  SYMBOL_CONFIGS,
 } from './marketData.js';
 import { DASHBOARD_HTML } from './dashboardHtml.js';
 import { getAllStoredD1Entries, getD1Status, initD1Database } from './d1Database.js';
@@ -21,23 +24,39 @@ app.use('*', cors());
 void initRealtimeMarketEngine();
 void initD1Database();
 
+function parseSymbol(raw: any): SupportedSymbol {
+  const s = String(raw || 'XAUUSD').toUpperCase().replace(/[^A-Z]/g, '');
+  if (s.includes('BTC')) return 'BTCUSD';
+  if (s.includes('ETH')) return 'ETHUSD';
+  if (s.includes('SOL')) return 'SOLUSD';
+  return 'XAUUSD';
+}
+
 const handleRoot = (c: any) => c.html(DASHBOARD_HTML);
 
 app.get('/', handleRoot);
 app.get('/api', handleRoot);
+
+app.get('/api/symbols', (c: any) =>
+  c.json({
+    symbols: ALL_SYMBOLS.map((s) => SYMBOL_CONFIGS[s]),
+  })
+);
 
 const handleSignal = async (c: any) => {
   const rawTf = (c.req.query('tf') || '15m').toLowerCase();
   const tf: SupportedTimeframe = ALL_TIMEFRAMES.includes(rawTf as SupportedTimeframe)
     ? (rawTf as SupportedTimeframe)
     : '15m';
+  const symbol = parseSymbol(c.req.query('symbol'));
 
-  const { candles, source, spotQuote } = await getGoldCandles(tf);
-  const analysis = analyzeGoldCandles(candles, tf, source);
+  const { candles, source, spotQuote } = await getMarketCandles(symbol, tf);
+  const analysis = analyzeGoldCandles(candles, tf, source, symbol);
 
   return c.json({
     ...analysis,
     spotQuote,
+    symbolConfig: SYMBOL_CONFIGS[symbol],
   });
 };
 
@@ -45,10 +64,11 @@ app.get('/api/signal', handleSignal);
 app.get('/signal', handleSignal);
 
 const handleMtf = async (c: any) => {
+  const symbol = parseSymbol(c.req.query('symbol'));
   const results = await Promise.all(
     ALL_TIMEFRAMES.map(async (tf) => {
-      const { candles, source } = await getGoldCandles(tf);
-      return { tf, analysis: analyzeGoldCandles(candles, tf, source) };
+      const { candles, source } = await getMarketCandles(symbol, tf);
+      return { tf, analysis: analyzeGoldCandles(candles, tf, source, symbol) };
     })
   );
 
@@ -170,8 +190,10 @@ const handleMtf = async (c: any) => {
   }
 
   return c.json({
-    symbol: 'XAU/USD',
-    spotQuote: getLatestSpotQuote(),
+    symbol: SYMBOL_CONFIGS[symbol].displayName,
+    symbolCode: symbol,
+    symbolConfig: SYMBOL_CONFIGS[symbol],
+    spotQuote: getLatestSpotQuote(symbol),
     session: refSession,
     updatedAt: new Date().toISOString(),
     masterSignal,
@@ -187,6 +209,7 @@ app.get('/api/mtf', handleMtf);
 app.get('/mtf', handleMtf);
 
 const handleStream = (c: any) => {
+  const symbol = parseSymbol(c.req.query('symbol'));
   return streamSSE(c, async (stream) => {
     let closed = false;
     stream.onAbort(() => {
@@ -195,11 +218,11 @@ const handleStream = (c: any) => {
 
     await stream.writeSSE({
       event: 'tick',
-      data: JSON.stringify(getLatestSpotQuote()),
+      data: JSON.stringify(getLatestSpotQuote(symbol)),
     });
 
     const unsubscribe = subscribeToTicks((quote) => {
-      if (!closed) {
+      if (!closed && quote.symbol === symbol) {
         void stream.writeSSE({
           event: 'tick',
           data: JSON.stringify(quote),
@@ -236,13 +259,16 @@ app.post('/api/d1/init', async (c: any) => {
   return c.json({ status: success ? 'ok' : 'fallback', d1: getD1Status() });
 });
 
-const handleHealth = (c: any) =>
-  c.json({
+const handleHealth = (c: any) => {
+  const symbol = parseSymbol(c.req.query('symbol'));
+  return c.json({
     status: 'ok',
-    service: 'xauusd-4-confluence-master-strategy',
-    spotQuote: getLatestSpotQuote(),
+    service: 'multi-asset-4-confluence-master-strategy',
+    symbol,
+    spotQuote: getLatestSpotQuote(symbol),
     d1Database: getD1Status(),
   });
+};
 
 app.get('/api/health', handleHealth);
 app.get('/health', handleHealth);
@@ -256,7 +282,7 @@ if (!process.env.VERCEL) {
       port,
     },
     (info) => {
-      console.log(`✨ XAU/USD 4-Confluence Master Strategy Terminal running at http://localhost:${info.port}`);
+      console.log(`✨ Multi-Asset (Gold & Crypto) 4-Confluence Terminal running at http://localhost:${info.port}`);
     }
   );
 }

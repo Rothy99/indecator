@@ -1495,18 +1495,20 @@ function scanMasterStrategySignals(
   series: IndicatorSeriesPoint[],
   liquidity: KeyLiquidityLevels,
   session: SessionInfo,
-  timeframe: string
+  timeframe: string,
+  symbol: string = 'XAUUSD'
 ): {
   signals: HistoricalSignal[];
   backtest: BacktestSummary;
 } {
+  const tfKey = symbol ? `${symbol}_${timeframe}` : timeframe;
   const signals: HistoricalSignal[] = [];
   let lastSignalIdx = -10;
   const startIdx = Math.max(55, series.length - 190);
   const curPrice = series[series.length - 1].close;
 
-  // 1. If an active position was already locked for this timeframe, update live floating PnL and verify exits
-  const locked = lockedActiveTradesByTf.get(timeframe);
+  // 1. If an active position was already locked for this timeframe & symbol, update live floating PnL and verify exits
+  const locked = lockedActiveTradesByTf.get(tfKey) || (symbol === 'XAUUSD' ? lockedActiveTradesByTf.get(timeframe) : undefined);
   if (locked && locked.outcome === 'ACTIVE') {
     const lastBar = series[series.length - 1];
     // Crucial: Only bars strictly AFTER activation time (bar.time > locked.time) should check full wicks (high/low).
@@ -1522,18 +1524,21 @@ function scanMasterStrategySignals(
         locked.hitTp2 = true;
         locked.outcome = 'TP2_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.tp2 - locked.entry);
-        archiveClosedTrade(timeframe, locked);
+        archiveClosedTrade(tfKey, locked);
+        lockedActiveTradesByTf.delete(tfKey);
         lockedActiveTradesByTf.delete(timeframe);
       } else if (locked.hitBeLock && testLow <= locked.entry) {
         locked.outcome = locked.hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
         locked.pnlDollarsPerOz = locked.hitTp1 ? roundPrice(locked.tp1 - locked.entry) : 0;
-        archiveClosedTrade(timeframe, locked);
+        archiveClosedTrade(tfKey, locked);
+        lockedActiveTradesByTf.delete(tfKey);
         lockedActiveTradesByTf.delete(timeframe);
       } else if (!locked.hitBeLock && testLow <= locked.stopLoss) {
         locked.hitSl = true;
         locked.outcome = 'SL_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.stopLoss - locked.entry);
-        archiveClosedTrade(timeframe, locked);
+        archiveClosedTrade(tfKey, locked);
+        lockedActiveTradesByTf.delete(tfKey);
         lockedActiveTradesByTf.delete(timeframe);
       } else {
         locked.pnlDollarsPerOz = roundPrice(curPrice - locked.entry);
@@ -1546,18 +1551,21 @@ function scanMasterStrategySignals(
         locked.hitTp2 = true;
         locked.outcome = 'TP2_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.entry - locked.tp2);
-        archiveClosedTrade(timeframe, locked);
+        archiveClosedTrade(tfKey, locked);
+        lockedActiveTradesByTf.delete(tfKey);
         lockedActiveTradesByTf.delete(timeframe);
       } else if (locked.hitBeLock && testHigh >= locked.entry) {
         locked.outcome = locked.hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
         locked.pnlDollarsPerOz = locked.hitTp1 ? roundPrice(locked.entry - locked.tp1) : 0;
-        archiveClosedTrade(timeframe, locked);
+        archiveClosedTrade(tfKey, locked);
+        lockedActiveTradesByTf.delete(tfKey);
         lockedActiveTradesByTf.delete(timeframe);
       } else if (!locked.hitBeLock && testHigh >= locked.stopLoss) {
         locked.hitSl = true;
         locked.outcome = 'SL_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.entry - locked.stopLoss);
-        archiveClosedTrade(timeframe, locked);
+        archiveClosedTrade(tfKey, locked);
+        lockedActiveTradesByTf.delete(tfKey);
         lockedActiveTradesByTf.delete(timeframe);
       } else {
         locked.pnlDollarsPerOz = roundPrice(locked.entry - curPrice);
@@ -1601,7 +1609,7 @@ function scanMasterStrategySignals(
     if (!isBuyTrigger && !isSellTrigger) continue;
 
     const type: 'BUY' | 'SELL' = isBuyTrigger ? 'BUY' : 'SELL';
-    const atr = Math.max(cur.atr14, 2.0);
+    const atr = Math.max(cur.atr14, symbol === 'BTCUSD' ? 40 : symbol === 'ETHUSD' ? 4 : symbol === 'SOLUSD' ? 0.3 : 2.0);
     const sweepBos = evalBar.ict.sweepBosFvgPro;
 
     // Enter on the FVG PRO Consequent Encroachment (CE 50%) or 50 EMA Retest price
@@ -1612,14 +1620,26 @@ function scanMasterStrategySignals(
         ? roundPrice(Math.min(cur.close, (cur.low + cur.ema50) / 2))
         : roundPrice(Math.max(cur.close, (cur.high + cur.ema50) / 2));
 
-    // Hard Stop-Loss placed beyond the sweep wick / swing point
-    const bufferDollars = timeframe === '1m' ? 2.0 : timeframe === '5m' ? 3.0 : 3.5;
+    // Hard Stop-Loss placed beyond the sweep wick / swing point adapted to asset scale
+    let bufferDollars = timeframe === '1m' ? 2.0 : timeframe === '5m' ? 3.0 : 3.5;
+    let minSl = 3.0;
+    if (symbol === 'BTCUSD') {
+      bufferDollars = timeframe === '1m' ? 30.0 : timeframe === '5m' ? 60.0 : 100.0;
+      minSl = 60.0;
+    } else if (symbol === 'ETHUSD') {
+      bufferDollars = timeframe === '1m' ? 3.0 : timeframe === '5m' ? 6.0 : 10.0;
+      minSl = 6.0;
+    } else if (symbol === 'SOLUSD') {
+      bufferDollars = timeframe === '1m' ? 0.3 : timeframe === '5m' ? 0.6 : 1.0;
+      minSl = 0.6;
+    }
+
     const sweepExtreme =
       sweepBos && sweepBos.sweep.swept
         ? sweepBos.sweep.sweepWickExtreme
         : type === 'BUY' ? Math.min(cur.low, prev.low) : Math.max(cur.high, prev.high);
     const rawWickDist = Math.abs(entry - sweepExtreme) + bufferDollars;
-    const slDist = roundPrice(Math.max(3.0, Math.min(atr * 1.25, rawWickDist)));
+    const slDist = roundPrice(Math.max(minSl, Math.min(atr * 1.5, rawWickDist)));
 
     // 1:2 Minimum R:R (TP1 = 2.0x SL, take 50% partial & move SL to BE) + 1:3 R:R Runner (TP2 = 3.0x SL)
     const tp1Dist = roundPrice(slDist * 2.0);
@@ -1679,10 +1699,10 @@ function scanMasterStrategySignals(
     }
 
     // If signal is ACTIVE and no active trade is locked yet, permanently lock it
-    if (outcome === 'ACTIVE' && !lockedActiveTradesByTf.has(timeframe)) {
+    if (outcome === 'ACTIVE' && !lockedActiveTradesByTf.has(tfKey)) {
       const pos: LockedActivePosition = {
-        id: `TF_${timeframe}_${cur.time}`,
-        timeframe,
+        id: `TF_${tfKey}_${cur.time}`,
+        timeframe: tfKey,
         time: cur.time,
         type,
         grade: evalBar.setupGrade,
@@ -1703,7 +1723,7 @@ function scanMasterStrategySignals(
           ? `Grade ${evalBar.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${entry.toFixed(2)})`
           : `Grade ${evalBar.setupGrade} • 50/200 EMA + ${evalBar.ict.candleConfirmation}`,
       };
-      lockedActiveTradesByTf.set(timeframe, pos);
+      lockedActiveTradesByTf.set(tfKey, pos);
       void saveD1ActiveTrade(pos);
     }
 
@@ -1728,7 +1748,7 @@ function scanMasterStrategySignals(
   }
 
   // 3. Guarantee that the active trade (if present) is at index 0 and 100% locked
-  const activeNow = lockedActiveTradesByTf.get(timeframe);
+  const activeNow = lockedActiveTradesByTf.get(tfKey) || (symbol === 'XAUUSD' ? lockedActiveTradesByTf.get(timeframe) : undefined);
   const returnedSignals: HistoricalSignal[] = [];
 
   if (activeNow && activeNow.outcome === 'ACTIVE') {
@@ -1750,7 +1770,7 @@ function scanMasterStrategySignals(
 
   // Add historical closed trades, avoiding duplicate timestamps and locking permanently
   const closedFromScan = signals.filter((s) => s.outcome !== 'ACTIVE').reverse();
-  const closedFromArchive = lockedClosedHistoryByTf.get(timeframe) || [];
+  const closedFromArchive = lockedClosedHistoryByTf.get(tfKey) || (symbol === 'XAUUSD' ? lockedClosedHistoryByTf.get(timeframe) : undefined) || [];
   const mergedClosed = [...closedFromArchive];
   let newEntriesFound = false;
 
@@ -1763,9 +1783,9 @@ function scanMasterStrategySignals(
   mergedClosed.sort((a, b) => b.time - a.time);
 
   // Permanently lock all historical closed trades into memory and persistent D1/disk store
-  if (newEntriesFound || !lockedClosedHistoryByTf.has(timeframe)) {
-    lockedClosedHistoryByTf.set(timeframe, mergedClosed.slice(0, 25));
-    void saveD1ClosedList(timeframe, mergedClosed.slice(0, 25));
+  if (newEntriesFound || !lockedClosedHistoryByTf.has(tfKey)) {
+    lockedClosedHistoryByTf.set(tfKey, mergedClosed.slice(0, 30));
+    void saveD1ClosedList(tfKey, mergedClosed.slice(0, 30));
   }
 
   for (const cs of mergedClosed) {
@@ -1806,13 +1826,25 @@ function scanMasterStrategySignals(
 }
 
 /**
- * Full 4-Confluence Master Strategy Analyzer for XAU/USD
+ * Full 4-Confluence Master Strategy Analyzer for Gold & Crypto (BTC, ETH, SOL)
  */
 export function analyzeGoldCandles(
   candles: Candle[],
   timeframe: string,
-  dataSource: string
+  dataSource: string = 'yfinance',
+  symbol: string = 'XAUUSD'
 ): GoldSignalAnalysis {
+  const cleanSymbol = (symbol || 'XAUUSD').toUpperCase();
+  const tfKey = cleanSymbol !== 'XAUUSD' ? `${cleanSymbol}_${timeframe}` : timeframe;
+
+  const isBtc = cleanSymbol.includes('BTC');
+  const isEth = cleanSymbol.includes('ETH');
+  const isSol = cleanSymbol.includes('SOL');
+  const displaySymbol = isBtc ? 'BTC/USD' : isEth ? 'ETH/USD' : isSol ? 'SOL/USD' : 'XAU/USD';
+  const unitLabel = isBtc ? 'BTC' : isEth ? 'ETH' : isSol ? 'SOL' : 'oz';
+  const pipMult = isBtc ? 1 : 10;
+  const pipUnit = isBtc ? 'pts' : 'pips';
+
   const closes = candles.map((c) => c.close);
   // Confluence 3: Clean 50 EMA, 200 EMA, and 14-Period RSI only
   const ema50Arr = calculateEMA(closes, 50);
@@ -1836,7 +1868,7 @@ export function analyzeGoldCandles(
   const lastIdx = series.length - 1;
   const cur = series[lastIdx];
   const currentPrice = cur.close;
-  const atr = Math.max(cur.atr14 ?? currentPrice * 0.0015, 1.2);
+  const atr = Math.max(cur.atr14 ?? currentPrice * 0.0015, isBtc ? 25.0 : isEth ? 2.5 : isSol ? 0.25 : 1.2);
   const ema50 = cur.ema50 ?? currentPrice;
   const ema200 = cur.ema200 ?? ema50;
   const rsi = cur.rsi14 ?? 50;
@@ -1848,7 +1880,8 @@ export function analyzeGoldCandles(
     series,
     liquidityLevels,
     session,
-    timeframe
+    timeframe,
+    cleanSymbol
   );
 
   const isLongBias = evalRes.isLongBias;
@@ -1890,24 +1923,47 @@ export function analyzeGoldCandles(
     recommendedEntry = roundPrice(waitPullbackEntry);
   } else if (isLate) {
     timingState = 'LATE_WAIT_PULLBACK';
-    badgeText = `🟠 LATE ENTRY (+${(distFromZone * 10).toFixed(0)}p FROM FVG PRO CE)`;
+    badgeText = `🟠 LATE ENTRY (+${(distFromZone * pipMult).toFixed(0)}${pipUnit[0]} FROM FVG PRO CE)`;
     recommendedOrderType = isLongBias ? 'BUY LIMIT (FVG/OB WAIT)' : 'SELL LIMIT (FVG/OB WAIT)';
     recommendedEntry = waitPullbackEntry;
   } else {
     timingState = 'WAIT_CONFIRMATION';
     badgeText = evalRes.ict.sweepBosFvgPro?.fvgPro.detected
-      ? `⚡ WAIT FVG PRO CE 50% (${(distFromZone * 10).toFixed(0)}p)`
-      : `⏳ WAIT FVG/OB RETEST (${(distFromZone * 10).toFixed(0)}p)`;
+      ? `⚡ WAIT FVG PRO CE 50% (${(distFromZone * pipMult).toFixed(0)}${pipUnit[0]})`
+      : `⏳ WAIT FVG/OB RETEST (${(distFromZone * pipMult).toFixed(0)}${pipUnit[0]})`;
     recommendedOrderType = isLongBias ? 'BUY LIMIT (FVG/OB WAIT)' : 'SELL LIMIT (FVG/OB WAIT)';
     recommendedEntry = waitPullbackEntry;
   }
 
-  // Rule 2: ATR-Based Dynamic Stop-Loss Rule
-  // Stop-Loss = 1.5x 14-period ATR beyond the liquidity sweep wick / swing point, adapted to volatility
+  // Rule 2: Dynamic Stop-Loss Rule adapted per asset volatility & timeframe
   const atrSlDistance = roundPrice(atr * 1.5);
-  // Cap at reasonable volatility brackets per timeframe while keeping 1.5x ATR dynamic sensitivity
-  const minSlDollars = timeframe === '1m' ? 2.5 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
-  const maxSlDollars = timeframe === '1m' ? 5.0 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
+  let minSlDollars = timeframe === '1m' ? 2.5 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
+  let maxSlDollars = timeframe === '1m' ? 5.0 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
+
+  let spreadPips = 6.0;
+  let maxAllowedSpreadPips = 25.0;
+  let spreadBufferDollars = 0.35;
+
+  if (isBtc) {
+    minSlDollars = timeframe === '1m' ? 50.0 : timeframe === '5m' ? 80.0 : timeframe === '15m' ? 120.0 : 180.0;
+    maxSlDollars = timeframe === '1m' ? 120.0 : timeframe === '5m' ? 200.0 : timeframe === '15m' ? 350.0 : timeframe === '30m' ? 500.0 : timeframe === '1h' ? 800.0 : 1500.0;
+    spreadPips = 2.0;
+    maxAllowedSpreadPips = 10.0;
+    spreadBufferDollars = 2.0;
+  } else if (isEth) {
+    minSlDollars = timeframe === '1m' ? 3.0 : timeframe === '5m' ? 5.0 : timeframe === '15m' ? 8.0 : 12.0;
+    maxSlDollars = timeframe === '1m' ? 12.0 : timeframe === '5m' ? 20.0 : timeframe === '15m' ? 35.0 : timeframe === '30m' ? 50.0 : timeframe === '1h' ? 80.0 : 150.0;
+    spreadPips = 3.0;
+    maxAllowedSpreadPips = 15.0;
+    spreadBufferDollars = 0.30;
+  } else if (isSol) {
+    minSlDollars = timeframe === '1m' ? 0.3 : timeframe === '5m' ? 0.5 : timeframe === '15m' ? 0.8 : 1.2;
+    maxSlDollars = timeframe === '1m' ? 1.0 : timeframe === '5m' ? 1.8 : timeframe === '15m' ? 3.0 : timeframe === '30m' ? 4.5 : timeframe === '1h' ? 7.0 : 12.0;
+    spreadPips = 2.0;
+    maxAllowedSpreadPips = 10.0;
+    spreadBufferDollars = 0.05;
+  }
+
   let slDistance = roundPrice(Math.min(maxSlDollars, Math.max(minSlDollars, atrSlDistance)));
 
   // If Liquidity Sweep Extreme Wick is detected, adapt SL to sit beyond the sweep wick
@@ -1918,14 +1974,9 @@ export function analyzeGoldCandles(
     }
   }
 
-  // Rule 1: Strict MT5 Broker Spread Buffer (Sell orders close at Ask price)
-  // Current XAU/USD spread typically 25-30 points (2.5 - 3.0 pips / $0.25 - $0.30)
-  const spreadPips = 6.0; // institutional average on Swissquote/MT5 Spot
-  const maxAllowedSpreadPips = 25.0; // 25-30 points limit
-  const spreadBufferDollars = 0.35; // Added above Stop-Loss when shorting to avoid Ask spike stopouts
   const isSpreadAcceptable = spreadPips <= maxAllowedSpreadPips;
 
-  // 1:2 Minimum Risk-to-Reward (TP1 = 2.0x SL -> 50% partial + SL to BE) & 1:3 H4 Liquidity Runner (TP2 = 3.0x SL)
+  // 1:2 Minimum Risk-to-Reward (TP1 = 2.0x SL -> 50% partial + SL to BE) & 1:3 Liquidity Runner (TP2 = 3.0x SL)
   const tp1Distance = roundPrice(slDistance * 2.0); // Strict 1:2 R:R
   const tp2Distance = roundPrice(slDistance * 3.0); // Strict 1:3 R:R
   const tp3Distance = roundPrice(slDistance * 4.0);
@@ -1939,8 +1990,8 @@ export function analyzeGoldCandles(
   let tp2 = isLongBias ? roundPrice(entry + tp2Distance) : roundPrice(entry - tp2Distance);
   let tp3 = isLongBias ? roundPrice(entry + tp3Distance) : roundPrice(entry - tp3Distance);
 
-  // Check if an active trade is already locked for this timeframe
-  const lockedActive = lockedActiveTradesByTf.get(timeframe);
+  // Check if an active trade is already locked for this timeframe/symbol
+  const lockedActive = lockedActiveTradesByTf.get(tfKey) || (cleanSymbol === 'XAUUSD' ? lockedActiveTradesByTf.get(timeframe) : undefined);
   let lifecycle: EntryLifecycleTracker;
 
   if (lockedActive && lockedActive.outcome === 'ACTIVE') {
@@ -1955,12 +2006,12 @@ export function analyzeGoldCandles(
     badgeText = `🟢 ACTIVATED • ${lockedActive.type} @ $${actEntry.toFixed(2)}`;
 
     const rawDiff = lockedActive.type === 'BUY' ? currentPrice - actEntry : actEntry - currentPrice;
-    const livePips = roundPrice(rawDiff * 10);
+    const livePips = roundPrice(rawDiff * pipMult);
     const liveDollars = roundPrice(rawDiff);
 
     const actState: EntryActivationState = livePips >= 0 ? 'ACTIVATED_PROFIT' : 'ACTIVATED_LOSS';
     const badge = livePips >= 0 ? '🟢 ACTIVATED • IN PROFIT' : '🔴 ACTIVATED • IN LOSS';
-    const pnlText = `${livePips >= 0 ? '+' : ''}${livePips.toFixed(1)} pips (${liveDollars >= 0 ? '+' : ''}$${liveDollars.toFixed(2)}/oz)`;
+    const pnlText = `${livePips >= 0 ? '+' : ''}${livePips.toFixed(1)} ${pipUnit} (${liveDollars >= 0 ? '+' : ''}$${liveDollars.toFixed(2)}/${unitLabel})`;
 
     lifecycle = {
       activationState: actState,
@@ -1986,8 +2037,8 @@ export function analyzeGoldCandles(
   } else if (timingState === 'ENTER_NOW') {
     // New activation: lock immediately into persistent store
     const newLocked: LockedActivePosition = {
-      id: `TF_${timeframe}_${cur.time}`,
-      timeframe,
+      id: `TF_${tfKey}_${cur.time}`,
+      timeframe: tfKey,
       time: cur.time,
       type: isLongBias ? 'BUY' : 'SELL',
       grade: evalRes.setupGrade,
@@ -2006,15 +2057,15 @@ export function analyzeGoldCandles(
       pnlDollarsPerOz: 0,
       reason: `Grade ${evalRes.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${entry.toFixed(2)})`,
     };
-    lockedActiveTradesByTf.set(timeframe, newLocked);
+    lockedActiveTradesByTf.set(tfKey, newLocked);
     void saveD1ActiveTrade(newLocked);
 
     const rawDiff = isLongBias ? currentPrice - entry : entry - currentPrice;
-    const livePips = roundPrice(rawDiff * 10);
+    const livePips = roundPrice(rawDiff * pipMult);
     const liveDollars = roundPrice(rawDiff);
     const actState: EntryActivationState = livePips >= 0 ? 'ACTIVATED_PROFIT' : 'ACTIVATED_LOSS';
     const badge = livePips >= 0 ? '🟢 ACTIVATED • IN PROFIT' : '🔴 ACTIVATED • IN LOSS';
-    const pnlText = `${livePips >= 0 ? '+' : ''}${livePips.toFixed(1)} pips (${liveDollars >= 0 ? '+' : ''}$${liveDollars.toFixed(2)}/oz)`;
+    const pnlText = `${livePips >= 0 ? '+' : ''}${livePips.toFixed(1)} ${pipUnit} (${liveDollars >= 0 ? '+' : ''}$${liveDollars.toFixed(2)}/${unitLabel})`;
 
     lifecycle = {
       activationState: actState,
@@ -2038,8 +2089,8 @@ export function analyzeGoldCandles(
       summaryText: `Locked ${isLongBias ? 'BUY' : 'SELL'} Entry @ $${entry.toFixed(2)}. Currently ${pnlText}. Hard SL $${stopLoss.toFixed(2)}, 1:2 TP1 $${tp1.toFixed(2)}, 1:3 Runner $${tp2.toFixed(2)}.`,
     };
   } else {
-    const distPips = roundPrice(Math.abs(currentPrice - waitPullbackEntry) * 10);
-    const latestClosed = (lockedClosedHistoryByTf.get(timeframe) || [])[0] ||
+    const distPips = roundPrice(Math.abs(currentPrice - waitPullbackEntry) * pipMult);
+    const latestClosed = (lockedClosedHistoryByTf.get(tfKey) || (cleanSymbol === 'XAUUSD' ? lockedClosedHistoryByTf.get(timeframe) : undefined) || [])[0] ||
       historicalSignals.find((s) => s.outcome !== 'ACTIVE');
     const prevClosed = latestClosed
       ? latestClosed.outcome === 'TP2_HIT'
@@ -2058,8 +2109,8 @@ export function analyzeGoldCandles(
       isActivated: false,
       statusBadge: fvgBadge,
       pnlStatusText: prevClosed
-        ? `${prevClosed} → Wait @ $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}p)`
-        : `Wait ${distPips.toFixed(1)}p for FVG PRO @ $${waitPullbackEntry.toFixed(2)}`,
+        ? `${prevClosed} → Wait @ $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}${pipUnit[0]})`
+        : `Wait ${distPips.toFixed(1)}${pipUnit[0]} for FVG PRO @ $${waitPullbackEntry.toFixed(2)}`,
       direction: isLongBias ? 'BUY' : 'SELL',
       entryPrice: waitPullbackEntry,
       activatedTime: null,
@@ -2074,7 +2125,7 @@ export function analyzeGoldCandles(
       hitTp2: false,
       hitSl: false,
       progressPct: 0,
-      summaryText: `${prevClosed ? prevClosed + ' — ' : ''}Wait for price ($${currentPrice.toFixed(2)}) to tap FVG PRO CE 50% at $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}p) + rejection confirmation.`,
+      summaryText: `${prevClosed ? prevClosed + ' — ' : ''}Wait for price ($${currentPrice.toFixed(2)}) to tap FVG PRO CE 50% at $${waitPullbackEntry.toFixed(2)} (${distPips.toFixed(1)}${pipUnit[0]}) + rejection confirmation.`,
     };
   }
 
@@ -2089,7 +2140,7 @@ export function analyzeGoldCandles(
     direction: isLongBias ? 'BUY' : 'SELL',
     signalOriginPrice: evalRes.ict.lastSwingHigh,
     barsSinceCross: 3,
-    movedPipsSinceOrigin: roundPrice(distFromZone * 10),
+    movedPipsSinceOrigin: roundPrice(distFromZone * pipMult),
     isLate,
     marketEntry: roundPrice(currentPrice),
     waitPullbackEntry,
@@ -2100,9 +2151,9 @@ export function analyzeGoldCandles(
     tp2,
     tp3,
     riskDollars: slDistance,
-    riskPips: roundPrice(slDistance * 10),
-    rewardTp1Pips: roundPrice(tp1Distance * 10),
-    rewardTp2Pips: roundPrice(tp2Distance * 10),
+    riskPips: roundPrice(slDistance * pipMult),
+    rewardTp1Pips: roundPrice(tp1Distance * pipMult),
+    rewardTp2Pips: roundPrice(tp2Distance * pipMult),
     advice,
     lifecycle,
   };
@@ -2162,7 +2213,7 @@ export function analyzeGoldCandles(
   });
 
   return {
-    symbol: 'XAU/USD',
+    symbol: displaySymbol,
     timeframe,
     dataSource,
     lastUpdated: new Date().toISOString(),
@@ -2196,10 +2247,10 @@ export function analyzeGoldCandles(
       tp1,
       tp2,
       tp3,
-      riskPips: roundPrice(slDistance * 10),
-      rewardTp1Pips: roundPrice(tp1Distance * 10),
-      rewardTp2Pips: roundPrice(tp2Distance * 10),
-      rewardTp3Pips: roundPrice(tp3Distance * 10),
+      riskPips: roundPrice(slDistance * pipMult),
+      rewardTp1Pips: roundPrice(tp1Distance * pipMult),
+      rewardTp2Pips: roundPrice(tp2Distance * pipMult),
+      rewardTp3Pips: roundPrice(tp3Distance * pipMult),
       riskRewardTp2: '1 : 2 (50% Partial) → 1 : 3 Runner',
       atrValue: roundPrice(atr),
       entryTiming,
@@ -2218,3 +2269,5 @@ export function analyzeGoldCandles(
     series: series.slice(-160),
   };
 }
+
+export const analyzeMarketCandles = analyzeGoldCandles;

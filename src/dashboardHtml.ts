@@ -57,7 +57,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
           <div>
             <div class="flex items-center gap-1.5 sm:gap-2">
-              <span class="font-extrabold text-sm sm:text-base tracking-tight text-white">XAU/USD MASTER</span>
+              <span id="headerSymbolTitle" class="font-extrabold text-sm sm:text-base tracking-tight text-white">XAU/USD MASTER</span>
               <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                 LIVE 0.8s
@@ -86,8 +86,24 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Timeframe Selector + Circuit Breaker + Cloudflare D1 Indicator -->
+      <!-- Multi-Asset Switcher + Timeframe Selector + Circuit Breaker + Cloudflare D1 Indicator -->
       <div class="flex items-center justify-between sm:justify-end gap-2 w-full lg:w-auto flex-wrap">
+        <!-- Multi-Asset Switcher: Gold & Major Crypto -->
+        <div class="inline-flex rounded-lg bg-slate-900 p-0.5 sm:p-1 border border-slate-800 overflow-x-auto gap-0.5">
+          <button onclick="switchSymbol('XAUUSD')" id="sym-XAUUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-black transition-all bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm">
+            <span>🪙</span><span>Gold</span>
+          </button>
+          <button onclick="switchSymbol('BTCUSD')" id="sym-BTCUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+            <span>₿</span><span>BTC</span>
+          </button>
+          <button onclick="switchSymbol('ETHUSD')" id="sym-ETHUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+            <span>Ξ</span><span>ETH</span>
+          </button>
+          <button onclick="switchSymbol('SOLUSD')" id="sym-SOLUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+            <span>◎</span><span>SOL</span>
+          </button>
+        </div>
+
         <div id="d1DbPill" title="Cloudflare D1 Database Persistent Trade Storage" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-sky-500/15 text-sky-300 border border-sky-500/30">
           💾 D1 DB: Active
         </div>
@@ -519,6 +535,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   </div>
 
   <script>
+    let currentSymbol = localStorage.getItem('selectedSymbol') || 'XAUUSD';
     let currentTf = '15m';
     let signalListFilter = 'ALL';
     let showPriceLines = true;
@@ -526,6 +543,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     let latestMtfData = null;
     let lastKnownBid = null;
     let lastCandleBar = null;
+    let currentEventSource = null;
 
     let priceChart, candleSeries, ema50Series, ema200Series;
     let activePriceLines = [];
@@ -538,6 +556,43 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       '1h': 'H1 Filter',
       '4h': 'H4 Structure'
     };
+
+    function getAssetUnitInfo() {
+      if (currentSymbol === 'BTCUSD') return { mult: 1, unit: 'pts', asset: 'BTC', label: 'BTC/USD' };
+      if (currentSymbol === 'ETHUSD') return { mult: 10, unit: 'pts', asset: 'ETH', label: 'ETH/USD' };
+      if (currentSymbol === 'SOLUSD') return { mult: 10, unit: 'pts', asset: 'SOL', label: 'SOL/USD' };
+      return { mult: 10, unit: 'pips', asset: 'oz', label: 'XAU/USD' };
+    }
+
+    function switchSymbol(sym) {
+      if (currentSymbol === sym) return;
+      currentSymbol = sym;
+      localStorage.setItem('selectedSymbol', sym);
+      updateSymbolButtons();
+      lastKnownBid = null;
+      lastGridSig = '';
+      lastTableSig = '';
+      lastHighConfSig = '';
+      connectRealtimeTickStream();
+      loadSignalData();
+    }
+
+    function updateSymbolButtons() {
+      ['XAUUSD', 'BTCUSD', 'ETHUSD', 'SOLUSD'].forEach((s) => {
+        const btn = document.getElementById('sym-' + s);
+        if (!btn) return;
+        if (s === currentSymbol) {
+          btn.className = 'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-black transition-all bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm';
+        } else {
+          btn.className = 'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1';
+        }
+      });
+      const headerTitle = document.getElementById('headerSymbolTitle');
+      if (headerTitle) {
+        const map = { XAUUSD: 'XAU/USD MASTER', BTCUSD: 'BTC/USD MASTER', ETHUSD: 'ETH/USD MASTER', SOLUSD: 'SOL/USD MASTER' };
+        headerTitle.textContent = map[currentSymbol] || currentSymbol + ' MASTER';
+      }
+    }
 
     // Scroll Persistence & DOM Stabilization State
     const savedScrollPositions = new Map();
@@ -652,15 +707,20 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     function connectRealtimeTickStream() {
-      const es = new EventSource('/api/stream');
+      if (currentEventSource) {
+        try { currentEventSource.close(); } catch {}
+      }
+      const es = new EventSource('/api/stream?symbol=' + currentSymbol);
+      currentEventSource = es;
       es.addEventListener('tick', (ev) => {
         try {
           const quote = JSON.parse(ev.data);
+          if (quote.symbol && quote.symbol !== currentSymbol) return;
           updateLiveSpotTicker(quote);
         } catch {}
       });
       es.onerror = () => {
-        es.close();
+        try { es.close(); } catch {}
         setTimeout(connectRealtimeTickStream, 2000);
       };
     }
@@ -670,14 +730,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       const bid = Number(quote.bid);
       const ask = Number(quote.ask);
       const spread = Number(quote.spreadPips);
+      const uInfo = getAssetUnitInfo();
 
       document.getElementById('livePrice').textContent = '$' + bid.toFixed(2);
       document.getElementById('liveAsk').textContent = '$' + ask.toFixed(2);
-      const spreadPoints = (spread * 10).toFixed(0);
-      document.getElementById('liveSpread').textContent = spreadPoints + ' pt (' + spread.toFixed(1) + 'p)';
+      const spreadPoints = (spread * uInfo.mult).toFixed(0);
+      document.getElementById('liveSpread').textContent = spreadPoints + ' ' + uInfo.unit + ' (' + spread.toFixed(1) + ')';
       const spBadge = document.getElementById('spreadGuardBadge');
       if (spBadge) {
-        if (spread <= 2.5) {
+        const maxSp = currentSymbol === 'BTCUSD' ? 10.0 : currentSymbol === 'ETHUSD' ? 15.0 : 25.0;
+        if (spread <= maxSp) {
           spBadge.textContent = 'SPREAD OK';
           spBadge.className = 'px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
         } else {
@@ -718,12 +780,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const badgeEl = document.getElementById('activationBadge');
         if (lc.isActivated && !lc.hitTp2 && !lc.hitSl) {
           const diff = lc.direction === 'BUY' ? bid - lc.entryPrice : lc.entryPrice - bid;
-          const pips = diff * 10;
+          const pips = diff * uInfo.mult;
           const sign = pips >= 0 ? '+' : '';
           const isProf = pips >= 0;
           const pipsStr = pips.toFixed(1);
           const diffStr = Math.abs(diff).toFixed(2);
-          bigEl.textContent = (isProf ? '🟢 IN PROFIT: ' : '🔴 IN LOSS: ') + sign + pipsStr + ' pips (' + sign + '$' + diffStr + '/oz)';
+          bigEl.textContent = (isProf ? '🟢 IN PROFIT: ' : '🔴 IN LOSS: ') + sign + pipsStr + ' ' + uInfo.unit + ' (' + sign + '$' + diffStr + '/' + uInfo.asset + ')';
           bigEl.className = 'mono text-xl sm:text-2xl font-black ' + (isProf ? 'text-emerald-400' : 'text-rose-400');
           if (badgeEl) {
             badgeEl.textContent = isProf ? '🟢 ACTIVATED • IN PROFIT' : '🔴 ACTIVATED • IN LOSS';
@@ -731,9 +793,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               (isProf ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50' : 'bg-rose-500/25 text-rose-300 border border-rose-500/50');
           }
         } else if (!lc.isActivated) {
-          const distPips = (Math.abs(bid - lc.entryPrice) * 10).toFixed(1);
+          const distPips = (Math.abs(bid - lc.entryPrice) * uInfo.mult).toFixed(1);
           const entryStr = lc.entryPrice.toFixed(2);
-          bigEl.textContent = '⏳ WAIT FVG/OB RETEST: ' + distPips + 'p away ($' + entryStr + ')';
+          bigEl.textContent = '⏳ WAIT FVG/OB RETEST: ' + distPips + ' ' + uInfo.unit + ' away ($' + entryStr + ')';
           bigEl.className = 'mono text-xl sm:text-2xl font-black text-amber-300';
           if (badgeEl) {
             badgeEl.textContent = '⏳ WAIT FVG / OB CONFIRMATION';
@@ -755,21 +817,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           let pnlHtml = '';
           if (lc.isActivated) {
             const diff = lc.direction === 'BUY' ? bid - lc.entryPrice : lc.entryPrice - bid;
-            const pips = diff * 10;
+            const pips = diff * uInfo.mult;
             const sign = pips >= 0 ? '+' : '';
             const colorClass = pips >= 0 ? 'text-emerald-400' : 'text-rose-400';
             const pipsStr = pips.toFixed(1);
             const diffStr = Math.abs(diff).toFixed(2);
-            pnlHtml = '<span class="font-black ' + colorClass + '">' + sign + pipsStr + ' pips (' + sign + '$' + diffStr + '/oz)</span>';
+            pnlHtml = '<span class="font-black ' + colorClass + '">' + sign + pipsStr + ' ' + uInfo.unit + ' (' + sign + '$' + diffStr + '/' + uInfo.asset + ')</span>';
           } else {
-            const distPips = (Math.abs(bid - lc.entryPrice) * 10).toFixed(1);
+            const distPips = (Math.abs(bid - lc.entryPrice) * uInfo.mult).toFixed(1);
             const entryStr = lc.entryPrice.toFixed(2);
             const prevMatch = (lc.pnlStatusText || '').match(/Prev:[^→]+/);
             const prevText = prevMatch ? prevMatch[0].trim() : '';
             if (prevText) {
-              pnlHtml = '<span class="text-amber-300 font-bold leading-relaxed break-words block w-full text-center">⏳ ' + prevText + ' → Wait @ $' + entryStr + ' (' + distPips + 'p)</span>';
+              pnlHtml = '<span class="text-amber-300 font-bold leading-relaxed break-words block w-full text-center">⏳ ' + prevText + ' → Wait @ $' + entryStr + ' (' + distPips + uInfo.unit[0] + ')</span>';
             } else {
-              pnlHtml = '<span class="text-amber-300 font-bold leading-relaxed break-words block w-full text-center">⏳ Wait ' + distPips + 'p for FVG/OB @ $' + entryStr + '</span>';
+              pnlHtml = '<span class="text-amber-300 font-bold leading-relaxed break-words block w-full text-center">⏳ Wait ' + distPips + uInfo.unit[0] + ' for FVG/OB @ $' + entryStr + '</span>';
             }
           }
           if (gridCell) gridCell.innerHTML = pnlHtml;
@@ -786,8 +848,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const pnlCell = document.getElementById('sig-pnl-' + s.timeframe + '-' + s.time);
             if (pnlCell) {
               const sign = diff >= 0 ? '+' : '';
-              const pips = (diff * 10).toFixed(0);
-              const pipsStr = (diff >= 0 ? '+' : '') + pips + 'p';
+              const pips = (diff * uInfo.mult).toFixed(0);
+              const pipsStr = (diff >= 0 ? '+' : '') + pips + uInfo.unit[0];
               const isProf = diff >= 0;
               pnlCell.innerHTML = '<span class="px-2 py-0.5 rounded font-black ' +
                 (isProf ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-rose-500/20 text-rose-300 border border-rose-400/40') +
@@ -803,17 +865,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           (sigs || []).forEach((s) => {
             if (s.outcome === 'ACTIVE') {
               const diff = s.type === 'BUY' ? bid - s.entry : s.entry - bid;
-              const pips = diff * 10;
+              const pips = diff * uInfo.mult;
               const sign = diff >= 0 ? '+' : '';
               const isProf = diff >= 0;
-              const pipsStr = pips.toFixed(1) + 'p';
+              const pipsStr = pips.toFixed(1) + uInfo.unit[0];
               const diffStr = Math.abs(diff).toFixed(2);
               const bgCls = isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40';
 
               const els = document.querySelectorAll('.conf-live-pnl-' + tf + '-' + s.time);
               els.forEach((el) => {
                 el.innerHTML = '<span class="px-2 py-0.5 rounded font-black mono text-[10px] border ' + bgCls + '">' +
-                  (isProf ? '🟢' : '🔴') + ' RUNNING: ' + sign + '$' + diffStr + '/oz (' + sign + pipsStr + ')</span>';
+                  (isProf ? '🟢' : '🔴') + ' RUNNING: ' + sign + '$' + diffStr + '/' + uInfo.asset + ' (' + sign + pipsStr + ')</span>';
               });
             } else if (s.outcome === 'WAIT_CONFIRMATION') {
               const distPips = (Math.abs(bid - s.entry) * 10).toFixed(1);
@@ -910,14 +972,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     async function loadSignalData() {
       try {
         let [sigRes, mtfRes] = await Promise.all([
-          fetch(\`/api/signal?tf=\${currentTf}\`),
-          fetch('/api/mtf')
+          fetch(\`/api/signal?tf=\${currentTf}&symbol=\${currentSymbol}\`),
+          fetch(\`/api/mtf?symbol=\${currentSymbol}\`)
         ]);
 
         if (!sigRes.ok || !mtfRes.ok) {
           const [f1, f2] = await Promise.all([
-            fetch(\`/signal?tf=\${currentTf}\`),
-            fetch('/mtf')
+            fetch(\`/signal?tf=\${currentTf}&symbol=\${currentSymbol}\`),
+            fetch(\`/mtf?symbol=\${currentSymbol}\`)
           ]);
           if (f1.ok) sigRes = f1;
           if (f2.ok) mtfRes = f2;
@@ -1095,7 +1157,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                             const isAct = cs.outcome === 'ACTIVE';
                             const curBid = lastKnownBid || cs.entry;
                             const diff = cIsB ? curBid - cs.entry : cs.entry - curBid;
-                            const pips = diff * 10;
+                            const pips = diff * uInfo.mult;
                             const isProf = diff >= 0;
                             const sign = isProf ? '+' : '';
 
@@ -1703,17 +1765,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     function copyTfOrder(tf) {
       if (!latestMtfData || !latestMtfData.timeframes[tf]) return;
+      const uInfo = getAssetUnitInfo();
       const r = latestMtfData.timeframes[tf];
       const et = r.entryTiming;
       const lc = et.lifecycle;
-      const text = \`🪙 XAU/USD [\${tf.toUpperCase()}] — LIQUIDITY SWEEP + BOS + FVG PRO (Grade \${r.grade} • \${r.probability}%)
+      const text = \`\${currentSymbol === 'XAUUSD' ? '🪙' : '⚡'} \${uInfo.label} [\${tf.toUpperCase()}] — LIQUIDITY SWEEP + BOS + FVG PRO (Grade \${r.grade} • \${r.probability}%)
 📊 Structure: \${r.ictStructure?.marketStructure} | \${lc.statusBadge}
 📍 Entry: $\${lc.entryPrice.toFixed(2)} (\${et.recommendedOrderType})
-🛑 Hard Stop-Loss (Beyond Sweep Wick): $\${lc.stopLoss.toFixed(2)} (-\${et.riskPips.toFixed(0)} pips)
-🎯 TP 1 (1:2 RR • Take 50% + Move SL→BE): $\${lc.tp1.toFixed(2)} (+\${et.rewardTp1Pips.toFixed(0)} pips)
-🏆 TP 2 (1:3 RR • H4 Liquidity Runner): $\${lc.tp2.toFixed(2)} (+\${et.rewardTp2Pips.toFixed(0)} pips)\`;
+🛑 Hard Stop-Loss (Beyond Sweep Wick): $\${lc.stopLoss.toFixed(2)} (-\${et.riskPips.toFixed(0)} \${uInfo.unit})
+🎯 TP 1 (1:2 RR • Take 50% + Move SL→BE): $\${lc.tp1.toFixed(2)} (+\${et.rewardTp1Pips.toFixed(0)} \${uInfo.unit})
+🏆 TP 2 (1:3 RR • Liquidity Runner): $\${lc.tp2.toFixed(2)} (+\${et.rewardTp2Pips.toFixed(0)} \${uInfo.unit})\`;
       navigator.clipboard.writeText(text);
-      showToast(\`Copied \${tf.toUpperCase()} Sweep + BOS + FVG PRO Setup!\`);
+      showToast(\`Copied \${uInfo.label} \${tf.toUpperCase()} Setup!\`);
     }
 
     function filterSignalList(tf) {
@@ -1769,6 +1832,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      updateSymbolButtons();
       initCharts();
       connectRealtimeTickStream();
       loadSignalData();

@@ -1,10 +1,81 @@
 import { Candle } from './indicators.js';
 
 export type SupportedTimeframe = '1m' | '5m' | '15m' | '30m' | '1h' | '4h';
-
 export const ALL_TIMEFRAMES: SupportedTimeframe[] = ['1m', '5m', '15m', '30m', '1h', '4h'];
 
+export type SupportedSymbol = 'XAUUSD' | 'BTCUSD' | 'ETHUSD' | 'SOLUSD';
+export const ALL_SYMBOLS: SupportedSymbol[] = ['XAUUSD', 'BTCUSD', 'ETHUSD', 'SOLUSD'];
+
+export interface SymbolConfig {
+  symbol: SupportedSymbol;
+  displayName: string;
+  assetName: string;
+  ticker: string;
+  krakenPair?: string;
+  category: 'COMMODITY' | 'CRYPTO';
+  icon: string;
+  pipMultiplier: number;
+  unitLabel: string;
+  priceDecimals: number;
+  defaultPrice: number;
+}
+
+export const SYMBOL_CONFIGS: Record<SupportedSymbol, SymbolConfig> = {
+  XAUUSD: {
+    symbol: 'XAUUSD',
+    displayName: 'XAU/USD',
+    assetName: 'Gold Spot',
+    ticker: 'GC=F',
+    category: 'COMMODITY',
+    icon: '🪙',
+    pipMultiplier: 10,
+    unitLabel: 'oz',
+    priceDecimals: 2,
+    defaultPrice: 4051.0,
+  },
+  BTCUSD: {
+    symbol: 'BTCUSD',
+    displayName: 'BTC/USD',
+    assetName: 'Bitcoin',
+    ticker: 'BTC-USD',
+    krakenPair: 'XXBTZUSD',
+    category: 'CRYPTO',
+    icon: '₿',
+    pipMultiplier: 1,
+    unitLabel: 'BTC',
+    priceDecimals: 2,
+    defaultPrice: 67200.0,
+  },
+  ETHUSD: {
+    symbol: 'ETHUSD',
+    displayName: 'ETH/USD',
+    assetName: 'Ethereum',
+    ticker: 'ETH-USD',
+    krakenPair: 'XETHZUSD',
+    category: 'CRYPTO',
+    icon: 'Ξ',
+    pipMultiplier: 10,
+    unitLabel: 'ETH',
+    priceDecimals: 2,
+    defaultPrice: 1910.0,
+  },
+  SOLUSD: {
+    symbol: 'SOLUSD',
+    displayName: 'SOL/USD',
+    assetName: 'Solana',
+    ticker: 'SOL-USD',
+    krakenPair: 'SOLUSD',
+    category: 'CRYPTO',
+    icon: '◎',
+    pipMultiplier: 10,
+    unitLabel: 'SOL',
+    priceDecimals: 2,
+    defaultPrice: 75.8,
+  },
+};
+
 export interface LiveSpotQuote {
+  symbol?: SupportedSymbol;
   bid: number;
   ask: number;
   mid: number;
@@ -20,29 +91,63 @@ interface RawTimeframeStore {
   fetchedAt: number;
 }
 
-let latestSpotQuote: LiveSpotQuote = {
-  bid: 4051.0,
-  ask: 4051.6,
-  mid: 4051.3,
-  spreadPips: 6.0,
-  timestamp: Date.now(),
-  source: 'MT5 Spot XAU/USD (Swissquote Institutional Feed)',
+const quotesBySymbol: Record<SupportedSymbol, LiveSpotQuote> = {
+  XAUUSD: {
+    symbol: 'XAUUSD',
+    bid: 4051.0,
+    ask: 4051.6,
+    mid: 4051.3,
+    spreadPips: 6.0,
+    timestamp: Date.now(),
+    source: 'MT5 Spot XAU/USD (Swissquote Institutional Feed)',
+  },
+  BTCUSD: {
+    symbol: 'BTCUSD',
+    bid: 67200.0,
+    ask: 67205.0,
+    mid: 67202.5,
+    spreadPips: 5.0,
+    timestamp: Date.now(),
+    source: 'Kraken / Yahoo Live Spot BTC/USD',
+  },
+  ETHUSD: {
+    symbol: 'ETHUSD',
+    bid: 1910.0,
+    ask: 1910.5,
+    mid: 1910.25,
+    spreadPips: 5.0,
+    timestamp: Date.now(),
+    source: 'Kraken / Yahoo Live Spot ETH/USD',
+  },
+  SOLUSD: {
+    symbol: 'SOLUSD',
+    bid: 75.8,
+    ask: 75.85,
+    mid: 75.825,
+    spreadPips: 5.0,
+    timestamp: Date.now(),
+    source: 'Kraken / Yahoo Live Spot SOL/USD',
+  },
 };
 
-const rawStore = new Map<SupportedTimeframe, RawTimeframeStore>();
+let latestSpotQuote: LiveSpotQuote = quotesBySymbol.XAUUSD;
+
+const rawStore = new Map<string, RawTimeframeStore>();
 
 // Pre-populate rawStore with baseline candles so serverless cold starts never block
-for (const tf of ALL_TIMEFRAMES) {
-  const sim = generateSimulatedGoldCandles(tf, 240);
-  rawStore.set(tf, {
-    rawCandles: sim,
-    lastRawClose: sim[sim.length - 1].close,
-    calibratedBasis: 0,
-    fetchedAt: Date.now(),
-  });
+for (const sym of ALL_SYMBOLS) {
+  for (const tf of ALL_TIMEFRAMES) {
+    const sim = generateSimulatedCandles(sym, tf, 240);
+    rawStore.set(`${sym}_${tf}`, {
+      rawCandles: sim,
+      lastRawClose: sim[sim.length - 1].close,
+      calibratedBasis: 0,
+      fetchedAt: Date.now(),
+    });
+  }
 }
 
-let basisOffset = 0; // Difference between Spot XAU/USD and COMEX GC=F Futures
+let basisOffset = 0;
 let isInitialized = false;
 const tickListeners = new Set<(quote: LiveSpotQuote) => void>();
 
@@ -51,8 +156,8 @@ export function subscribeToTicks(fn: (quote: LiveSpotQuote) => void): () => void
   return () => tickListeners.delete(fn);
 }
 
-export function getLatestSpotQuote(): LiveSpotQuote {
-  return latestSpotQuote;
+export function getLatestSpotQuote(symbol: SupportedSymbol = 'XAUUSD'): LiveSpotQuote {
+  return quotesBySymbol[symbol] || latestSpotQuote;
 }
 
 /**
@@ -84,7 +189,8 @@ async function pollSwissquoteSpotXau(): Promise<void> {
       const mid = round2((bid + ask) / 2);
       const spreadPips = round2((ask - bid) * 10);
 
-      latestSpotQuote = {
+      const quote: LiveSpotQuote = {
+        symbol: 'XAUUSD',
         bid,
         ask,
         mid,
@@ -93,8 +199,11 @@ async function pollSwissquoteSpotXau(): Promise<void> {
         source: 'MT5 Live Spot XAU/USD (Swissquote Feed)',
       };
 
+      quotesBySymbol.XAUUSD = quote;
+      latestSpotQuote = quote;
+
       // Update basis offset against latest raw 1m/5m futures close
-      const refRaw = rawStore.get('1m') || rawStore.get('5m') || rawStore.get('15m');
+      const refRaw = rawStore.get('XAUUSD_1m') || rawStore.get('XAUUSD_5m') || rawStore.get('XAUUSD_15m');
       if (refRaw && refRaw.lastRawClose > 0) {
         basisOffset = round2(bid - refRaw.lastRawClose);
       }
@@ -106,16 +215,88 @@ async function pollSwissquoteSpotXau(): Promise<void> {
       });
     }
   } catch {
-    // Keep last known quote if a single tick times out
   } finally {
     clearTimeout(timeout);
   }
 }
 
 /**
- * Fetch raw OHLCV candles from Yahoo Finance and store in memory
+ * Poll Kraken Institutional Crypto Tickers (BTC/USD, ETH/USD, SOL/USD)
  */
-async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
+async function pollKrakenCrypto(): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const res = await fetch(
+      'https://api.kraken.com/0/public/Ticker?pair=XBTUSD,ETHUSD,SOLUSD',
+      {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }
+    );
+    if (!res.ok) return;
+    const json = (await res.json()) as any;
+    const resObj = json?.result || {};
+
+    if (resObj.XXBTZUSD) {
+      const b = parseFloat(resObj.XXBTZUSD.b?.[0]);
+      const a = parseFloat(resObj.XXBTZUSD.a?.[0]);
+      if (b > 0 && a > 0) {
+        quotesBySymbol.BTCUSD = {
+          symbol: 'BTCUSD',
+          bid: round2(b),
+          ask: round2(a),
+          mid: round2((b + a) / 2),
+          spreadPips: round2(a - b),
+          timestamp: Date.now(),
+          source: 'Kraken Live Institutional Feed (BTC/USD)',
+        };
+      }
+    }
+
+    if (resObj.XETHZUSD) {
+      const b = parseFloat(resObj.XETHZUSD.b?.[0]);
+      const a = parseFloat(resObj.XETHZUSD.a?.[0]);
+      if (b > 0 && a > 0) {
+        quotesBySymbol.ETHUSD = {
+          symbol: 'ETHUSD',
+          bid: round2(b),
+          ask: round2(a),
+          mid: round2((b + a) / 2),
+          spreadPips: round2((a - b) * 10),
+          timestamp: Date.now(),
+          source: 'Kraken Live Institutional Feed (ETH/USD)',
+        };
+      }
+    }
+
+    if (resObj.SOLUSD) {
+      const b = parseFloat(resObj.SOLUSD.b?.[0]);
+      const a = parseFloat(resObj.SOLUSD.a?.[0]);
+      if (b > 0 && a > 0) {
+        quotesBySymbol.SOLUSD = {
+          symbol: 'SOLUSD',
+          bid: round2(b),
+          ask: round2(a),
+          mid: round2((b + a) / 2),
+          spreadPips: round2((a - b) * 10),
+          timestamp: Date.now(),
+          source: 'Kraken Live Institutional Feed (SOL/USD)',
+        };
+      }
+    }
+  } catch {
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Fetch raw OHLCV candles from Yahoo Finance for any symbol and timeframe
+ */
+async function fetchYahooCandlesForSymbolTf(symbol: SupportedSymbol, tf: SupportedTimeframe): Promise<void> {
+  const cfg = SYMBOL_CONFIGS[symbol];
   const queryInterval = tf === '4h' ? '1h' : tf;
   const range =
     tf === '1m'
@@ -130,7 +311,7 @@ async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
       ? '1mo'
       : '3mo';
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=${queryInterval}&range=${range}`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${cfg.ticker}?interval=${queryInterval}&range=${range}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4500);
 
@@ -167,7 +348,7 @@ async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
       }
     }
 
-    if (parsed.length < 40) return;
+    if (parsed.length < 25) return;
 
     let finalCandles = parsed;
     if (tf === '4h') {
@@ -176,23 +357,24 @@ async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
 
     const sliced = finalCandles.slice(-260);
     const lastRawClose = sliced[sliced.length - 1].close;
-    const basis = latestSpotQuote.bid > 0 ? round2(latestSpotQuote.bid - lastRawClose) : basisOffset;
+    const currentQuote = quotesBySymbol[symbol] || latestSpotQuote;
+    const basis = currentQuote.bid > 0 ? round2(currentQuote.bid - lastRawClose) : (symbol === 'XAUUSD' ? basisOffset : 0);
 
-    rawStore.set(tf, {
+    rawStore.set(`${symbol}_${tf}`, {
       rawCandles: sliced,
       lastRawClose,
       calibratedBasis: basis,
       fetchedAt: Date.now(),
     });
 
-    if (latestSpotQuote.bid > 0) {
+    if (symbol === 'XAUUSD' && currentQuote.bid > 0) {
       basisOffset = basis;
     }
   } catch {
     // Fallback if offline
-    if (!rawStore.has(tf)) {
-      const sim = generateSimulatedGoldCandles(tf, 240);
-      rawStore.set(tf, {
+    if (!rawStore.has(`${symbol}_${tf}`)) {
+      const sim = generateSimulatedCandles(symbol, tf, 240);
+      rawStore.set(`${symbol}_${tf}`, {
         rawCandles: sim,
         lastRawClose: sim[sim.length - 1].close,
         calibratedBasis: 0,
@@ -202,6 +384,10 @@ async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
+  return fetchYahooCandlesForSymbolTf('XAUUSD', tf);
 }
 
 function aggregate1hTo4h(candles1h: Candle[]): Candle[] {
@@ -229,7 +415,7 @@ function aggregate1hTo4h(candles1h: Candle[]): Candle[] {
   return Array.from(map.values()).sort((a, b) => a.time - b.time);
 }
 
-function generateSimulatedGoldCandles(timeframe: SupportedTimeframe, count = 240): Candle[] {
+function generateSimulatedCandles(symbol: SupportedSymbol, timeframe: SupportedTimeframe, count = 240): Candle[] {
   const stepSec =
     timeframe === '1m'
       ? 60
@@ -245,10 +431,12 @@ function generateSimulatedGoldCandles(timeframe: SupportedTimeframe, count = 240
   const nowSec = Math.floor(Date.now() / 1000);
   const currentBarTime = Math.floor(nowSec / stepSec) * stepSec;
 
-  const candles: Candle[] = [];
-  let price = latestSpotQuote.bid || 4051.0;
-  const volScale = timeframe === '1m' ? 0.9 : timeframe === '5m' ? 1.8 : timeframe === '15m' ? 3.2 : 5.5;
+  const quote = quotesBySymbol[symbol] || latestSpotQuote;
+  let price = quote.bid || SYMBOL_CONFIGS[symbol].defaultPrice;
+  const pctScale = timeframe === '1m' ? 0.0006 : timeframe === '5m' ? 0.0015 : timeframe === '15m' ? 0.0028 : 0.005;
+  const volScale = price * pctScale;
 
+  const candles: Candle[] = [];
   for (let i = count - 1; i >= 0; i--) {
     const t = currentBarTime - i * stepSec;
     const idx = count - 1 - i;
@@ -265,58 +453,73 @@ function generateSimulatedGoldCandles(timeframe: SupportedTimeframe, count = 240
   return candles;
 }
 
+function generateSimulatedGoldCandles(timeframe: SupportedTimeframe, count = 240): Candle[] {
+  return generateSimulatedCandles('XAUUSD', timeframe, count);
+}
+
 /**
- * Start background real-time MT5 Spot XAU/USD synchronization loop
+ * Start background real-time market synchronization loop
  */
 export async function initRealtimeMarketEngine(): Promise<void> {
   if (isInitialized) return;
   isInitialized = true;
 
-  // 1. Fetch live Swissquote Spot XAU/USD immediately
-  await pollSwissquoteSpotXau();
+  // 1. Fetch live Swissquote Spot XAU/USD & Kraken Crypto immediately
+  await Promise.all([pollSwissquoteSpotXau(), pollKrakenCrypto()]);
 
-  // 2. Fetch Yahoo candles in background (non-blocking for fast serverless response)
-  void Promise.all(ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForTf(tf)));
+  // 2. Fetch Yahoo candles in background for all symbols
+  void Promise.all(
+    ALL_SYMBOLS.flatMap((sym) => ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSymbolTf(sym, tf)))
+  );
 
   // 3. Periodic polling for long-running / local instances
   if (!process.env.VERCEL) {
     setInterval(() => {
       void pollSwissquoteSpotXau();
-    }, 900);
+      void pollKrakenCrypto();
+    }, 1500);
 
     setInterval(() => {
-      void Promise.all(ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForTf(tf)));
-    }, 15000);
+      void Promise.all(
+        ALL_SYMBOLS.flatMap((sym) => ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSymbolTf(sym, tf)))
+      );
+    }, 20000);
   }
 }
 
 /**
- * Instant (<1ms) in-memory retrieval of MT5 Spot-Calibrated XAU/USD candles
- * Every candle is shifted by `basisOffset` to match MT5 Spot XAU/USD and the latest candle is updated with live Bid price!
+ * Universal Market Candle Retrieval with basis calibration
  */
-export async function getGoldCandles(
+export async function getMarketCandles(
+  symbol: SupportedSymbol = 'XAUUSD',
   timeframe: SupportedTimeframe
-): Promise<{ candles: Candle[]; source: string; spotQuote: LiveSpotQuote }> {
+): Promise<{ candles: Candle[]; source: string; spotQuote: LiveSpotQuote; symbolConfig: SymbolConfig }> {
   if (!isInitialized) {
     await initRealtimeMarketEngine();
   } else if (process.env.VERCEL) {
-    // In Vercel serverless, quick poll Swissquote to get fresh price on each invocation
-    await pollSwissquoteSpotXau();
+    if (symbol === 'XAUUSD') {
+      await pollSwissquoteSpotXau();
+    } else {
+      await pollKrakenCrypto();
+    }
   }
 
-  let stored = rawStore.get(timeframe);
+  const key = `${symbol}_${timeframe}`;
+  let stored = rawStore.get(key);
   if (!stored) {
-    await fetchYahooCandlesForTf(timeframe);
-    stored = rawStore.get(timeframe);
+    await fetchYahooCandlesForSymbolTf(symbol, timeframe);
+    stored = rawStore.get(key);
   }
 
-  const rawList = stored?.rawCandles ?? generateSimulatedGoldCandles(timeframe, 240);
+  const rawList = stored?.rawCandles ?? generateSimulatedCandles(symbol, timeframe, 240);
+  const currentQuote = quotesBySymbol[symbol] || latestSpotQuote;
+
   const basis =
     stored && typeof stored.calibratedBasis === 'number' && stored.calibratedBasis !== 0
       ? stored.calibratedBasis
-      : latestSpotQuote.bid > 0
-      ? round2(latestSpotQuote.bid - rawList[rawList.length - 1].close)
-      : basisOffset;
+      : currentQuote.bid > 0
+      ? round2(currentQuote.bid - rawList[rawList.length - 1].close)
+      : (symbol === 'XAUUSD' ? basisOffset : 0);
 
   const calibrated: Candle[] = rawList.map((c, idx) => {
     const isLast = idx === rawList.length - 1;
@@ -325,8 +528,8 @@ export async function getGoldCandles(
     let high = round2(c.high + basis);
     let low = round2(c.low + basis);
 
-    if (isLast && latestSpotQuote.bid > 0) {
-      close = latestSpotQuote.bid;
+    if (isLast && currentQuote.bid > 0) {
+      close = currentQuote.bid;
       if (close > high) high = close;
       if (close < low) low = close;
     }
@@ -341,11 +544,19 @@ export async function getGoldCandles(
     };
   });
 
+  const cfg = SYMBOL_CONFIGS[symbol];
   return {
     candles: calibrated,
-    source: `${latestSpotQuote.source} (Spread: ${latestSpotQuote.spreadPips.toFixed(1)}p)`,
-    spotQuote: latestSpotQuote,
+    source: `${currentQuote.source} (Spread: ${currentQuote.spreadPips.toFixed(1)}${cfg.category === 'CRYPTO' ? '$' : 'p'})`,
+    spotQuote: currentQuote,
+    symbolConfig: cfg,
   };
+}
+
+export async function getGoldCandles(
+  timeframe: SupportedTimeframe
+): Promise<{ candles: Candle[]; source: string; spotQuote: LiveSpotQuote }> {
+  return getMarketCandles('XAUUSD', timeframe);
 }
 
 function round2(n: number): number {
