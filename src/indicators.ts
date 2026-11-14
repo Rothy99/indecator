@@ -2,6 +2,7 @@ import {
   archiveD1ClosedTrade,
   loadInitialD1State,
   saveD1ActiveTrade,
+  saveD1ClosedList,
 } from './d1Database.js';
 
 export interface Candle {
@@ -1735,16 +1736,25 @@ function scanMasterStrategySignals(
     });
   }
 
-  // Add historical closed trades, avoiding duplicate timestamps
+  // Add historical closed trades, avoiding duplicate timestamps and locking permanently
   const closedFromScan = signals.filter((s) => s.outcome !== 'ACTIVE').reverse();
   const closedFromArchive = lockedClosedHistoryByTf.get(timeframe) || [];
   const mergedClosed = [...closedFromArchive];
+  let newEntriesFound = false;
+
   for (const cs of closedFromScan) {
     if (!mergedClosed.some((m) => m.time === cs.time)) {
       mergedClosed.push(cs);
+      newEntriesFound = true;
     }
   }
   mergedClosed.sort((a, b) => b.time - a.time);
+
+  // Permanently lock all historical closed trades into memory and persistent D1/disk store
+  if (newEntriesFound || !lockedClosedHistoryByTf.has(timeframe)) {
+    lockedClosedHistoryByTf.set(timeframe, mergedClosed.slice(0, 25));
+    void saveD1ClosedList(timeframe, mergedClosed.slice(0, 25));
+  }
 
   for (const cs of mergedClosed) {
     if (returnedSignals.length >= 15) break;
@@ -2017,7 +2027,8 @@ export function analyzeGoldCandles(
     };
   } else {
     const distPips = roundPrice(Math.abs(currentPrice - waitPullbackEntry) * 10);
-    const latestClosed = historicalSignals.find((s) => s.outcome !== 'ACTIVE');
+    const latestClosed = (lockedClosedHistoryByTf.get(timeframe) || [])[0] ||
+      historicalSignals.find((s) => s.outcome !== 'ACTIVE');
     const prevClosed = latestClosed
       ? latestClosed.outcome === 'TP2_HIT'
         ? `Prev: 🏆 1:3 Runner Hit (+$${latestClosed.pnlDollarsPerOz.toFixed(2)})`

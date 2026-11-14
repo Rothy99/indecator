@@ -390,6 +390,74 @@ export async function archiveD1ClosedTrade(
 }
 
 /**
+ * Persist Newly Discovered Historical Closed Trades into D1 / Local Store (Immutable Lock)
+ */
+export async function saveD1ClosedList(
+  timeframe: string,
+  list: HistoricalSignal[],
+  cfBinding?: any
+): Promise<void> {
+  const existing = memoryStore.closedByTf[timeframe] || [];
+  const merged = [...existing];
+  let hasNew = false;
+
+  for (const s of list) {
+    if (!merged.some((m) => m.time === s.time)) {
+      merged.push(s);
+      hasNew = true;
+    }
+  }
+
+  if (!hasNew && memoryStore.closedByTf[timeframe]?.length) {
+    return;
+  }
+
+  merged.sort((a, b) => b.time - a.time);
+  memoryStore.closedByTf[timeframe] = merged.slice(0, 30);
+  saveLocalFallback(memoryStore);
+
+  const config = getD1Config();
+  if ((config.accountId && config.databaseId && config.apiToken) || cfBinding) {
+    const nowIso = new Date().toISOString();
+    for (const s of list) {
+      const id = `TF_${timeframe}_${s.time}`;
+      const sql = `
+        INSERT INTO trade_entries (
+          id, timeframe, time, type, grade, probability, confidence,
+          entry, stop_loss, tp1, tp2, be_trigger, hit_be_lock, hit_tp1, hit_tp2, hit_sl,
+          outcome, pnl_dollars_per_oz, reason, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING;
+      `;
+      const params = [
+        id,
+        timeframe,
+        s.time,
+        s.type,
+        s.grade,
+        s.probability,
+        s.confidence,
+        s.entry,
+        s.stopLoss,
+        s.tp1,
+        s.tp2,
+        s.entry,
+        s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT' ? 1 : 0,
+        s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT' ? 1 : 0,
+        s.outcome === 'TP2_HIT' ? 1 : 0,
+        s.outcome === 'SL_HIT' ? 1 : 0,
+        s.outcome,
+        s.pnlDollarsPerOz,
+        s.reason,
+        nowIso,
+        nowIso,
+      ];
+      void executeD1Query(sql, params, cfBinding);
+    }
+  }
+}
+
+/**
  * Get Diagnostic Status of D1 Connection
  */
 export function getD1Status(): D1DbStatus {
