@@ -1464,23 +1464,27 @@ loadInitialD1State(lockedActiveTradesByTf, lockedClosedHistoryByTf);
 
 function archiveClosedTrade(timeframe: string, trade: LockedActivePosition): void {
   const list = lockedClosedHistoryByTf.get(timeframe) || [];
-  if (!list.some((e) => e.time === trade.time)) {
-    list.unshift({
-      time: trade.time,
-      type: trade.type,
-      grade: trade.grade,
-      probability: trade.probability,
-      confidence: trade.confidence,
-      entry: trade.entry,
-      stopLoss: trade.stopLoss,
-      tp1: trade.tp1,
-      tp2: trade.tp2,
-      outcome: trade.outcome,
-      pnlDollarsPerOz: trade.pnlDollarsPerOz,
-      reason: trade.reason,
-    });
-    lockedClosedHistoryByTf.set(timeframe, list.slice(0, 20));
+  const existingIdx = list.findIndex((e) => e.time === trade.time);
+  const entryObj: HistoricalSignal = {
+    time: trade.time,
+    type: trade.type,
+    grade: trade.grade,
+    probability: trade.probability,
+    confidence: trade.confidence,
+    entry: trade.entry,
+    stopLoss: trade.stopLoss,
+    tp1: trade.tp1,
+    tp2: trade.tp2,
+    outcome: trade.outcome,
+    pnlDollarsPerOz: trade.pnlDollarsPerOz,
+    reason: trade.reason,
+  };
+  if (existingIdx >= 0) {
+    list[existingIdx] = entryObj;
+  } else {
+    list.unshift(entryObj);
   }
+  lockedClosedHistoryByTf.set(timeframe, list.slice(0, 30));
   void archiveD1ClosedTrade(trade);
 }
 
@@ -1505,21 +1509,27 @@ function scanMasterStrategySignals(
   const locked = lockedActiveTradesByTf.get(timeframe);
   if (locked && locked.outcome === 'ACTIVE') {
     const lastBar = series[series.length - 1];
+    // Crucial: Only bars strictly AFTER activation time (bar.time > locked.time) should check full wicks (high/low).
+    // For the activation bar itself, only test live currentPrice so the trade is never killed by prior wicks!
+    const isNewBar = lastBar.time > locked.time;
+    const testHigh = isNewBar ? lastBar.high : curPrice;
+    const testLow = isNewBar ? lastBar.low : curPrice;
+
     if (locked.type === 'BUY') {
-      if (lastBar.high >= locked.beTrigger) locked.hitBeLock = true;
-      if (lastBar.high >= locked.tp1) locked.hitTp1 = true;
-      if (lastBar.high >= locked.tp2) {
+      if (testHigh >= locked.beTrigger) locked.hitBeLock = true;
+      if (testHigh >= locked.tp1) locked.hitTp1 = true;
+      if (testHigh >= locked.tp2) {
         locked.hitTp2 = true;
         locked.outcome = 'TP2_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.tp2 - locked.entry);
         archiveClosedTrade(timeframe, locked);
         lockedActiveTradesByTf.delete(timeframe);
-      } else if (locked.hitBeLock && lastBar.low <= locked.entry) {
+      } else if (locked.hitBeLock && testLow <= locked.entry) {
         locked.outcome = locked.hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
         locked.pnlDollarsPerOz = locked.hitTp1 ? roundPrice(locked.tp1 - locked.entry) : 0;
         archiveClosedTrade(timeframe, locked);
         lockedActiveTradesByTf.delete(timeframe);
-      } else if (!locked.hitBeLock && lastBar.low <= locked.stopLoss) {
+      } else if (!locked.hitBeLock && testLow <= locked.stopLoss) {
         locked.hitSl = true;
         locked.outcome = 'SL_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.stopLoss - locked.entry);
@@ -1527,22 +1537,23 @@ function scanMasterStrategySignals(
         lockedActiveTradesByTf.delete(timeframe);
       } else {
         locked.pnlDollarsPerOz = roundPrice(curPrice - locked.entry);
+        void saveD1ActiveTrade(locked);
       }
     } else {
-      if (lastBar.low <= locked.beTrigger) locked.hitBeLock = true;
-      if (lastBar.low <= locked.tp1) locked.hitTp1 = true;
-      if (lastBar.low <= locked.tp2) {
+      if (testLow <= locked.beTrigger) locked.hitBeLock = true;
+      if (testLow <= locked.tp1) locked.hitTp1 = true;
+      if (testLow <= locked.tp2) {
         locked.hitTp2 = true;
         locked.outcome = 'TP2_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.entry - locked.tp2);
         archiveClosedTrade(timeframe, locked);
         lockedActiveTradesByTf.delete(timeframe);
-      } else if (locked.hitBeLock && lastBar.high >= locked.entry) {
+      } else if (locked.hitBeLock && testHigh >= locked.entry) {
         locked.outcome = locked.hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
         locked.pnlDollarsPerOz = locked.hitTp1 ? roundPrice(locked.entry - locked.tp1) : 0;
         archiveClosedTrade(timeframe, locked);
         lockedActiveTradesByTf.delete(timeframe);
-      } else if (!locked.hitBeLock && lastBar.high >= locked.stopLoss) {
+      } else if (!locked.hitBeLock && testHigh >= locked.stopLoss) {
         locked.hitSl = true;
         locked.outcome = 'SL_HIT';
         locked.pnlDollarsPerOz = roundPrice(locked.entry - locked.stopLoss);
@@ -1550,6 +1561,7 @@ function scanMasterStrategySignals(
         lockedActiveTradesByTf.delete(timeframe);
       } else {
         locked.pnlDollarsPerOz = roundPrice(locked.entry - curPrice);
+        void saveD1ActiveTrade(locked);
       }
     }
   }

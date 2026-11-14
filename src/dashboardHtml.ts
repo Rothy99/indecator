@@ -1078,70 +1078,82 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <details id="card-conf-\${tf}" \${isCardConfOpen ? 'open' : ''} ontoggle="onCollapseToggle(this)" class="group rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden">
                       <summary class="cursor-pointer py-1.5 px-2.5 flex items-center justify-between text-xs select-none hover:bg-slate-800/60 transition">
                         <span class="font-extrabold text-amber-300 text-[11px] flex items-center gap-1.5">
-                          <span>⭐ Top 85%+ Entries</span>
+                          <span>⚡ Activations</span>
                           <span class="px-1.5 py-0.2 rounded text-[10px] font-black \${confSigs.length > 0 ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'}">\${confSigs.length}</span>
                         </span>
                         <span class="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
                       </summary>
                       <div data-scroll-key="card-conf-scroll-\${tf}" onscroll="onInnerScroll(this)" class="p-2 border-t border-slate-800/80 bg-slate-950 space-y-2 max-h-[220px] overflow-y-auto">
-                        \${confSigs.length === 0
-                          ? '<div class="text-[11px] text-slate-500 text-center py-2 mono">No 85%+ entries in scan window</div>'
-                          : confSigs.map((cs, cIdx) => {
-                              const cIsB = cs.type === 'BUY';
-                              const cTypeCls = cIsB ? 'text-emerald-400' : 'text-rose-400';
-                              const isLive = Boolean(cs.isLiveCurrent);
-                              const isAct = cs.outcome === 'ACTIVE';
-                              const isWait = cs.outcome === 'WAIT_CONFIRMATION';
-                              const curBid = lastKnownBid || cs.entry;
-                              const diff = cIsB ? curBid - cs.entry : cs.entry - curBid;
-                              const pips = diff * 10;
-                              const isProf = diff >= 0;
-                              const sign = isProf ? '+' : '';
+                        \${(() => {
+                          if (confSigs.length === 0) {
+                            return '<div class="text-[11px] text-slate-500 text-center py-2 mono">No activations recorded yet</div>';
+                          }
+                          let cardClosedCounter = 1;
+                          return confSigs.map((cs) => {
+                            const cIsB = cs.type === 'BUY';
+                            const cTypeCls = cIsB ? 'text-emerald-400' : 'text-rose-400';
+                            const isAct = cs.outcome === 'ACTIVE';
+                            const curBid = lastKnownBid || cs.entry;
+                            const diff = cIsB ? curBid - cs.entry : cs.entry - curBid;
+                            const pips = diff * 10;
+                            const isProf = diff >= 0;
+                            const sign = isProf ? '+' : '';
 
-                              let outBadge = '';
-                              if (isLive && isWait) {
-                                outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/50">⏳ WAIT RETEST</span>';
-                              } else if (isAct) {
-                                outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/50 animate-pulse">⚡ LIVE ACTIVATED</span>';
-                              } else if (cs.outcome === 'TP2_HIT') {
-                                outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">🏆 TP2 (1:3)</span>';
-                              } else if (cs.outcome === 'TP1_HIT') {
-                                outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">✅ TP1 (1:2)</span>';
-                              } else if (cs.outcome === 'BE_EXIT') {
-                                outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300">🛡️ BE</span>';
-                              } else {
-                                outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300">❌ SL</span>';
-                              }
+                            let outBadge = '';
+                            if (isAct) {
+                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/50 animate-pulse">⚡ LIVE ACTIVATED</span>';
+                            } else if (cs.outcome === 'TP2_HIT') {
+                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">🏆 TP2 (1:3)</span>';
+                            } else if (cs.outcome === 'TP1_HIT') {
+                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">✅ TP1 (1:2)</span>';
+                            } else if (cs.outcome === 'BE_EXIT') {
+                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300">🛡️ BE</span>';
+                            } else {
+                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300">❌ SL</span>';
+                            }
 
-                              let livePnlHtml = '';
-                              if (isAct) {
-                                livePnlHtml = \`<div class="conf-live-pnl-\${cs.timeframe || tf}-\${cs.time} pt-1">
-                                     <span class="px-2 py-0.5 rounded font-black mono text-[10px] border \${isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'}">
-                                       \${isProf ? '🟢' : '🔴'} RUNNING: \${sign}$\${Math.abs(diff).toFixed(2)}/oz (\${sign}\${pips.toFixed(1)}p)
-                                     </span>
-                                   </div>\`;
-                              } else if (isWait) {
-                                const distPips = (Math.abs(curBid - cs.entry) * 10).toFixed(1);
-                                livePnlHtml = \`<div class="conf-live-pnl-\${cs.timeframe || tf}-\${cs.time} pt-1">
-                                     <span class="px-2 py-0.5 rounded font-bold mono text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                                       ⏳ WAIT: \${distPips}p away ($\${cs.entry.toFixed(2)})
-                                     </span>
-                                   </div>\`;
-                              } else {
-                                livePnlHtml = \`<div class="pt-1 text-[10px] font-bold \${(cs.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">Outcome: \${(cs.pnlDollarsPerOz || 0) >= 0 ? '+' : ''}$\${(cs.pnlDollarsPerOz || 0).toFixed(2)}/oz</div>\`;
-                              }
+                            let livePnlHtml = '';
+                            if (isAct) {
+                              livePnlHtml = '<div class="conf-live-pnl-' + (cs.timeframe || tf) + '-' + cs.time + ' pt-1">' +
+                                '<span class="px-2 py-0.5 rounded font-black mono text-[10px] border ' + (isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40') + '">' +
+                                (isProf ? '🟢' : '🔴') + ' RUNNING: ' + sign + '$' + Math.abs(diff).toFixed(2) + '/oz (' + sign + pips.toFixed(1) + 'p)' +
+                                '</span></div>';
+                            } else {
+                              livePnlHtml = '<div class="pt-1 text-[10px] font-bold ' + ((cs.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400') + '">Outcome: ' + ((cs.pnlDollarsPerOz || 0) >= 0 ? '+' : '') + '$' + (cs.pnlDollarsPerOz || 0).toFixed(2) + '/oz</div>';
+                            }
 
-                              const liveHeaderBadge = isLive
-                                ? (isAct ? '<span class="px-1 py-0.2 rounded text-[8px] font-black bg-sky-500 text-slate-950">LIVE</span>' : '<span class="px-1 py-0.2 rounded text-[8px] font-black bg-amber-400 text-slate-950">PENDING</span>')
-                                : '';
+                            const liveHeaderBadge = isAct
+                              ? '<span class="px-1 py-0.2 rounded text-[8px] font-black bg-sky-500 text-slate-950">LIVE</span>'
+                              : '';
 
-                              const cardBorder = isLive
-                                ? (isAct ? 'border-sky-500/50 bg-sky-950/20 ring-1 ring-sky-500/30' : 'border-amber-400/50 bg-amber-950/20 ring-1 ring-amber-400/20')
-                                : 'border-slate-800 bg-slate-900/90';
+                            const cardBorder = isAct
+                              ? 'border-sky-500/50 bg-sky-950/20 ring-1 ring-sky-500/30'
+                              : 'border-slate-800 bg-slate-900/90';
 
-                              const entryNumLabel = isLive
-                                ? (isAct ? 'LIVE' : 'WAIT')
-                                : '#' + (cIdx + 1);
+                            const entryNumLabel = isAct
+                              ? 'LIVE'
+                              : '#' + (cardClosedCounter++);
+
+                            return '<div class="p-2 rounded-lg ' + cardBorder + ' text-xs space-y-1">' +
+                              '<div class="flex items-center justify-between text-[11px]">' +
+                              '<div class="flex items-center gap-1.5">' +
+                              liveHeaderBadge +
+                              '<span class="font-black mono ' + cTypeCls + '">' + cs.type + ' ' + entryNumLabel + '</span>' +
+                              '<span class="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[9px]">' + cs.grade + ' ' + (cs.probability || cs.confidence) + '%</span>' +
+                              '</div>' +
+                              outBadge +
+                              '</div>' +
+                              '<div class="mono text-[11px] space-y-0.5 text-slate-300 pt-0.5">' +
+                              '<div class="text-amber-300 font-bold">• <strong>entry</strong>: ' + cs.entry.toFixed(2) + '</div>' +
+                              '<div class="text-rose-400">• <strong>stop loss</strong>: ' + cs.stopLoss.toFixed(2) + '</div>' +
+                              '<div class="text-emerald-400">• <strong>tp1</strong>: ' + cs.tp1.toFixed(2) + '</div>' +
+                              '<div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: ' + cs.tp2.toFixed(2) + '</div>' +
+                              '</div>' +
+                              livePnlHtml +
+                              '</div>';
+                          }).join('');
+                        })()}
+                      </div>
 
                               return \`
                                 <div class="p-2 rounded-lg \${cardBorder} text-xs space-y-1">
@@ -1475,12 +1487,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             \`;
           }
 
-          const cards = sigs.slice(0, 5).map((s, idx) => {
+          let closedIdx = 1;
+          const cards = sigs.slice(0, 10).map((s) => {
             const isLive = Boolean(s.isLiveCurrent);
             const isAct = s.outcome === 'ACTIVE';
-            const isWait = s.outcome === 'WAIT_CONFIRMATION';
-            const dt = isLive
-              ? (isAct ? '⚡ LIVE ACTIVATED' : '⏳ LIVE PENDING')
+            const dt = isLive && isAct
+              ? '⚡ LIVE ACTIVATED'
               : new Date(s.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
             const isB = s.type === 'BUY';
             const typeCls = isB ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
@@ -1491,9 +1503,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const sign = isProf ? '+' : '';
 
             let outBadge = '';
-            if (isLive && isWait) {
-              outBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/50">⏳ WAIT RETEST</span>';
-            } else if (isAct) {
+            if (isAct) {
               outBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/50 animate-pulse">⚡ LIVE ACTIVATED</span>';
             } else if (s.outcome === 'TP2_HIT') {
               outBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/25 text-emerald-300 font-bold">🏆 TP2 (1:3)</span>';
@@ -1505,37 +1515,30 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               outBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">❌ SL</span>';
             }
 
-            const copyTxt = \`\${s.type} \${tf.toUpperCase()} @ \${s.entry.toFixed(2)} | SL: \${s.stopLoss.toFixed(2)} | TP1: \${s.tp1.toFixed(2)} | TP2: \${s.tp2.toFixed(2)}\`;
+            const copyTxt = s.type + ' ' + tf.toUpperCase() + ' @ ' + s.entry.toFixed(2) + ' | SL: ' + s.stopLoss.toFixed(2) + ' | TP1: ' + s.tp1.toFixed(2) + ' | TP2: ' + s.tp2.toFixed(2);
 
             let pnlDisplayHtml = '';
             if (isAct) {
-              pnlDisplayHtml = \`<div class="conf-live-pnl-\${tf}-\${s.time}">
-                   <span class="px-2 py-0.5 rounded font-black mono text-[10px] border \${isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'}">
-                     \${isProf ? '🟢' : '🔴'} RUNNING: \${sign}$\${Math.abs(diff).toFixed(2)}/oz (\${sign}\${pips.toFixed(1)}p)
-                   </span>
-                 </div>\`;
-            } else if (isWait) {
-              const distPips = (Math.abs(curBid - s.entry) * 10).toFixed(1);
-              pnlDisplayHtml = \`<div class="conf-live-pnl-\${tf}-\${s.time}">
-                   <span class="px-2 py-0.5 rounded font-bold mono text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                     ⏳ WAIT: \${distPips}p away ($\${s.entry.toFixed(2)})
-                   </span>
-                 </div>\`;
+              pnlDisplayHtml = '<div class="conf-live-pnl-' + tf + '-' + s.time + '">' +
+                   '<span class="px-2 py-0.5 rounded font-black mono text-[10px] border ' + (isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40') + '">' +
+                     (isProf ? '🟢' : '🔴') + ' RUNNING: ' + sign + '$' + Math.abs(diff).toFixed(2) + '/oz (' + sign + pips.toFixed(1) + 'p)' +
+                   '</span>' +
+                 '</div>';
             } else {
-              pnlDisplayHtml = \`<div class="conf-live-pnl-\${tf}-\${s.time}"><span class="text-[11px] text-slate-400">P&L: <strong class="\${(s.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">\${(s.pnlDollarsPerOz || 0) >= 0 ? '+' : ''}$\${(s.pnlDollarsPerOz || 0).toFixed(2)}</strong></span></div>\`;
+              pnlDisplayHtml = '<div class="conf-live-pnl-' + tf + '-' + s.time + '"><span class="text-[11px] text-slate-400">P&L: <strong class="' + ((s.pnlDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400') + '">' + ((s.pnlDollarsPerOz || 0) >= 0 ? '+' : '') + '$' + (s.pnlDollarsPerOz || 0).toFixed(2) + '</strong></span></div>';
             }
 
-            const cardBorder = isLive
-              ? (isAct ? 'border-sky-500/60 bg-sky-950/25 ring-1 ring-sky-500/40' : 'border-amber-400/50 bg-amber-950/20 ring-1 ring-amber-400/30')
+            const cardBorder = isAct
+              ? 'border-sky-500/60 bg-sky-950/25 ring-1 ring-sky-500/40'
               : 'border-slate-800/90 bg-slate-950/80';
 
-            const liveBadge = isLive
-              ? (isAct ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-sky-500 text-slate-950">LIVE</span>' : '<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">PENDING</span>')
+            const liveBadge = isAct
+              ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-sky-500 text-slate-950">LIVE</span>'
               : '';
 
-            const entryLabel = isLive
-              ? (isAct ? 'LIVE' : 'WAIT')
-              : '#' + (idx + 1);
+            const entryLabel = isAct
+              ? 'LIVE'
+              : '#' + (closedIdx++);
 
             return \`
               <div class="p-3 rounded-xl \${cardBorder} hover:border-amber-400/40 transition flex flex-col justify-between">
@@ -1571,7 +1574,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <summary class="cursor-pointer p-3 sm:p-4 flex items-center justify-between gap-2 select-none bg-slate-900/90 group-open:bg-slate-850 hover:bg-slate-800/60 transition">
                 <div class="flex items-center gap-2.5">
                   <span class="font-black text-amber-300 text-sm mono uppercase">\${title}</span>
-                  <span class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">\${sigs.length} Entries (85%+)</span>
+                  <span class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">\${sigs.length} Activations</span>
                   <span class="hidden sm:inline text-xs text-slate-400 font-sans">• Strict 1:2 / 1:3 R:R</span>
                 </div>
                 <div class="flex items-center gap-2">
