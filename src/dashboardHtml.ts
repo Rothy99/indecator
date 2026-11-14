@@ -1365,10 +1365,27 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       }).join('');
 
       // Entry Cards & Hard SL (1.5x ATR dynamic rule) + 1:2 TP1 + 1:3 TP2
-      document.getElementById('marketEntryVal').textContent = '$' + et.marketEntry.toFixed(2);
-      document.getElementById('waitEntryVal').textContent = '$' + lc.entryPrice.toFixed(2);
-      document.getElementById('marketEntryStatusTag').textContent = et.isLate ? '⚠️ LATE CHASE' : 'SPOT NOW';
-      document.getElementById('waitOrderTypeTag').textContent = et.recommendedOrderType;
+      if (lc.isActivated) {
+        document.getElementById('marketEntryVal').textContent = '$' + lc.entryPrice.toFixed(2);
+        document.getElementById('marketEntryStatusTag').textContent = '🔒 ENTRY LOCKED';
+        document.getElementById('marketEntryStatusTag').className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse';
+        document.getElementById('marketEntryNote').textContent = 'Locked @ Execution • ' + lc.pnlStatusText;
+
+        document.getElementById('waitEntryVal').textContent = '$' + lc.tp1.toFixed(2);
+        document.getElementById('waitCardTitle').textContent = 'TARGET 1: 1:2 R:R (50% PARTIAL + BE)';
+        document.getElementById('waitOrderTypeTag').textContent = '1:2 TP1';
+        document.getElementById('waitEntryNote').textContent = 'Move SL to Breakeven @ $' + lc.entryPrice.toFixed(2) + ' when hit';
+      } else {
+        document.getElementById('marketEntryVal').textContent = '$' + et.marketEntry.toFixed(2);
+        document.getElementById('marketEntryStatusTag').textContent = et.isLate ? '⚠️ LATE CHASE' : 'SPOT NOW';
+        document.getElementById('marketEntryStatusTag').className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-300';
+        document.getElementById('marketEntryNote').textContent = 'Live MT5 Spot Price';
+
+        document.getElementById('waitEntryVal').textContent = '$' + lc.entryPrice.toFixed(2);
+        document.getElementById('waitCardTitle').textContent = 'Option B: FVG PRO Retest (CE 50%)';
+        document.getElementById('waitOrderTypeTag').textContent = et.recommendedOrderType;
+        document.getElementById('waitEntryNote').textContent = 'Retest to Consequent Encroachment (CE 50%)';
+      }
 
       document.getElementById('setupSl').textContent = '$' + lc.stopLoss.toFixed(2);
       document.getElementById('setupSlPips').textContent = '1.5x ATR SL: -' + et.riskPips.toFixed(0) + ' pips ($' + et.riskDollars.toFixed(2) + '/oz)';
