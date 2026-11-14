@@ -3,6 +3,27 @@ import fs from 'node:fs';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { streamSSE } from 'hono/streaming';
+
+// Load .env configuration on startup if present
+if (fs.existsSync('.env')) {
+  try {
+    const envContent = fs.readFileSync('.env', 'utf8');
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Env] Failed to load .env:', err);
+  }
+}
 import { analyzeGoldCandles, SignalDirection } from './indicators.js';
 import {
   ALL_SYMBOLS,

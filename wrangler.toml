@@ -1,0 +1,9 @@
+name = "xauusd-gold-signal-indicator"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "xauusd-indicator-db"
+database_id = "d59c377c-934d-43b9-b00a-dee0c947be28"
