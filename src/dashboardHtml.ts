@@ -129,14 +129,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     </div>
   </header>
 
-  <main class="max-w-[1600px] w-full mx-auto px-4 py-4 flex-1 space-y-4">
+    <main class="max-w-[1600px] w-full mx-auto px-3 sm:px-4 py-3 sm:py-4 flex-1 space-y-4">
 
     <!-- ========================================================================= -->
-    <!-- CONFLUENCE 1 & 4 BAR: SESSION KILLZONE (GMT+7 / UTC) + PDH/PDL/ASIAN BOX  -->
+    <!-- TIER 1: INSTITUTIONAL MARKET CONTEXT & KILLZONE (COMPACT BAR)              -->
     <!-- ========================================================================= -->
-    <section class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
       <!-- Session Killzone Window (GMT+7 Phnom Penh & UTC) -->
-      <div class="lg:col-span-5 panel rounded-xl p-3.5 border-amber-500/30 flex items-center justify-between gap-3">
+      <div class="lg:col-span-4 panel rounded-xl p-3 border-amber-500/30 flex items-center justify-between gap-3 shadow-sm">
         <div class="space-y-1">
           <div class="flex items-center gap-2">
             <span id="sessionBadge" class="px-2.5 py-0.5 rounded text-xs font-black mono bg-amber-400 text-slate-950">SESSION</span>
@@ -147,7 +147,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <!-- Institutional Liquidity Levels (PDH, PDL, Asian High, Asian Low) -->
-      <div class="lg:col-span-4 panel rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center mono">
+      <div class="lg:col-span-5 panel rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center mono shadow-sm">
         <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
           <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block">PDH (Prev High)</span>
           <span id="lvlPdh" class="text-xs sm:text-sm font-extrabold text-rose-300">$----</span>
@@ -167,7 +167,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <!-- Confluence 1: Red Folder News Guard & MT5 Spread Buffer -->
-      <div class="lg:col-span-3 panel rounded-xl p-3.5 flex flex-col justify-between">
+      <div class="lg:col-span-3 panel rounded-xl p-3 flex flex-col justify-between shadow-sm">
         <div class="flex items-center justify-between">
           <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">1. Macro & Spread Guard</span>
           <span id="newsStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300">CLEAR</span>
@@ -180,59 +180,255 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     </section>
 
     <!-- ========================================================================= -->
-    <!-- ALL-TIMEFRAME 4-CONFLUENCE MATRIX (RESPONSIVE GRID & TABLE VIEW)            -->
+    <!-- TIER 2: THE MAIN TRADING DESK (2-COLUMN UNIFIED FLOW)                      -->
+    <!-- Left: 6-TF Ribbon + Lightweight Chart + 3-Step Strategy & Scoring Matrix  -->
+    <!-- Right: Complete Active Execution Ticket (Hero Banner + Risk Calculator)  -->
     <!-- ========================================================================= -->
-    <section class="panel rounded-2xl p-4 space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+
+      <!-- LEFT COLUMN: CHART & CONFLUENCE ANALYSIS (~65% WIDTH) -->
+      <div class="xl:col-span-7 2xl:col-span-8 space-y-4">
+
+        <!-- 6-Timeframe Interactive Ribbon (Top of Chart) -->
+        <div id="mtfEasyContainer" class="panel rounded-2xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between text-xs border-b border-slate-800/80 pb-2">
+            <span class="font-extrabold uppercase tracking-wider text-[11px] text-amber-300 flex items-center gap-2">
+              <span>⚡ Multi-Timeframe Status Strip</span>
+              <span class="text-[10px] text-slate-400 font-normal hidden sm:inline">(Click any chip to switch active chart & setup)</span>
+            </span>
+            <span class="mono text-[10px] text-slate-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Real-Time P&L
+            </span>
+          </div>
+          <div id="mtfEasyStripContainer" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <!-- Populated dynamically with 6 sleek interactive chips -->
+          </div>
+        </div>
+
+        <!-- Interactive Lightweight Chart -->
+        <div class="panel rounded-2xl p-4 flex flex-col gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+            <div class="flex flex-wrap items-center gap-3 sm:gap-4 text-xs">
+              <span class="font-extrabold text-white flex items-center gap-2">
+                <span id="chartTfLabel" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono text-xs">15M</span>
+                <span>Institutional 50/200 EMA & Key Levels</span>
+              </span>
+              <span class="flex items-center gap-1.5 text-purple-400 font-bold mono text-[11px]">
+                <span class="w-3 h-0.5 bg-purple-400 inline-block"></span>50 EMA (Slope)
+              </span>
+              <span class="flex items-center gap-1.5 text-sky-400 font-bold mono text-[11px]">
+                <span class="w-3 h-0.5 bg-sky-400 inline-block"></span>200 EMA (Macro)
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/25">
+                SL / TP / PDH-PDL Lines: ON
+              </button>
+              <button onclick="resetChartZoom()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                Fit Chart
+              </button>
+            </div>
+          </div>
+          <div id="priceChart" class="w-full h-[360px] sm:h-[450px] rounded-xl overflow-hidden bg-slate-950/70 border border-slate-900"></div>
+        </div>
+
+        <!-- Strategy Confluence & 100-Point Quantitative Matrix (Below Chart) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 3-Step Strategy Checklist -->
+          <div class="panel rounded-2xl p-4 space-y-3">
+            <div class="border-b border-slate-800 pb-2">
+              <div class="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <span>🎯 3-Step Strategy Confluence</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Liquidity Sweep + Structure Shift (BOS) + FVG PRO</p>
+            </div>
+            <div id="m15ChecklistContainer" class="space-y-2">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Quantitative 100-Point Scoring Matrix -->
+          <div class="panel rounded-2xl p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div>
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Quantitative 100-Point Matrix</h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Rule 3: Execute 90–100 pts. ≤85 pts is a pass.</p>
+              </div>
+              <span id="quantScoreBadge" class="mono text-xs font-black px-2.5 py-1 rounded bg-amber-400 text-slate-950">--/100 PTS</span>
+            </div>
+            <div id="quantVerdictBanner" class="p-2 rounded-xl border text-center font-black mono text-xs bg-slate-900 border-slate-700 text-slate-300">
+              EVALUATING 100-POINT MATRIX...
+            </div>
+            <div id="quantPillarsContainer" class="space-y-2">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: THE HERO EXECUTION TICKET (~35% WIDTH) -->
+      <div class="xl:col-span-5 2xl:col-span-4 space-y-4">
+
+        <section id="heroBanner" class="panel rounded-2xl p-4 sm:p-5 banner-wait transition-all space-y-4 border-2 border-amber-500/40 shadow-xl shadow-amber-500/5">
+          <!-- Execution Ticket Header -->
+          <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800/80 pb-3">
+            <div class="flex items-center gap-2">
+              <span id="gradeBadge" class="px-2.5 py-1 rounded-md text-xs font-black mono bg-amber-400 text-slate-950 shadow-sm">GRADE --</span>
+              <span id="activationBadge" class="px-2.5 py-1 rounded-md text-xs font-black mono bg-slate-900 text-amber-300 border border-amber-500/40">
+                STATUS
+              </span>
+            </div>
+            <span id="structureTag" class="mono text-[11px] font-bold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">--</span>
+          </div>
+
+          <!-- Big Live Position Status / Floating P&L -->
+          <div id="liveLifecycleBox" class="p-3.5 rounded-xl bg-slate-950/95 border-2 border-slate-700 space-y-1.5 shadow-inner">
+            <div class="flex items-center justify-between">
+              <span id="lifecycleTitle" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">ENTRY EXECUTION STATE</span>
+              <span id="lifecycleEntryTag" class="mono text-xs font-bold text-white">Entry: $----.--</span>
+            </div>
+            <div id="lifecyclePnlBig" class="mono text-2xl sm:text-3xl font-black text-amber-300">--</div>
+            <p id="lifecycleSubText" class="text-xs text-slate-300">--</p>
+          </div>
+
+          <!-- Dual Entry Options (Option A: Market Price vs Option B: FVG PRO Retest) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div id="marketEntryCard" onclick="copyValue('marketEntryVal')" class="cursor-pointer p-3 rounded-xl bg-slate-900/90 border border-slate-700 hover:border-slate-500 transition">
+              <div class="flex items-center justify-between">
+                <span id="marketCardTitle" class="text-[10px] font-extrabold uppercase text-slate-300">Option A: Market</span>
+                <span id="marketEntryStatusTag" class="px-1.5 py-0.5 rounded text-[9px] font-black mono bg-slate-800 text-slate-300">--</span>
+              </div>
+              <div id="marketEntryVal" class="mono text-xl sm:text-2xl font-black text-white mt-1">$----.--</div>
+              <div id="marketEntryNote" class="text-[10px] text-slate-400 mt-0.5">Live MT5 Spot Price</div>
+            </div>
+
+            <div id="waitEntryCard" onclick="copyValue('waitEntryVal')" class="cursor-pointer p-3 rounded-xl bg-amber-500/10 border-2 border-amber-400/70 hover:border-amber-300 transition">
+              <div class="flex items-center justify-between">
+                <span id="waitCardTitle" class="text-[10px] font-extrabold uppercase text-amber-300">Option B: FVG Limit</span>
+                <span id="waitOrderTypeTag" class="px-1.5 py-0.5 rounded text-[9px] font-black mono bg-amber-400 text-slate-950">LIMIT / RETEST</span>
+              </div>
+              <div id="waitEntryVal" class="mono text-xl sm:text-2xl font-black text-amber-300 mt-1">$----.--</div>
+              <div id="waitEntryNote" class="text-[10px] text-amber-200/80 mt-0.5">Retest to CE 50%</div>
+            </div>
+          </div>
+
+          <!-- Precision Coordinates: Hard SL, TP1 (1:2 R:R), TP2 (1:3 R:R) -->
+          <div class="space-y-2">
+            <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>Execution Coordinates</span>
+              <span class="text-[9px] text-slate-500 font-normal">Click any value to copy</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div onclick="copyValue('setupSl')" class="cursor-pointer p-2.5 rounded-xl bg-rose-950/35 border border-rose-500/45 hover:border-rose-400 transition">
+                <span class="text-[9px] font-bold uppercase text-rose-300 block">🛑 Hard SL</span>
+                <div id="setupSl" class="mono text-base sm:text-lg font-black text-rose-400 mt-0.5">$----.--</div>
+                <span id="setupSlPips" class="mono text-[10px] text-rose-300/80 block leading-tight">Risk: -- pt</span>
+              </div>
+
+              <div onclick="copyValue('setupTp1')" class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/45 hover:border-emerald-400 transition">
+                <span class="text-[9px] font-bold uppercase text-emerald-300 block">🎯 TP 1 (1:2)</span>
+                <div id="setupTp1" class="mono text-base sm:text-lg font-black text-emerald-400 mt-0.5">$----.--</div>
+                <span id="setupTp1Pips" class="mono text-[10px] text-emerald-300/80 block leading-tight">+-- pt (BE)</span>
+              </div>
+
+              <div onclick="copyValue('setupTp2')" class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/55 border border-emerald-400/60 hover:border-emerald-300 transition">
+                <span class="text-[9px] font-bold uppercase text-emerald-200 block">🏆 TP 2 (1:3)</span>
+                <div id="setupTp2" class="mono text-base sm:text-lg font-black text-emerald-300 mt-0.5">$----.--</div>
+                <span id="setupTp2Pips" class="mono text-[10px] text-emerald-200/90 block leading-tight">+-- pt (Runner)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Strict 1% Risk Calculator (MT5 Lot Size Sizer) -->
+          <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>⚖️ Strict 1% Risk Calculator</span>
+              <span class="text-[9px] text-amber-400 mono font-bold">Rule 4: Never >2%</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label class="text-[9px] text-slate-400 font-bold block">Account Equity ($)</label>
+                <input id="calcBalance" type="number" value="1000" oninput="updateRiskCalc()" class="w-full mt-0.5 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-white font-bold mono text-xs" />
+              </div>
+              <div>
+                <label class="text-[9px] text-slate-400 font-bold block">Risk % (Max 2%)</label>
+                <input id="calcRiskPct" type="number" value="1.0" max="2.0" step="0.25" oninput="updateRiskCalc()" class="w-full mt-0.5 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-amber-300 font-bold mono text-xs" />
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 text-center text-xs pt-1">
+              <div class="p-1 rounded bg-slate-900 border border-slate-800">
+                <span class="text-[8px] text-slate-400 uppercase block">1R Risk</span>
+                <span id="calcRiskUsd" class="mono text-[11px] font-bold text-rose-400">-$10.00</span>
+              </div>
+              <div class="p-1 rounded bg-amber-400/15 border border-amber-400/40">
+                <span class="text-[8px] text-amber-300 uppercase block">MT5 Lots</span>
+                <span id="calcLots" class="mono text-[11px] font-black text-amber-300">0.02 Lots</span>
+              </div>
+              <div class="p-1 rounded bg-slate-900 border border-slate-800">
+                <span class="text-[8px] text-slate-400 uppercase block">1:2 / 1:3 Profit</span>
+                <span id="calcRewardUsd" class="mono text-[11px] font-bold text-emerald-400">+$20 / +$30</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Primary 1-Click Copy Setup Action -->
+          <button onclick="copyTradeSignal()" class="w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-950 transition shadow-lg shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-2">
+            <span>📋 Copy Setup (Entry • SL • TP1 • TP2)</span>
+          </button>
+        </section>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TIER 3: UNIFIED MULTI-TIMEFRAME & TRADE HISTORY HUB (CLEAN TABBED DRAWER)  -->
+    <!-- All-TF Matrix Grid • MTF Table • 85%+ Setups • Signals Log • 20-Trd Journal-->
+    <!-- ========================================================================= -->
+    <section class="panel rounded-2xl p-4 sm:p-5 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div>
-          <h2 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-            <span>All Timeframes 4-Confluence Entry Matrix</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950 uppercase">Responsive Grid</span>
+          <h2 class="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
+            <span>Historical & Multi-Timeframe Analysis Hub</span>
           </h2>
           <p class="text-xs text-slate-400 mt-0.5">
-            Take <span class="text-emerald-400 font-bold">50% Partial Profit at 1:2 R:R (TP1) + Move SL to Breakeven</span>, and let remaining run to <span class="text-emerald-300 font-bold">1:3 R:R (TP2)</span>.
+            Access the 6-TF Matrix, 85%+ high-confidence setups, activated signals log, and 20-trade discipline journal.
           </p>
         </div>
+
         <div class="flex items-center gap-2 flex-wrap">
-          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 flex-wrap gap-0.5">
-            <button id="btnViewEasy" onclick="setMtfView('easy')" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
-              ✨ Easy View
+          <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
+            <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
+              🔲 6-TF Grid
             </button>
-            <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">
-              🔲 Grid View
+            <button id="btnViewTable" onclick="setMtfView('table')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+              📊 Alignment Table
             </button>
-            <button id="btnViewTable" onclick="setMtfView('table')" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">
-              📋 Table View
+            <button id="btnViewConfident" onclick="setMtfView('confident')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+              ⭐ 85%+ Setups
             </button>
-            <button id="btnViewConfident" onclick="setMtfView('confident')" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">
-              ⭐ 85%+ Entries View
+            <button id="btnViewSignals" onclick="setMtfView('signals')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+              📜 Activated Signals
             </button>
+            <button id="btnViewJournal" onclick="setMtfView('journal')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+              📘 20-Trade Journal
+            </button>
+            <!-- Hidden easy button preserved for backward compatibility -->
+            <button id="btnViewEasy" onclick="setMtfView('grid')" style="display:none"></button>
           </div>
-          <span id="mtfMasterSummary" class="text-xs text-slate-300 font-semibold hidden md:inline">--</span>
+          <span id="mtfMasterSummary" class="text-xs text-slate-300 font-semibold hidden lg:inline">--</span>
           <span id="mtfMasterBadge" class="px-2.5 py-1 rounded-md text-xs font-black mono bg-slate-800 text-amber-300">--</span>
         </div>
       </div>
 
-      <!-- Easy View: 6-Timeframe Quick Status Strip (Compact, High-Focus) -->
-      <div id="mtfEasyContainer" class="space-y-2">
-        <div class="flex items-center justify-between text-xs text-slate-400">
-          <span class="font-bold uppercase tracking-wider text-[11px] text-amber-300 flex items-center gap-1.5">
-            <span>⚡ Multi-Timeframe Status Strip</span>
-            <span class="text-[10px] text-slate-400 font-normal">(Click any card to switch main focus)</span>
-          </span>
-          <span class="mono text-[10px] text-slate-500 hidden sm:inline">Real-Time Sub-Second P&L</span>
-        </div>
-        <div id="mtfEasyStripContainer" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          <!-- Populated dynamically with 6 sleek interactive chips -->
-        </div>
-      </div>
-
-      <!-- Responsive 6-Timeframe Card Grid (Default, Perfect for Mobile & Desktop) -->
-      <div id="mtfGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 hidden">
+      <!-- Tab Pane 1: 6-Timeframe Responsive Cards Grid -->
+      <div id="mtfGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3">
         <!-- Populated dynamically with responsive cards -->
       </div>
 
-      <!-- Alternative Full Table View (Toggleable) -->
+      <!-- Tab Pane 2: Multi-Timeframe Alignment Table -->
       <div id="mtfTableContainer" data-scroll-key="mtf-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto hidden">
         <table class="w-full text-left border-collapse text-xs">
           <thead>
@@ -256,7 +452,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </table>
       </div>
 
-      <!-- Alternative 85%+ Entries View (Directly Inside Matrix Card) -->
+      <!-- Tab Pane 3: ⭐ 85%+ High-Confidence Setups per Timeframe -->
       <div id="mtfConfidentContainer" class="space-y-3 hidden">
         <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800 text-xs">
           <span class="text-slate-300 font-bold">⭐ All 85%+ High-Confidence Entries Across 6 Timeframes:</span>
@@ -265,289 +461,96 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <button onclick="toggleAllCollapses(false)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold transition">Collapse All</button>
           </div>
         </div>
-        <div id="matrixConfidentCardsContainer" class="space-y-2.5">
-          <!-- Populated dynamically -->
+        <div id="highConfidenceCollapseContainer" class="space-y-3">
+          <!-- Populated dynamically with collapsible timeframes -->
+        </div>
+        <div id="matrixConfidentCardsContainer" class="space-y-2.5 hidden">
+          <!-- Backup container populated dynamically -->
         </div>
       </div>
-    </section>
 
-    <!-- ========================================================================= -->
-    <!-- SELECTED TIMEFRAME: HERO CARD + EXACT 3-STEP M15 ENTRY CHECKLIST          -->
-    <!-- ========================================================================= -->
-    <section id="heroBanner" class="rounded-2xl p-5 banner-wait transition-all">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-        <!-- Left 5 Cols: Activation Status, Live P&L, & Exact 3-Step M15 Entry Checklist -->
-        <div class="lg:col-span-5 space-y-3 border-b lg:border-b-0 lg:border-r border-slate-800 pb-4 lg:pb-0 lg:pr-6">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <span id="gradeBadge" class="px-2.5 py-1 rounded-md text-xs font-black mono bg-amber-400 text-slate-950">GRADE --</span>
-              <span id="activationBadge" class="px-2.5 py-1 rounded-md text-xs font-black mono bg-slate-900 text-amber-300 border border-amber-500/40">
-                STATUS
-              </span>
-            </div>
-            <span id="structureTag" class="mono text-[11px] font-bold text-slate-300">--</span>
+      <!-- Tab Pane 4: 4-Confluence Activated Signals Log -->
+      <div id="tabSignalsContainer" class="space-y-3 hidden">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2.5">
+          <p class="text-xs text-slate-400">
+            Verified historical signals across all timeframes with Hard SL and 1:2 / 1:3 targets.
+          </p>
+          <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
+            <button onclick="filterSignalList('90PLUS')" id="flt-90PLUS" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 shadow-sm">⭐ 90%+ ONLY</button>
+            <button onclick="filterSignalList('ALL')" id="flt-ALL" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">ALL TFs</button>
+            <button onclick="filterSignalList('1m')" id="flt-1m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M1</button>
+            <button onclick="filterSignalList('5m')" id="flt-5m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M5</button>
+            <button onclick="filterSignalList('15m')" id="flt-15m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M15</button>
+            <button onclick="filterSignalList('30m')" id="flt-30m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M30</button>
+            <button onclick="filterSignalList('1h')" id="flt-1h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H1</button>
+            <button onclick="filterSignalList('4h')" id="flt-4h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H4</button>
           </div>
-
-          <div id="liveLifecycleBox" class="p-3.5 rounded-xl bg-slate-950/90 border-2 border-slate-700 space-y-1">
-            <div class="flex items-center justify-between">
-              <span id="lifecycleTitle" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">ENTRY EXECUTION STATE</span>
-              <span id="lifecycleEntryTag" class="mono text-xs font-bold text-white">Entry: $----.--</span>
-            </div>
-            <div id="lifecyclePnlBig" class="mono text-xl sm:text-2xl font-black text-amber-300">--</div>
-            <p id="lifecycleSubText" class="text-xs text-slate-300">--</p>
-          </div>
-
-          <!-- Exact 3-Step M15 Entry Checklist -->
-          <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-2">
-            <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-              🎯 3-Step Strategy: Liquidity Sweep + BOS + FVG PRO
-            </div>
-            <div id="m15ChecklistContainer" class="space-y-1.5">
+        </div>
+        <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
+        <div data-scroll-key="all-signals-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
+          <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
+                <th class="py-2.5 px-3">Time</th>
+                <th class="py-2.5 px-3">TF</th>
+                <th class="py-2.5 px-3">Signal</th>
+                <th class="py-2.5 px-3">Grade</th>
+                <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
+                <th class="py-2.5 px-3">Hard SL (1.5x ATR)</th>
+                <th class="py-2.5 px-3">TP 1 (1:2 • 50% + BE)</th>
+                <th class="py-2.5 px-3">TP 2 (1:3 • Runner)</th>
+                <th class="py-2.5 px-3">Confluence Trigger</th>
+                <th class="py-2.5 px-3">Outcome</th>
+                <th class="py-2.5 px-3 text-right">Net Move</th>
+              </tr>
+            </thead>
+            <tbody id="allSignalsTableBody" class="divide-y divide-slate-800/60 mono">
               <!-- Populated dynamically -->
-            </div>
-          </div>
-
-          <button onclick="copyTradeSignal()" class="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 transition">
-            📋 Copy Liquidity Sweep + BOS + FVG PRO Setup
-          </button>
-        </div>
-
-        <!-- Right 7 Cols: Entry Options + Hard SL ($3–$5) + 1:2 TP1 + 1:3 TP2 + Strict 1% Risk Calculator -->
-        <div class="lg:col-span-7 space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div id="marketEntryCard" onclick="copyValue('marketEntryVal')" class="cursor-pointer p-3 rounded-xl bg-slate-900/90 border border-slate-700 transition">
-              <div class="flex items-center justify-between">
-                <span id="marketCardTitle" class="text-[11px] font-extrabold uppercase text-slate-300">Option A: Market Price (Now)</span>
-                <span id="marketEntryStatusTag" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-300">--</span>
-              </div>
-              <div id="marketEntryVal" class="mono text-2xl font-black text-white mt-1">$----.--</div>
-              <div id="marketEntryNote" class="text-[11px] text-slate-400 mt-0.5">Live MT5 Spot Price</div>
-            </div>
-
-            <div id="waitEntryCard" onclick="copyValue('waitEntryVal')" class="cursor-pointer p-3 rounded-xl bg-amber-500/10 border-2 border-amber-400/70 transition">
-              <div class="flex items-center justify-between">
-                <span id="waitCardTitle" class="text-[11px] font-extrabold uppercase text-amber-300">Option B: FVG PRO Retest (CE 50%)</span>
-                <span id="waitOrderTypeTag" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950">LIMIT / RETEST</span>
-              </div>
-              <div id="waitEntryVal" class="mono text-2xl font-black text-amber-300 mt-1">$----.--</div>
-              <div id="waitEntryNote" class="text-[11px] text-amber-200/80 mt-0.5">Retest to Consequent Encroachment (CE 50%)</div>
-            </div>
-          </div>
-
-          <!-- Hard SL (1.5x ATR), TP1 (1:2 R:R 50% Partial + BE), TP2 (1:3 R:R Runner) -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-            <div onclick="copyValue('setupSl')" class="cursor-pointer p-3 rounded-xl bg-rose-950/35 border border-rose-500/45 hover:border-rose-400 transition">
-              <span class="text-[10px] font-bold uppercase text-rose-300 block">🛑 Hard SL (1.5x ATR Dynamic)</span>
-              <div id="setupSl" class="mono text-lg sm:text-xl font-black text-rose-400 mt-1">$----.--</div>
-              <span id="setupSlPips" class="mono text-[11px] text-rose-300/80 mt-0.5 block">Risk: -- pips ($--/oz)</span>
-            </div>
-
-            <div onclick="copyValue('setupTp1')" class="cursor-pointer p-3 rounded-xl bg-emerald-950/35 border border-emerald-500/45 hover:border-emerald-400 transition">
-              <span class="text-[10px] font-bold uppercase text-emerald-300 block">🎯 TP 1 (1:2 RR • Take 50% + BE)</span>
-              <div id="setupTp1" class="mono text-lg sm:text-xl font-black text-emerald-400 mt-1">$----.--</div>
-              <span id="setupTp1Pips" class="mono text-[11px] text-emerald-300/80 mt-0.5 block">+-- pips (Move SL→BE)</span>
-            </div>
-
-            <div onclick="copyValue('setupTp2')" class="cursor-pointer p-3 rounded-xl bg-emerald-950/55 border border-emerald-400/60 hover:border-emerald-300 transition">
-              <span class="text-[10px] font-bold uppercase text-emerald-200 block">🏆 TP 2 (1:3 RR • H4 Runner)</span>
-              <div id="setupTp2" class="mono text-lg sm:text-xl font-black text-emerald-300 mt-1">$----.--</div>
-              <span id="setupTp2Pips" class="mono text-[11px] text-emerald-200/90 mt-0.5 block">+-- pips (3× Reward)</span>
-            </div>
-          </div>
-
-          <!-- Universal Risk Rule: Strict 1% Risk Per Trade Calculator -->
-          <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 items-center text-xs">
-            <div>
-              <label class="text-[10px] text-slate-400 font-bold block">Account Equity ($)</label>
-              <input id="calcBalance" type="number" value="1000" oninput="updateRiskCalc()" class="w-full mt-0.5 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-white font-bold mono" />
-            </div>
-            <div>
-              <label class="text-[10px] text-slate-400 font-bold block">Strict Risk % (Max 2%)</label>
-              <input id="calcRiskPct" type="number" value="1.0" max="2.0" step="0.25" oninput="updateRiskCalc()" class="w-full mt-0.5 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-amber-300 font-bold mono" />
-            </div>
-            <div class="text-center p-1.5 rounded bg-slate-900 border border-slate-800">
-              <span class="text-[9px] text-slate-400 uppercase block">1R Risk ($)</span>
-              <span id="calcRiskUsd" class="mono font-bold text-rose-400">-$10.00</span>
-            </div>
-            <div class="text-center p-1.5 rounded bg-amber-400/15 border border-amber-400/40">
-              <span class="text-[9px] text-amber-300 uppercase block">MT5 Lot Size</span>
-              <span id="calcLots" class="mono font-black text-amber-300">0.02 Lots</span>
-            </div>
-            <div class="col-span-2 sm:col-span-1 text-center p-1.5 rounded bg-slate-900 border border-slate-800">
-              <span class="text-[9px] text-slate-400 uppercase block">1:2 / 1:3 Profit</span>
-              <span id="calcRewardUsd" class="mono font-bold text-emerald-400">+$20 / +$30</span>
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       </div>
-    </section>
 
-    <!-- ========================================================================= -->
-    <!-- 3. CLEAN CHART (50 EMA & 200 EMA ONLY + LIQUIDITY LINES) & 4 CONFLUENCES  -->
-    <!-- ========================================================================= -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-      <div class="lg:col-span-8 panel rounded-2xl p-4 flex flex-col gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
-          <div class="flex flex-wrap items-center gap-4 text-xs">
-            <span class="font-bold text-white flex items-center gap-2">
-              <span id="chartTfLabel" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono">15M</span>
-              XAU/USD Chart (Clean 50 EMA & 200 EMA + Liquidity Levels)
-            </span>
-            <span class="flex items-center gap-1.5 text-purple-400 font-bold mono"><span class="w-3 h-0.5 bg-purple-400 inline-block"></span>50 EMA (Slope Filter)</span>
-            <span class="flex items-center gap-1.5 text-sky-400 font-bold mono"><span class="w-3 h-0.5 bg-sky-400 inline-block"></span>200 EMA (Macro Baseline)</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              SL / TP / PDH-PDL Lines: ON
-            </button>
-            <button onclick="resetChartZoom()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
-              Fit Chart
-            </button>
-          </div>
-        </div>
-        <div id="priceChart" class="w-full h-[320px] sm:h-[430px] rounded-xl overflow-hidden"></div>
-      </div>
-
-      <div class="lg:col-span-4 panel rounded-2xl p-4 space-y-3">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+      <!-- Tab Pane 5: Rule 5: 20-Trade Rule-Adherence Journal -->
+      <div id="tabJournalContainer" class="space-y-3 hidden">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2.5">
           <div>
-            <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Quantitative 100-Point Scoring Matrix</h3>
-            <p class="text-[11px] text-slate-400">Rule 3: Only execute 90–100 pts. ≤85 pts is an automatic pass.</p>
+            <p class="text-xs text-slate-400">
+              Rule 5: Judge your execution by discipline across 20 consecutive trades. Logged with Score (90%+ only), M15 close wait, and spread.
+            </p>
           </div>
-          <span id="quantScoreBadge" class="mono text-xs font-black px-2.5 py-1 rounded bg-amber-400 text-slate-950">--/100 PTS</span>
+          <div id="journalStatsBadge" class="px-3 py-1 rounded-lg text-xs font-black mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            20-Trade Win Rate: --%
+          </div>
         </div>
-        
-        <!-- Action Verdict Banner -->
-        <div id="quantVerdictBanner" class="p-2.5 rounded-xl border text-center font-black mono text-xs bg-slate-900 border-slate-700 text-slate-300">
-          EVALUATING 100-POINT MATRIX...
-        </div>
-
-        <div id="quantPillarsContainer" class="space-y-2">
-          <!-- Populated dynamically -->
-        </div>
-      </div>
-    </div>
-
-    <!-- ========================================================================= -->
-    <!-- ⭐ 85%+ HIGH-CONFIDENCE ENTRIES (COLLAPSIBLE PER TIMEFRAME)                -->
-    <!-- ========================================================================= -->
-    <section class="panel rounded-2xl p-4 space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-        <div>
-          <h2 class="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-            <span>⭐ 85%+ High-Confidence Entries</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950 uppercase">Collapsible per Timeframe</span>
-          </h2>
-          <p class="text-xs text-slate-400">
-            Institutional Grade A / A+ entries with 85%+ confidence (Limit 5 per timeframe) with entry, stop loss, and 1:2 / 1:3 targets.
-          </p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="toggleAllCollapses(true)" class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Expand All</button>
-          <button onclick="toggleAllCollapses(false)" class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Collapse All</button>
+        <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
+        <div data-scroll-key="journal-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
+          <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
+                <th class="py-2.5 px-3">#</th>
+                <th class="py-2.5 px-3">Time</th>
+                <th class="py-2.5 px-3">TF</th>
+                <th class="py-2.5 px-3">Dir</th>
+                <th class="py-2.5 px-3 text-amber-300">Score (90%+)</th>
+                <th class="py-2.5 px-3">M15 Close Waited</th>
+                <th class="py-2.5 px-3">Spread @ Entry</th>
+                <th class="py-2.5 px-3">Entry Price</th>
+                <th class="py-2.5 px-3 text-rose-400">Stop-Loss</th>
+                <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:2)</th>
+                <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:3+)</th>
+                <th class="py-2.5 px-3">Outcome</th>
+                <th class="py-2.5 px-3">Achieved R:R</th>
+                <th class="py-2.5 px-3 text-right">Net P&L</th>
+              </tr>
+            </thead>
+            <tbody id="journalTableBody" class="divide-y divide-slate-800/60 mono">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div id="highConfidenceCollapseContainer" class="space-y-3">
-        <!-- Populated dynamically -->
-      </div>
-    </section>
-
-    <!-- ========================================================================= -->
-    <!-- 4. ACTIVATED SIGNALS LOG ACROSS TIMEFRAMES (1:2 & 1:3 R:R OUTCOMES)       -->
-    <!-- ========================================================================= -->
-    <section class="panel rounded-2xl p-4 space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-        <div>
-          <h2 class="text-sm font-extrabold uppercase tracking-wider text-white">
-            4-Confluence Activated Signals Log (1:2 Partial + BE & 1:3 Runner Outcomes)
-          </h2>
-          <p class="text-xs text-slate-400">
-            Verified signals across M1, M5, M15, M30, H1, and H4 using Hard SL ($3–$5) and 1:2 / 1:3 Risk-to-Reward.
-          </p>
-        </div>
-
-        <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
-          <button onclick="filterSignalList('90PLUS')" id="flt-90PLUS" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 shadow-sm">⭐ 90%+ ONLY</button>
-          <button onclick="filterSignalList('ALL')" id="flt-ALL" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">ALL TFs</button>
-          <button onclick="filterSignalList('1m')" id="flt-1m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M1</button>
-          <button onclick="filterSignalList('5m')" id="flt-5m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M5</button>
-          <button onclick="filterSignalList('15m')" id="flt-15m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M15</button>
-          <button onclick="filterSignalList('30m')" id="flt-30m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M30</button>
-          <button onclick="filterSignalList('1h')" id="flt-1h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H1</button>
-          <button onclick="filterSignalList('4h')" id="flt-4h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H4</button>
-        </div>
-      </div>
-
-      <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
-      <div data-scroll-key="all-signals-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
-        <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
-          <thead>
-            <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
-              <th class="py-2.5 px-3">Time</th>
-              <th class="py-2.5 px-3">TF</th>
-              <th class="py-2.5 px-3">Signal</th>
-              <th class="py-2.5 px-3">Grade</th>
-              <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
-              <th class="py-2.5 px-3">Hard SL (1.5x ATR)</th>
-              <th class="py-2.5 px-3">TP 1 (1:2 • 50% + BE)</th>
-              <th class="py-2.5 px-3">TP 2 (1:3 • Runner)</th>
-              <th class="py-2.5 px-3">Confluence Trigger</th>
-              <th class="py-2.5 px-3">Outcome</th>
-              <th class="py-2.5 px-3 text-right">Net Move ($/oz)</th>
-            </tr>
-          </thead>
-          <tbody id="allSignalsTableBody" class="divide-y divide-slate-800/60 mono">
-            <!-- Populated dynamically -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ========================================================================= -->
-    <!-- 5. RULE 5: 20-TRADE RULE-ADHERENCE JOURNAL TABLE                          -->
-    <!-- ========================================================================= -->
-    <section class="panel rounded-2xl p-4 space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-        <div>
-          <h2 class="text-sm font-extrabold uppercase tracking-wider text-white">
-            📘 20-Trade Rule-Adherence Journal (Confluence 90%+, M15 Close & MT5 Spread Log)
-          </h2>
-          <p class="text-xs text-slate-400">
-            Rule 5: Judge your execution by discipline across 20 consecutive trades. Logged with Score (90%+ only), M15 close wait, entry spread, and achieved R:R.
-          </p>
-        </div>
-        <div id="journalStatsBadge" class="px-3 py-1 rounded-lg text-xs font-black mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-          20-Trade Win Rate: --%
-        </div>
-      </div>
-
-      <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
-      <div data-scroll-key="journal-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
-        <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
-          <thead>
-            <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
-              <th class="py-2.5 px-3">#</th>
-              <th class="py-2.5 px-3">Time</th>
-              <th class="py-2.5 px-3">TF</th>
-              <th class="py-2.5 px-3">Dir</th>
-              <th class="py-2.5 px-3 text-amber-300">Score (90%+)</th>
-              <th class="py-2.5 px-3">M15 Close Waited</th>
-              <th class="py-2.5 px-3">Spread @ Entry</th>
-              <th class="py-2.5 px-3">Entry Price</th>
-              <th class="py-2.5 px-3 text-rose-400">Stop-Loss</th>
-              <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:2)</th>
-              <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:3+)</th>
-              <th class="py-2.5 px-3">Outcome</th>
-              <th class="py-2.5 px-3">Achieved R:R</th>
-              <th class="py-2.5 px-3 text-right">Net P&L ($/oz)</th>
-            </tr>
-          </thead>
-          <tbody id="journalTableBody" class="divide-y divide-slate-800/60 mono">
-            <!-- Populated dynamically -->
-          </tbody>
-        </table>
-      </div>
     </section>
 
   </main>
@@ -655,38 +658,43 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       });
     }
 
-    let mtfViewMode = 'easy';
+    let mtfViewMode = 'grid';
     try {
       const savedMode = localStorage.getItem('indecator_view_mode');
-      if (savedMode && ['easy', 'grid', 'table', 'confident'].includes(savedMode)) {
+      if (savedMode && ['grid', 'table', 'confident', 'signals', 'journal'].includes(savedMode)) {
         mtfViewMode = savedMode;
       }
     } catch {}
 
     function setMtfView(mode) {
+      if (mode === 'easy') mode = 'grid';
       mtfViewMode = mode;
       try { localStorage.setItem('indecator_view_mode', mode); } catch {}
-      const easyEl = document.getElementById('mtfEasyContainer');
-      const gridEl = document.getElementById('mtfGridContainer');
-      const tableEl = document.getElementById('mtfTableContainer');
-      const confEl = document.getElementById('mtfConfidentContainer');
-      const btnEasy = document.getElementById('btnViewEasy');
-      const btnGrid = document.getElementById('btnViewGrid');
-      const btnTable = document.getElementById('btnViewTable');
-      const btnConf = document.getElementById('btnViewConfident');
+      const tabPanes = {
+        grid: document.getElementById('mtfGridContainer'),
+        table: document.getElementById('mtfTableContainer'),
+        confident: document.getElementById('mtfConfidentContainer'),
+        signals: document.getElementById('tabSignalsContainer'),
+        journal: document.getElementById('tabJournalContainer'),
+      };
+      const tabBtns = {
+        grid: document.getElementById('btnViewGrid'),
+        table: document.getElementById('btnViewTable'),
+        confident: document.getElementById('btnViewConfident'),
+        signals: document.getElementById('btnViewSignals'),
+        journal: document.getElementById('btnViewJournal'),
+      };
 
-      if (easyEl) easyEl.classList.toggle('hidden', mode !== 'easy');
-      if (gridEl) gridEl.classList.toggle('hidden', mode !== 'grid');
-      if (tableEl) tableEl.classList.toggle('hidden', mode !== 'table');
-      if (confEl) confEl.classList.toggle('hidden', mode !== 'confident');
+      Object.entries(tabPanes).forEach(([k, el]) => {
+        if (el) el.classList.toggle('hidden', k !== mode);
+      });
 
-      const activeBtnCls = 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm';
-      const inactiveBtnCls = 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition';
+      const activeBtnCls = 'px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm';
+      const inactiveBtnCls = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition';
 
-      if (btnEasy) btnEasy.className = mode === 'easy' ? activeBtnCls : inactiveBtnCls;
-      if (btnGrid) btnGrid.className = mode === 'grid' ? activeBtnCls : inactiveBtnCls;
-      if (btnTable) btnTable.className = mode === 'table' ? activeBtnCls : inactiveBtnCls;
-      if (btnConf) btnConf.className = mode === 'confident' ? activeBtnCls : inactiveBtnCls;
+      Object.entries(tabBtns).forEach(([k, btn]) => {
+        if (btn) btn.className = k === mode ? activeBtnCls : inactiveBtnCls;
+      });
     }
 
     function initCharts() {
@@ -733,9 +741,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           const isMob = window.innerWidth < 640;
           priceChart.applyOptions({
             width: priceEl.clientWidth,
-            height: isMob ? 320 : 430,
+            height: isMob ? 360 : 450,
           });
         });
+
+        if (window.ResizeObserver && priceEl) {
+          const ro = new ResizeObserver(() => {
+            if (priceChart && priceEl.clientWidth > 0) {
+              priceChart.applyOptions({ width: priceEl.clientWidth });
+            }
+          });
+          ro.observe(priceEl);
+        }
       } catch (err) {
         console.warn('initCharts error caught:', err);
       }
