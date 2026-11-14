@@ -1019,6 +1019,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     function renderDashboard(data, mtf) {
+      const uInfo = getAssetUnitInfo();
       saveOpenCollapses();
       saveAllScrollStates();
       if (data.spotQuote) updateLiveSpotTicker(data.spotQuote);
@@ -1233,29 +1234,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                               '</div>';
                           }).join('');
                         })()}
-                      </div>
-
-                              return \`
-                                <div class="p-2 rounded-lg \${cardBorder} text-xs space-y-1">
-                                  <div class="flex items-center justify-between text-[11px]">
-                                    <div class="flex items-center gap-1.5">
-                                      \${liveHeaderBadge}
-                                      <span class="font-black mono \${cTypeCls}">\${cs.type} \${entryNumLabel}</span>
-                                      <span class="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[9px]">\${cs.grade} \${cs.probability || cs.confidence}%</span>
-                                    </div>
-                                    \${outBadge}
-                                  </div>
-                                  <div class="mono text-[11px] space-y-0.5 text-slate-300 pt-0.5">
-                                    <div class="text-amber-300 font-bold">• <strong>entry</strong>: \${cs.entry.toFixed(2)}</div>
-                                    <div class="text-rose-400">• <strong>stop loss</strong>: \${cs.stopLoss.toFixed(2)}</div>
-                                    <div class="text-emerald-400">• <strong>tp1</strong>: \${cs.tp1.toFixed(2)}</div>
-                                    <div class="text-emerald-300 font-extrabold">• <strong>tp2</strong>: \${cs.tp2.toFixed(2)}</div>
-                                  </div>
-                                  \${livePnlHtml}
-                                </div>
-                              \`;
-                            }).join('')
-                        }
                       </div>
                     </details>
                   </div>
@@ -1534,6 +1512,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     };
 
     function renderHighConfidenceCollapse(highConfidenceByTf) {
+      const uInfo = getAssetUnitInfo();
       const container = document.getElementById('highConfidenceCollapseContainer');
       const matrixContainer = document.getElementById('matrixConfidentCardsContainer');
       if (!container && !matrixContainer) return;
@@ -1585,7 +1564,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const typeCls = isB ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
             const curBid = lastKnownBid || s.entry;
             const diff = isB ? curBid - s.entry : s.entry - curBid;
-            const pips = diff * 10;
+            const pips = diff * uInfo.mult;
             const isProf = diff >= 0;
             const sign = isProf ? '+' : '';
 
