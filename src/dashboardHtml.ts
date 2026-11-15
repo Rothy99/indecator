@@ -129,65 +129,48 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           <span class="hidden md:inline">Shortcuts</span>
         </button>
 
-        <div class="inline-flex rounded-lg bg-slate-900 p-0.5 sm:p-1 border border-slate-800 overflow-x-auto">
-          <button onclick="switchTimeframe('1m')" id="tf-1m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M1</button>
-          <button onclick="switchTimeframe('5m')" id="tf-5m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M5</button>
-          <button onclick="switchTimeframe('15m')" id="tf-15m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all bg-amber-400 text-slate-950">M15</button>
-          <button onclick="switchTimeframe('30m')" id="tf-30m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M30</button>
-          <button onclick="switchTimeframe('1h')" id="tf-1h" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">H1</button>
-          <button onclick="switchTimeframe('4h')" id="tf-4h" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">H4</button>
-        </div>
       </div>
     </div>
   </header>
 
-    <main class="max-w-[1600px] w-full mx-auto px-3 sm:px-4 py-3 sm:py-4 flex-1 space-y-4">
+    <main class="max-w-[1600px] w-full mx-auto px-3 sm:px-4 py-2 sm:py-3 flex-1 space-y-3">
 
     <!-- ========================================================================= -->
-    <!-- TIER 1: INSTITUTIONAL MARKET CONTEXT & KILLZONE (COMPACT BAR)              -->
+    <!-- TIER 1: INSTITUTIONAL MARKET CONTEXT & KILLZONE (PANORAMIC STRIP)          -->
     <!-- ========================================================================= -->
-    <section class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+    <section class="panel rounded-xl px-3 sm:px-4 py-2 border-slate-800 bg-slate-950/80 shadow-sm flex flex-wrap items-center justify-between gap-2.5 text-xs">
       <!-- Session Killzone Window (GMT+7 Phnom Penh & UTC) -->
-      <div class="lg:col-span-4 panel rounded-xl p-3 border-amber-500/30 flex items-center justify-between gap-3 shadow-sm">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span id="sessionBadge" class="px-2.5 py-0.5 rounded text-xs font-black mono bg-amber-400 text-slate-950">SESSION</span>
-            <span id="sessionClock" class="mono text-xs font-bold text-white">--:-- GMT+7 | --:-- UTC</span>
-          </div>
-          <p id="sessionActionText" class="text-xs text-slate-300 leading-snug">Loading session killzone rules...</p>
-        </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span id="sessionBadge" class="px-2.5 py-0.5 rounded text-[11px] font-black mono bg-amber-400 text-slate-950">SESSION</span>
+        <span id="sessionClock" class="mono text-xs font-bold text-white">--:-- GMT+7 | --:-- UTC</span>
+        <span id="sessionActionText" class="text-[11px] text-slate-400 hidden xl:inline border-l border-slate-800 pl-2">Loading session killzone rules...</span>
       </div>
 
       <!-- Institutional Liquidity Levels (PDH, PDL, Asian High, Asian Low) -->
-      <div class="lg:col-span-5 panel rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center mono shadow-sm">
-        <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block">PDH (Prev High)</span>
-          <span id="lvlPdh" class="text-xs sm:text-sm font-extrabold text-rose-300">$----</span>
+      <div class="flex items-center gap-1.5 sm:gap-2 mono flex-wrap">
+        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
+          <span class="text-[9px] text-slate-400 uppercase font-bold">PDH</span>
+          <span id="lvlPdh" class="text-xs font-black text-rose-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block">PDL (Prev Low)</span>
-          <span id="lvlPdl" class="text-xs sm:text-sm font-extrabold text-emerald-300">$----</span>
+        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
+          <span class="text-[9px] text-slate-400 uppercase font-bold">PDL</span>
+          <span id="lvlPdl" class="text-xs font-black text-emerald-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[9px] sm:text-[10px] text-amber-300/80 font-bold block">Asian High</span>
-          <span id="lvlAsianHigh" class="text-xs sm:text-sm font-extrabold text-amber-300">$----</span>
+        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
+          <span class="text-[9px] text-amber-400/80 uppercase font-bold">Asian H</span>
+          <span id="lvlAsianHigh" class="text-xs font-black text-amber-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-          <span class="text-[9px] sm:text-[10px] text-amber-300/80 font-bold block">Asian Low</span>
-          <span id="lvlAsianLow" class="text-xs sm:text-sm font-extrabold text-amber-300">$----</span>
+        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
+          <span class="text-[9px] text-amber-400/80 uppercase font-bold">Asian L</span>
+          <span id="lvlAsianLow" class="text-xs font-black text-amber-300">$----</span>
         </div>
       </div>
 
-      <!-- Confluence 1: Red Folder News Guard & MT5 Spread Buffer -->
-      <div class="lg:col-span-3 panel rounded-xl p-3 flex flex-col justify-between shadow-sm">
-        <div class="flex items-center justify-between">
-          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">1. Macro & Spread Guard</span>
-          <span id="newsStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300">CLEAR</span>
-        </div>
-        <div id="spreadNoticeBox" class="text-[11px] mono text-emerald-300 mt-1 font-semibold">
-          Spread: -- pt (Max 25pt) • Ask buffer active
-        </div>
-        <p id="newsStatusNote" class="text-[10px] text-slate-400 mt-0.5 leading-tight">Stay flat 15m before/after Red Folder CPI/NFP/FOMC.</p>
+      <!-- Macro News Guard & MT5 Spread Buffer -->
+      <div class="flex items-center gap-2">
+        <span id="newsStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">NEWS CLEAR</span>
+        <span id="spreadNoticeBox" class="text-[11px] mono text-emerald-400 font-bold hidden sm:inline">Spread: -- pt</span>
+        <span id="newsStatusNote" class="hidden"></span>
       </div>
     </section>
 
@@ -245,38 +228,45 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           <div id="priceChart" class="w-full h-[360px] sm:h-[450px] rounded-xl overflow-hidden bg-slate-950/70 border border-slate-900"></div>
         </div>
 
-        <!-- Strategy Confluence & 100-Point Quantitative Matrix (Below Chart) -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- 3-Step Strategy Checklist -->
-          <div class="panel rounded-2xl p-4 space-y-3">
-            <div class="border-b border-slate-800 pb-2">
-              <div class="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                <span>🎯 3-Step Strategy Confluence</span>
-              </div>
-              <p class="text-[11px] text-slate-400 mt-0.5">Liquidity Sweep + Structure Shift (BOS) + FVG PRO</p>
+        <!-- Strategy Confluence & 100-Point Quantitative Matrix (Collapsible Clean Bar) -->
+        <details id="confluenceDetails" class="panel rounded-xl p-3 sm:p-3.5 border-slate-800 space-y-2.5 group transition-all">
+          <summary class="flex items-center justify-between cursor-pointer list-none select-none">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950 uppercase">CONFLUENCE</span>
+              <span class="text-xs font-extrabold text-white">3-Step Strategy Checklist & 100-Point Scoring Matrix</span>
+              <span class="text-[10px] text-slate-400 hidden sm:inline">(Click to view 5 pillars & notes)</span>
             </div>
-            <div id="m15ChecklistContainer" class="space-y-2">
-              <!-- Populated dynamically -->
+            <div class="flex items-center gap-2">
+              <span id="quantScoreBadge" class="mono text-xs font-black px-2.5 py-0.5 rounded bg-amber-400 text-slate-950">--/100 PTS</span>
+              <span class="text-xs text-slate-400 group-open:rotate-180 transition-transform">▼</span>
             </div>
-          </div>
-
-          <!-- Quantitative 100-Point Scoring Matrix -->
-          <div class="panel rounded-2xl p-4 space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div>
-                <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Quantitative 100-Point Matrix</h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">Rule 3: Execute 90–100 pts. ≤85 pts is a pass.</p>
-              </div>
-              <span id="quantScoreBadge" class="mono text-xs font-black px-2.5 py-1 rounded bg-amber-400 text-slate-950">--/100 PTS</span>
-            </div>
+          </summary>
+          <div class="pt-2.5 border-t border-slate-800/80 space-y-3">
             <div id="quantVerdictBanner" class="p-2 rounded-xl border text-center font-black mono text-xs bg-slate-900 border-slate-700 text-slate-300">
               EVALUATING 100-POINT MATRIX...
             </div>
-            <div id="quantPillarsContainer" class="space-y-2">
-              <!-- Populated dynamically -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <!-- 3-Step Strategy Checklist -->
+              <div class="space-y-2">
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
+                  🎯 3-Step Strategy Checklist
+                </div>
+                <div id="m15ChecklistContainer" class="space-y-1.5">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+              <!-- Quantitative 100-Point Scoring Matrix -->
+              <div class="space-y-2">
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-white">
+                  ⚖️ Scoring Matrix Pillars
+                </div>
+                <div id="quantPillarsContainer" class="space-y-1.5">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </details>
 
       </div>
 
@@ -465,6 +455,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <button id="btnViewJournal" onclick="setMtfView('journal')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               📘 20-Trade Journal
             </button>
+            <button id="btnViewFeed" onclick="setMtfView('feed')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+              ⚡ Blotter Feed
+            </button>
             <!-- Hidden easy button preserved for backward compatibility -->
             <button id="btnViewEasy" onclick="setMtfView('grid')" style="display:none"></button>
           </div>
@@ -601,28 +594,38 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- Tab Pane 6: Real-Time Institutional Blotter Feed -->
+      <div id="tabFeedContainer" class="space-y-3 hidden">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span class="font-extrabold uppercase text-emerald-400 tracking-wider">⚡ Real-Time Institutional Blotter</span>
+            <span class="text-[10px] text-slate-400 px-2 py-0.5 rounded bg-slate-900 border border-slate-800">SSE 0.8s Sub-Second Stream</span>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] text-slate-400">
+            <span id="termStreamStatus" class="text-emerald-400 font-bold">● CONNECTED</span>
+            <span id="termTickCounter" class="text-amber-300">Ticks: 0</span>
+            <button onclick="clearTerminalLogs()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition">Clear</button>
+          </div>
+        </div>
+        <div id="realtimeTerminalLogs" class="h-64 overflow-y-auto space-y-1 text-[11px] text-slate-300 select-none scrollbar-thin divide-y divide-slate-900/60 p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80 mono">
+          <div class="text-slate-500 py-0.5">[SYSTEM] Terminal initialized. Subscribed to sub-second tick stream...</div>
+        </div>
+      </div>
+
     </section>
 
-    <!-- ========================================================================= -->
-    <!-- REAL-TIME INSTITUTIONAL TERMINAL FEED (BLOTTER)                            -->
-    <!-- ========================================================================= -->
-    <section class="panel rounded-2xl p-3.5 space-y-2 border-slate-800 bg-slate-950/95 mono text-xs">
-      <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
-        <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-          <span class="font-extrabold uppercase text-emerald-400 tracking-wider">⚡ Real-Time Institutional Terminal Feed</span>
-          <span class="text-[10px] text-slate-400 px-2 py-0.5 rounded bg-slate-900 border border-slate-800">SSE 0.8s Sub-Second Stream</span>
-        </div>
-        <div class="flex items-center gap-3 text-[11px] text-slate-400">
-          <span id="termStreamStatus" class="text-emerald-400 font-bold">● CONNECTED</span>
-          <span id="termTickCounter" class="text-amber-300">Ticks: 0</span>
-          <button onclick="clearTerminalLogs()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition">Clear</button>
-        </div>
+    <!-- Real-Time Institutional Stream Status Ticker (Compact Footer) -->
+    <div class="panel rounded-xl px-3 py-1.5 border-slate-800 bg-slate-950/80 mono text-[11px] flex items-center justify-between text-slate-400">
+      <div class="flex items-center gap-2 overflow-hidden">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+        <span class="text-emerald-400 font-bold shrink-0">FEED:</span>
+        <span id="latestTickMarquee" class="text-slate-300 truncate">Subscribed to sub-second tick stream...</span>
       </div>
-      <div id="realtimeTerminalLogs" class="h-24 overflow-y-auto space-y-1 text-[11px] text-slate-300 select-none scrollbar-thin divide-y divide-slate-900/60">
-        <div class="text-slate-500 py-0.5">[SYSTEM] Terminal initialized. Subscribed to sub-second tick stream...</div>
+      <div class="flex items-center gap-3 shrink-0 ml-2">
+        <button onclick="setMtfView('feed')" class="text-amber-400 hover:text-amber-300 font-bold text-[10px] uppercase">Open Blotter ↗</button>
       </div>
-    </section>
+    </div>
 
   </main>
 
@@ -794,6 +797,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       terminalTickCount++;
       const countEl = document.getElementById('termTickCounter');
       if (countEl) countEl.textContent = 'Ticks: ' + terminalTickCount;
+      const marquee = document.getElementById('latestTickMarquee');
+      if (marquee) marquee.textContent = '[' + type + '] ' + text;
     }
 
     function clearTerminalLogs() {
@@ -803,7 +808,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     try {
       const savedMode = localStorage.getItem('indecator_view_mode');
-      if (savedMode && ['table', 'grid', 'confident', 'signals', 'journal'].includes(savedMode)) {
+      if (savedMode && ['table', 'grid', 'confident', 'signals', 'journal', 'feed'].includes(savedMode)) {
         mtfViewMode = savedMode;
       }
     } catch {}
@@ -818,6 +823,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         confident: document.getElementById('mtfConfidentContainer'),
         signals: document.getElementById('tabSignalsContainer'),
         journal: document.getElementById('tabJournalContainer'),
+        feed: document.getElementById('tabFeedContainer'),
       };
       const tabBtns = {
         grid: document.getElementById('btnViewGrid'),
@@ -825,6 +831,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         confident: document.getElementById('btnViewConfident'),
         signals: document.getElementById('btnViewSignals'),
         journal: document.getElementById('btnViewJournal'),
+        feed: document.getElementById('btnViewFeed'),
       };
 
       Object.entries(tabPanes).forEach(([k, el]) => {
@@ -2319,7 +2326,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         togglePriceLines();
       } else if (key === 'T') {
         e.preventDefault();
-        const modes = ['table', 'grid', 'confident', 'signals', 'journal'];
+        const modes = ['table', 'grid', 'confident', 'signals', 'journal', 'feed'];
         const nextIdx = (modes.indexOf(mtfViewMode) + 1) % modes.length;
         setMtfView(modes[nextIdx]);
         showToast('📑 Tab: ' + modes[nextIdx].toUpperCase());
