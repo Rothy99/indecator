@@ -118,6 +118,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           🛡️ Breaker: 0/2
         </div>
 
+        <!-- Audio Alert Chimes & Keyboard Shortcuts Helper -->
+        <button id="soundToggleBtn" onclick="toggleAudio()" class="px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1" title="Toggle audio chime alerts (Hotkey: M)">
+          <span id="soundIcon">🔊</span>
+          <span class="hidden sm:inline" id="soundLabel">Sound ON</span>
+        </button>
+
+        <button onclick="toggleHotkeysModal(true)" class="px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-amber-300 transition flex items-center gap-1" title="Trading hotkeys cheatsheet (Hotkey: ?)">
+          <span>⌨️</span>
+          <span class="hidden md:inline">Shortcuts</span>
+        </button>
+
         <div class="inline-flex rounded-lg bg-slate-900 p-0.5 sm:p-1 border border-slate-800 overflow-x-auto">
           <button onclick="switchTimeframe('1m')" id="tf-1m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M1</button>
           <button onclick="switchTimeframe('5m')" id="tf-5m" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">M5</button>
@@ -285,13 +296,31 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- Big Live Position Status / Floating P&L -->
-          <div id="liveLifecycleBox" class="p-3.5 rounded-xl bg-slate-950/95 border-2 border-slate-700 space-y-1.5 shadow-inner">
+          <div id="liveLifecycleBox" class="p-3.5 rounded-xl bg-slate-950/95 border-2 border-slate-700 space-y-2 shadow-inner">
             <div class="flex items-center justify-between">
               <span id="lifecycleTitle" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">ENTRY EXECUTION STATE</span>
               <span id="lifecycleEntryTag" class="mono text-xs font-bold text-white">Entry: $----.--</span>
             </div>
             <div id="lifecyclePnlBig" class="mono text-2xl sm:text-3xl font-black text-amber-300">--</div>
             <p id="lifecycleSubText" class="text-xs text-slate-300">--</p>
+
+            <!-- Visual Target Progress Bar (Entry -> TP1 -> TP2 / SL) -->
+            <div id="tradeProgressBarWrap" class="pt-2 border-t border-slate-800/80 space-y-1.5 hidden">
+              <div class="flex items-center justify-between text-[10px] mono">
+                <span id="progSlVal" class="text-rose-400 font-bold">SL: $--</span>
+                <span id="progEntryVal" class="text-amber-300 font-black">Entry: $--</span>
+                <span id="progTp1Val" class="text-emerald-400 font-bold">TP1: $--</span>
+                <span id="progTp2Val" class="text-emerald-300 font-extrabold">TP2: $--</span>
+              </div>
+              <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden flex border border-slate-800 relative">
+                <div id="tradeProgressBar" class="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <div class="flex items-center justify-between text-[9px] text-slate-400 font-bold">
+                <span id="progDistSl">-- pt to SL</span>
+                <span id="progStatusText" class="text-amber-300 font-extrabold">Progress: 0%</span>
+                <span id="progDistTp1">-- pt to TP1</span>
+              </div>
+            </div>
           </div>
 
           <!-- Dual Entry Options (Option A: Market Price vs Option B: FVG PRO Retest) -->
@@ -358,6 +387,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <input id="calcRiskPct" type="number" value="1.0" max="2.0" step="0.25" oninput="updateRiskCalc()" class="w-full mt-0.5 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-amber-300 font-bold mono text-xs" />
               </div>
             </div>
+
+            <!-- Quick Equity & Risk Presets -->
+            <div class="flex items-center gap-1 pt-1 overflow-x-auto pb-0.5 text-[10px]">
+              <span class="text-[9px] text-slate-500 uppercase font-bold mr-0.5">Preset:</span>
+              <button type="button" onclick="setEquityPreset(500)" id="preset-eq-500" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$500</button>
+              <button type="button" onclick="setEquityPreset(1000)" id="preset-eq-1000" class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-black mono border border-amber-400/40">$1K</button>
+              <button type="button" onclick="setEquityPreset(5000)" id="preset-eq-5000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$5K</button>
+              <button type="button" onclick="setEquityPreset(10000)" id="preset-eq-10000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$10K</button>
+              <span class="text-slate-700 mx-0.5">|</span>
+              <button type="button" onclick="setRiskPreset(0.5)" id="preset-rk-05" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">0.5%</button>
+              <button type="button" onclick="setRiskPreset(1.0)" id="preset-rk-10" class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-black mono border border-amber-400/40">1.0%</button>
+              <button type="button" onclick="setRiskPreset(1.5)" id="preset-rk-15" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">1.5%</button>
+              <button type="button" onclick="setRiskPreset(2.0)" id="preset-rk-20" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-rose-300 font-bold mono border border-slate-800">2.0%</button>
+            </div>
+
             <div class="grid grid-cols-3 gap-1.5 text-center text-xs pt-1">
               <div class="p-1 rounded bg-slate-900 border border-slate-800">
                 <span class="text-[8px] text-slate-400 uppercase block">1R Risk</span>
@@ -374,10 +418,15 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
           </div>
 
-          <!-- Primary 1-Click Copy Setup Action -->
-          <button onclick="copyTradeSignal()" class="w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-950 transition shadow-lg shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-2">
-            <span>📋 Copy Setup (Entry • SL • TP1 • TP2)</span>
-          </button>
+          <!-- Dual 1-Click Copy Actions (Full Setup + Fast MT5 One-Liner) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button onclick="copyTradeSignal()" class="py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 text-slate-950 transition shadow-lg shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-1.5">
+              <span>📋 Copy Setup</span>
+            </button>
+            <button onclick="copyFastOrder()" class="py-2.5 px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-400/50 transition active:scale-[0.99] flex items-center justify-center gap-1.5" title="Copy compact MT5 order syntax (Hotkey: C)">
+              <span>⚡ Fast MT5 Format</span>
+            </button>
+          </div>
         </section>
 
       </div>
@@ -576,6 +625,46 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     </section>
 
   </main>
+
+  <!-- Keyboard Shortcuts Cheatsheet Modal -->
+  <div id="hotkeysModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if(event.target===this) toggleHotkeysModal(false)">
+    <div class="panel rounded-2xl max-w-md w-full p-5 space-y-4 border-amber-500/40 shadow-2xl shadow-amber-500/10">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">⌨️</span>
+          <h3 class="text-sm font-extrabold uppercase text-white tracking-wider">Trading Desk Shortcuts</h3>
+        </div>
+        <button onclick="toggleHotkeysModal(false)" class="text-slate-400 hover:text-white text-base">✕</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs mono">
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="text-slate-300">1 – 6</span>
+          <span class="text-amber-300 font-bold">1m – 4h TFs</span>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="text-slate-300">C</span>
+          <span class="text-amber-300 font-bold">Copy Setup</span>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="text-slate-300">T</span>
+          <span class="text-amber-300 font-bold">Cycle Tabs</span>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="text-slate-300">F</span>
+          <span class="text-amber-300 font-bold">Fit Chart</span>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="text-slate-300">L</span>
+          <span class="text-amber-300 font-bold">SL/TP Lines</span>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="text-slate-300">M</span>
+          <span class="text-amber-300 font-bold">Mute Audio</span>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-400 text-center">Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-amber-300">ESC</kbd> or click outside to close.</p>
+    </div>
+  </div>
 
   <div id="copyToast" class="fixed bottom-5 right-5 z-50 hidden px-4 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-xl">
     Copied!
@@ -899,6 +988,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             badgeEl.className = 'px-3 py-1 rounded-md text-xs font-black mono uppercase tracking-wider ' +
               (isProf ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50' : 'bg-rose-500/25 text-rose-300 border border-rose-500/50');
           }
+          updateTradeProgressBar(lc, currentAnalysis.tradeSetup.entryTiming, bid);
         } else if (!lc.isActivated) {
           const distPips = (Math.abs(bid - lc.entryPrice) * uInfo.mult).toFixed(1);
           const entryStr = lc.entryPrice.toFixed(2);
@@ -1184,7 +1274,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const lc = r.entryTiming.lifecycle;
             const isSelected = tf === currentTf;
             const cardBorder = isSelected
-              ? 'border-2 border-amber-400 bg-amber-400/[0.12] shadow-md shadow-amber-400/20 ring-1 ring-amber-400/40'
+              ? 'border-2 border-amber-400 bg-amber-400/[0.14] shadow-md shadow-amber-400/25 ring-2 ring-amber-400/50 scale-[1.02]'
               : 'border border-slate-800 bg-slate-900/90 hover:border-slate-700 hover:bg-slate-900/95';
             const dirBg = lc.direction === 'BUY'
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
@@ -1199,7 +1289,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <div onclick="switchTimeframe('\${tf}')" class="rounded-xl p-2.5 transition-all cursor-pointer flex flex-col justify-between \${cardBorder}">
                 <div class="flex items-center justify-between gap-1 mb-1.5">
                   <span class="px-2 py-0.5 rounded text-[11px] font-black mono bg-slate-800 uppercase \${isSelected ? 'text-amber-300' : 'text-white'}">\${TF_LABELS[tf] || tf.toUpperCase()}</span>
-                  <span class="px-1.5 py-0.2 rounded text-[10px] font-black border \${dirBg}">\${lc.direction}</span>
+                  <div class="flex items-center gap-1">
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-black border \${dirBg}">\${lc.direction}</span>
+                    \${isSelected ? '<span class="px-1 py-0.2 rounded text-[8px] font-black bg-amber-400 text-slate-950 uppercase tracking-tighter shadow-sm">ACTIVE</span>' : ''}
+                  </div>
                 </div>
                 <div class="flex items-center justify-between text-xs my-1 bg-slate-950/80 px-2 py-1 rounded border border-slate-800/80">
                   <span class="text-[9px] uppercase font-bold text-slate-400">\${lc.isActivated ? 'P&L' : 'STATE'}</span>
@@ -1542,6 +1635,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       document.getElementById('setupTp2Pips').textContent = '+' + et.rewardTp2Pips.toFixed(0) + ' pips (1:3 H4 Runner)';
 
       updateRiskCalc();
+      updateTradeProgressBar(lc, et, data.currentPrice);
 
       // Rule 3: Quantitative 100-Point Scoring Matrix
       if (data.scoringMatrix) {
@@ -1641,6 +1735,97 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       document.getElementById('calcRiskUsd').textContent = '-$' + riskUsd.toFixed(2);
       document.getElementById('calcLots').textContent = lots.toFixed(2) + ' Lots';
       document.getElementById('calcRewardUsd').textContent = \`+$\${tp1Usd} / +$\${tp2Usd}\`;
+      updatePresetActiveStyles();
+    }
+
+    function setEquityPreset(amt) {
+      const el = document.getElementById('calcBalance');
+      if (el) {
+        el.value = amt;
+        updateRiskCalc();
+      }
+    }
+
+    function setRiskPreset(pct) {
+      const el = document.getElementById('calcRiskPct');
+      if (el) {
+        el.value = pct.toFixed(1);
+        updateRiskCalc();
+      }
+    }
+
+    function updatePresetActiveStyles() {
+      const balance = parseFloat(document.getElementById('calcBalance')?.value) || 1000;
+      const riskPct = parseFloat(document.getElementById('calcRiskPct')?.value) || 1.0;
+      [500, 1000, 5000, 10000].forEach((amt) => {
+        const btn = document.getElementById('preset-eq-' + amt);
+        if (!btn) return;
+        if (balance === amt) {
+          btn.className = 'px-1.5 py-0.5 rounded bg-amber-400/25 text-amber-300 font-black mono border border-amber-400/60 shadow-sm';
+        } else {
+          btn.className = 'px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 font-bold mono border border-slate-800';
+        }
+      });
+      [
+        { key: '05', val: 0.5 },
+        { key: '10', val: 1.0 },
+        { key: '15', val: 1.5 },
+        { key: '20', val: 2.0 },
+      ].forEach(({ key, val }) => {
+        const btn = document.getElementById('preset-rk-' + key);
+        if (!btn) return;
+        if (Math.abs(riskPct - val) < 0.05) {
+          btn.className = 'px-1.5 py-0.5 rounded bg-amber-400/25 text-amber-300 font-black mono border border-amber-400/60 shadow-sm';
+        } else {
+          btn.className = 'px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 font-bold mono border border-slate-800';
+        }
+      });
+    }
+
+    function updateTradeProgressBar(lc, et, bid) {
+      const wrap = document.getElementById('tradeProgressBarWrap');
+      if (!wrap) return;
+      if (!lc || !lc.isActivated) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+
+      const entry = lc.entryPrice;
+      const sl = lc.stopLoss;
+      const tp1 = lc.tp1;
+      const tp2 = lc.tp2;
+      const isBuy = lc.direction === 'BUY';
+
+      document.getElementById('progSlVal').textContent = 'SL: $' + sl.toFixed(2);
+      document.getElementById('progEntryVal').textContent = 'Entry: $' + entry.toFixed(2);
+      document.getElementById('progTp1Val').textContent = 'TP1: $' + tp1.toFixed(2);
+      document.getElementById('progTp2Val').textContent = 'TP2: $' + tp2.toFixed(2);
+
+      const uInfo = getAssetUnitInfo();
+      const totalDistanceToTp1 = Math.abs(tp1 - entry);
+      const currentDistanceToEntry = isBuy ? (bid - entry) : (entry - bid);
+
+      let pct = 0;
+      if (totalDistanceToTp1 > 0) {
+        pct = Math.max(0, Math.min(100, Math.round((currentDistanceToEntry / totalDistanceToTp1) * 100)));
+      }
+
+      const bar = document.getElementById('tradeProgressBar');
+      if (bar) {
+        bar.style.width = pct + '%';
+        if (currentDistanceToEntry >= 0) {
+          bar.className = 'h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-300';
+        } else {
+          bar.className = 'h-full bg-rose-500 transition-all duration-300';
+        }
+      }
+
+      const pipsToSl = (Math.abs(bid - sl) * uInfo.mult).toFixed(0);
+      const pipsToTp1 = (Math.abs(tp1 - bid) * uInfo.mult).toFixed(0);
+      document.getElementById('progDistSl').textContent = pipsToSl + ' ' + uInfo.unit + ' to SL';
+      document.getElementById('progDistTp1').textContent = pipsToTp1 + ' ' + uInfo.unit + ' to TP1';
+      document.getElementById('progStatusText').textContent = pct + '% to TP1';
     }
 
     let openedCollapseIds = new Set(['page-conf-15m', 'matrix-conf-15m']);
@@ -1999,7 +2184,158 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       copyTfOrder(currentAnalysis.timeframe);
     }
 
+    function copyFastOrder() {
+      if (!currentAnalysis || !currentAnalysis.tradeSetup) return;
+      const uInfo = getAssetUnitInfo();
+      const et = currentAnalysis.tradeSetup.entryTiming;
+      const lc = et.lifecycle;
+      const orderType = lc.direction === 'BUY'
+        ? (lc.isActivated ? 'BUY' : 'BUY LIMIT')
+        : (lc.isActivated ? 'SELL' : 'SELL LIMIT');
+      const text = currentSymbol + ' ' + orderType + ' ' + lc.entryPrice.toFixed(2) + ' SL ' + lc.stopLoss.toFixed(2) + ' TP1 ' + lc.tp1.toFixed(2) + ' TP2 ' + lc.tp2.toFixed(2);
+      navigator.clipboard.writeText(text);
+      playChime('chime');
+      showToast('⚡ Copied Fast Order: ' + orderType + ' @ $' + lc.entryPrice.toFixed(2));
+    }
+
+    // Audio Chime Synthesizer via Native Web Audio API
+    let audioContext = null;
+    let soundEnabled = true;
+    try {
+      const s = localStorage.getItem('indecator_sound');
+      if (s !== null) soundEnabled = s === 'true';
+    } catch {}
+
+    function initAudioContext() {
+      if (!audioContext && (window.AudioContext || window.webkitAudioContext)) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioCtx();
+      }
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    }
+
+    function toggleAudio() {
+      soundEnabled = !soundEnabled;
+      try { localStorage.setItem('indecator_sound', soundEnabled); } catch {}
+      updateAudioButton();
+      if (soundEnabled) {
+        initAudioContext();
+        playChime('chime');
+        showToast('🔊 Audio Alerts Enabled');
+      } else {
+        showToast('🔇 Audio Alerts Muted');
+      }
+    }
+
+    function updateAudioButton() {
+      const btn = document.getElementById('soundToggleBtn');
+      if (!btn) return;
+      const icon = document.getElementById('soundIcon');
+      const lbl = document.getElementById('soundLabel');
+      if (soundEnabled) {
+        btn.className = 'px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400/30 transition flex items-center gap-1';
+        if (icon) icon.textContent = '🔊';
+        if (lbl) lbl.textContent = 'Sound ON';
+      } else {
+        btn.className = 'px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-300 transition flex items-center gap-1';
+        if (icon) icon.textContent = '🔇';
+        if (lbl) lbl.textContent = 'Muted';
+      }
+    }
+
+    function playChime(type) {
+      if (!soundEnabled) return;
+      try {
+        initAudioContext();
+        if (!audioContext) return;
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+
+        if (type === 'tp') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.setValueAtTime(659.25, now + 0.1);
+          osc.frequency.setValueAtTime(783.99, now + 0.2);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        } else if (type === 'sl') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } else {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.setValueAtTime(1318.51, now + 0.08);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          osc.start(now);
+          osc.stop(now + 0.28);
+        }
+      } catch {}
+    }
+
+    function toggleHotkeysModal(show) {
+      const modal = document.getElementById('hotkeysModal');
+      if (!modal) return;
+      if (show === undefined) {
+        modal.classList.toggle('hidden');
+      } else if (show) {
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    // Keyboard Shortcuts Listener for Pro Traders
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+      const key = e.key.toUpperCase();
+      if (['1', '2', '3', '4', '5', '6'].includes(key)) {
+        const tfMap = { '1': '1m', '2': '5m', '3': '15m', '4': '30m', '5': '1h', '6': '4h' };
+        if (tfMap[key]) {
+          e.preventDefault();
+          switchTimeframe(tfMap[key]);
+          showToast('⏱️ Timeframe: ' + tfMap[key].toUpperCase());
+        }
+      } else if (key === 'C') {
+        e.preventDefault();
+        copyTradeSignal();
+      } else if (key === 'F') {
+        e.preventDefault();
+        resetChartZoom();
+        showToast('🔍 Chart Zoom Reset');
+      } else if (key === 'L') {
+        e.preventDefault();
+        togglePriceLines();
+      } else if (key === 'T') {
+        e.preventDefault();
+        const modes = ['table', 'grid', 'confident', 'signals', 'journal'];
+        const nextIdx = (modes.indexOf(mtfViewMode) + 1) % modes.length;
+        setMtfView(modes[nextIdx]);
+        showToast('📑 Tab: ' + modes[nextIdx].toUpperCase());
+      } else if (key === 'M') {
+        e.preventDefault();
+        toggleAudio();
+      } else if (key === '?' || (e.shiftKey && key === '/')) {
+        e.preventDefault();
+        toggleHotkeysModal();
+      } else if (key === 'ESCAPE') {
+        toggleHotkeysModal(false);
+      }
+    });
+
     function startApp() {
+      try { updateAudioButton(); } catch (e) { console.error('updateAudioButton err:', e); }
       try { setMtfView(mtfViewMode); } catch (e) { console.error('setMtfView err:', e); }
       try { updateSymbolButtons(); } catch (e) { console.error('updateSymbolButtons err:', e); }
       try { initCharts(); } catch (e) { console.error('initCharts err:', e); }
