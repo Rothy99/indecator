@@ -79,23 +79,63 @@ Once a signal activates on any timeframe:
 
 ---
 
-## 4. Signal Generation & 4-Confluence Logic (`src/indicators.ts`)
+## 4. Signal Generation & 4-Confluence Strategy V3.0 (`src/indicators.ts`)
 
-Every timeframe runs the 4-Confluence Checklist:
+Indecator operates on the **4-Confluence Strategy V3.0 — Low-Risk XAU/USD & Crypto**, transitioning the engine to a capital-preservation-first trading system with a strict 90/100 A+ setup filter and separate configurations for Gold and Crypto.
 
-1. **ICT Liquidity Sweep**: Price sweeps Previous Day High (PDH), Previous Day Low (PDL), Asian Session range, or recent Swing High/Low.
-2. **Market Structure Shift (MSS / BOS)**: Clean break of structure with displacement body candle.
-3. **Fair Value Gap (FVG)**: Imbalance candle with untapped liquidity for optimal entry.
-4. **EMA 50 & 200 Trend Alignment**: Validates high-timeframe institutional trend direction.
+### Core Principles
+- **Capital Preservation First**: Fewer trades, smaller risk, stronger confirmation, zero chasing, zero revenge trading.
+- **4/4 Mandatory Confluences**: All 4 foundational conditions must pass independently; any missing confluence results in automatic disqualification (`DISQUALIFIED / STAND ASIDE`), regardless of numerical score.
+- **90/100 Setup Quality Score**: An institutional scoring system requiring 90/100 points for an A+ grade. *(Note: 90+ quality score denotes high structural alignment, not a guaranteed 90% win rate).*
+- **0.25% Max Initial Risk**: Maximum account risk of 0.25% per trade ($25 on a $10,000 equity base).
+- **Strict Money Management**:
+  - Max 0.50% combined open risk across all markets.
+  - Max 0.50% daily loss limit (stops trading after 2 consecutive losses per day).
+  - Max 1.50% weekly loss limit.
+  - Maximum 2 new entries per day across all instruments.
+  - Exactly 1 open trade per instrument.
+  - Strict circuit breaker at 3.0% monthly drawdown.
 
-### Strict Execution Rules:
-- **Candle Close Wait**: Orders only execute upon closed candles (e.g. M15 close).
-- **Hard Stop Loss**: Positioned 1.5x ATR beyond the sweep wick (never widened).
-- **Dual Targets**: TP1 @ 1:2 (50% trim + SL→BE), TP2 @ 1:3 (Liquidity runner).
-- **Signal Grades**:
-  - `A+` (92–98%): 4/4 confluences aligned + HTF trend alignment.
-  - `A` (85–91%): 3/4 confluences aligned.
-  - `B` / `C`: Lower quality, suppressed from high-confidence filters.
+### The Four Mandatory Conditions
+1. **Liquidity Sweep**:
+   - SELL: Price sweeps a predefined high (PDH, Asian High, or H1/H4 swing high), and an M15 candle closes back below that level. Breakouts holding above are rejected.
+   - BUY: Price sweeps a predefined low (PDL, Asian Low, or H1/H4 swing low), and an M15 candle closes back above that level. Breakdowns holding below are rejected.
+   - Levels must be identifiable prior to the sweep.
+2. **Market Structure Shift (MSS) & Displacement**:
+   - Requires confirmed candle-body close beyond the internal swing point (wick-only breaks rejected).
+   - Displacement candle body must measure $\ge 1.0\times\text{ATR}(14)$ with close in the outer 25% of range.
+3. **Fair Value Gap (FVG)**:
+   - Fresh, unfilled imbalance created by the MSS displacement candle.
+   - Entry placed at Consequent Encroachment (CE 50% midpoint).
+   - Order expires after 4 completed M15 candles if unfilled.
+4. **EMA 50 / 200 Regime Filter**:
+   - Standardized on H1: BUY requires H1 price > EMA 50 > EMA 200 with EMA 50 rising. SELL requires H1 price < EMA 50 < EMA 200 with EMA 50 falling.
+   - H4 trend confirmation required for top A+ tiering.
+
+### 7-Pillar 100-Point Quality Matrix
+| Pillar | Focus | Max Points |
+| :--- | :--- | :--- |
+| **1. Liquidity Sweep Quality** | Clear prior level, false breakout wick rejection | 20 pts |
+| **2. MSS & Displacement Quality** | Full body candle close > 1.0–1.2x ATR | 25 pts |
+| **3. FVG Quality** | Fresh imbalance, CE 50% retest, 4-bar expiry | 20 pts |
+| **4. EMA 50/200 Alignment** | H1 regime alignment & rising/falling slope | 15 pts |
+| **5. H4 Trend Confirmation** | Higher-timeframe macro order flow support | 10 pts |
+| **6. Session & News Filter** | London/NY killzone, 30m news blackouts | 5 pts |
+| **7. Execution Quality** | Spread tolerance, slip buffer & cost model | 5 pts |
+
+- **Grade A+ (90–100 pts)**: Eligible for execution after validation.
+- **Grade A (80–89 pts)**: Demo only.
+- **Grade B (65–79 pts) / C (<65 pts)**: Stand aside, no trade.
+
+### Take-Profit & Stop-Loss Architecture
+- **Structural Stop-Loss**: Located beyond the sweep extreme + **0.2x ATR buffer** (never widened).
+- **TP1 (+1.5R)**: Close 50% position and immediately adjust Stop-Loss to Breakeven (BE).
+- **TP2 (+2.5R)**: Close remaining 50% at opposing liquidity runner.
+- **Gross Expectancy**: $0.5 \times 1.5\text{R} + 0.5 \times 2.5\text{R} = \mathbf{+2.0R}$ net gain when both targets execute.
+
+### Instrument Separation
+- **Gold (XAU/USD)**: London (07:00–10:00 UTC) & New York (12:00–15:00 UTC) killzones; Asian session (00:00–08:00 UTC) range reference; 30m high-impact US news exclusion; lot sizing based on 100 oz contracts.
+- **Crypto (BTC/ETH)**: 24/7 continuous trading; Previous UTC Day (00:00 UTC) high/low; US macro news event blackouts; spot or 1x isolated sizing.
 
 ---
 

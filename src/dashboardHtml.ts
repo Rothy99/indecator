@@ -68,7 +68,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 LIVE 0.8s
               </span>
             </div>
-            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[220px] sm:max-w-none">⚡ Liquidity Sweep + BOS + FVG PRO • 1:2 & 1:3 R:R</span>
+            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[220px] sm:max-w-none">⚡ 4-Confluence V3.0 (Sweep + MSS + FVG CE 50% + H1 EMA) • 1:1.5 & 1:2.5 R:R</span>
           </div>
         </div>
 
@@ -232,9 +232,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <details id="confluenceDetails" class="panel rounded-xl p-3 sm:p-3.5 border-slate-800 space-y-2.5 group transition-all">
           <summary class="flex items-center justify-between cursor-pointer list-none select-none">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950 uppercase">CONFLUENCE</span>
-              <span class="text-xs font-extrabold text-white">3-Step Strategy Checklist & 100-Point Scoring Matrix</span>
-              <span class="text-[10px] text-slate-400 hidden sm:inline">(Click to view 5 pillars & notes)</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950 uppercase">V3.0 STRATEGY</span>
+              <span class="text-xs font-extrabold text-white">4-Confluence V3.0 Checklist & 100-Point Quality Matrix</span>
+              <span class="text-[10px] text-slate-400 hidden sm:inline">(A+ 90/100 · 7 Pillars · 0.25% Max Risk)</span>
             </div>
             <div class="flex items-center gap-2">
               <span id="quantScoreBadge" class="mono text-xs font-black px-2.5 py-0.5 rounded bg-amber-400 text-slate-950">--/100 PTS</span>
@@ -348,13 +348,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </div>
 
               <div onclick="copyValue('setupTp1')" class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/45 hover:border-emerald-400 transition">
-                <span class="text-[9px] font-bold uppercase text-emerald-300 block">🎯 TP 1 (1:2)</span>
+                <span class="text-[9px] font-bold uppercase text-emerald-300 block">🎯 TP 1 (1:1.5)</span>
                 <div id="setupTp1" class="mono text-base sm:text-lg font-black text-emerald-400 mt-0.5">$----.--</div>
                 <span id="setupTp1Pips" class="mono text-[10px] text-emerald-300/80 block leading-tight">+-- pt (BE)</span>
               </div>
 
               <div onclick="copyValue('setupTp2')" class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/55 border border-emerald-400/60 hover:border-emerald-300 transition">
-                <span class="text-[9px] font-bold uppercase text-emerald-200 block">🏆 TP 2 (1:3)</span>
+                <span class="text-[9px] font-bold uppercase text-emerald-200 block">🏆 TP 2 (1:2.5)</span>
                 <div id="setupTp2" class="mono text-base sm:text-lg font-black text-emerald-300 mt-0.5">$----.--</div>
                 <span id="setupTp2Pips" class="mono text-[10px] text-emerald-200/90 block leading-tight">+-- pt (Runner)</span>
               </div>
@@ -386,24 +386,24 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <button type="button" onclick="setEquityPreset(5000)" id="preset-eq-5000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$5K</button>
               <button type="button" onclick="setEquityPreset(10000)" id="preset-eq-10000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$10K</button>
               <span class="text-slate-700 mx-0.5">|</span>
+              <button type="button" onclick="setRiskPreset(0.25)" id="preset-rk-025" class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono border border-amber-400">0.25% (V3.0)</button>
               <button type="button" onclick="setRiskPreset(0.5)" id="preset-rk-05" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">0.5%</button>
-              <button type="button" onclick="setRiskPreset(1.0)" id="preset-rk-10" class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-black mono border border-amber-400/40">1.0%</button>
-              <button type="button" onclick="setRiskPreset(1.5)" id="preset-rk-15" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">1.5%</button>
+              <button type="button" onclick="setRiskPreset(1.0)" id="preset-rk-10" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">1.0%</button>
               <button type="button" onclick="setRiskPreset(2.0)" id="preset-rk-20" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-rose-300 font-bold mono border border-slate-800">2.0%</button>
             </div>
 
             <div class="grid grid-cols-3 gap-1.5 text-center text-xs pt-1">
               <div class="p-1 rounded bg-slate-900 border border-slate-800">
                 <span class="text-[8px] text-slate-400 uppercase block">1R Risk</span>
-                <span id="calcRiskUsd" class="mono text-[11px] font-bold text-rose-400">-$10.00</span>
+                <span id="calcRiskUsd" class="mono text-[11px] font-bold text-rose-400">-$2.50</span>
               </div>
               <div class="p-1 rounded bg-amber-400/15 border border-amber-400/40">
                 <span class="text-[8px] text-amber-300 uppercase block">MT5 Lots</span>
-                <span id="calcLots" class="mono text-[11px] font-black text-amber-300">0.02 Lots</span>
+                <span id="calcLots" class="mono text-[11px] font-black text-amber-300">0.01 Lots</span>
               </div>
               <div class="p-1 rounded bg-slate-900 border border-slate-800">
-                <span class="text-[8px] text-slate-400 uppercase block">1:2 / 1:3 Profit</span>
-                <span id="calcRewardUsd" class="mono text-[11px] font-bold text-emerald-400">+$20 / +$30</span>
+                <span class="text-[8px] text-slate-400 uppercase block">1:1.5 / 1:2.5 Profit</span>
+                <span id="calcRewardUsd" class="mono text-[11px] font-bold text-emerald-400">+$3.75 / +$6.25</span>
               </div>
             </div>
           </div>
@@ -477,9 +477,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <th class="py-2.5 px-3">Activation Status</th>
               <th class="py-2.5 px-3 bg-slate-900/90 border-x border-slate-800">Live P&L or Wait Distance</th>
               <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
-              <th class="py-2.5 px-3">Hard SL (1.5x ATR)</th>
-              <th class="py-2.5 px-3">TP 1 (1:2 • 50% + BE)</th>
-              <th class="py-2.5 px-3">TP 2 (1:3 • H4 Runner)</th>
+              <th class="py-2.5 px-3">Structural SL (+0.2x ATR)</th>
+              <th class="py-2.5 px-3">TP 1 (1:1.5 • 50% + BE)</th>
+              <th class="py-2.5 px-3">TP 2 (1:2.5 • Runner)</th>
               <th class="py-2.5 px-3">Win Rate</th>
               <th class="py-2.5 px-3 text-right">Copy</th>
             </tr>
@@ -520,7 +520,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               Active Timeframe Entry Logs & Live Confluence Triggers
             </p>
             <p class="text-[11px] text-slate-400">
-              Verified historical & live signals across all timeframes with Hard SL, 1:2 & 1:3 targets.
+              Verified historical & live signals across all timeframes with Hard Structural SL, 1:1.5 & 1:2.5 targets.
             </p>
           </div>
           <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
@@ -544,9 +544,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <th class="py-2.5 px-3">Signal</th>
                 <th class="py-2.5 px-3">Grade</th>
                 <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
-                <th class="py-2.5 px-3 text-rose-400">Hard SL (1.5x ATR)</th>
-                <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:2 • 50% + BE)</th>
-                <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:3 • Runner)</th>
+                <th class="py-2.5 px-3 text-rose-400">Structural SL (+0.2x ATR)</th>
+                <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:1.5 • 50% + BE)</th>
+                <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:2.5 • Runner)</th>
                 <th class="py-2.5 px-3">Confluence Trigger</th>
                 <th class="py-2.5 px-3">Outcome</th>
                 <th class="py-2.5 px-3 text-right">Net Move</th>
@@ -677,8 +677,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <th class="py-2.5 px-3 text-amber-300">Grade & Score</th>
                 <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
                 <th class="py-2.5 px-3 text-rose-400">Hard SL</th>
-                <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:2)</th>
-                <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:3+)</th>
+                <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:1.5)</th>
+                <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:2.5)</th>
                 <th class="py-2.5 px-3">Outcome</th>
                 <th class="py-2.5 px-3">Achieved R:R</th>
                 <th class="py-2.5 px-3 text-right">Net P&L</th>
@@ -1254,7 +1254,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: '🎯 TP1 (1:2 • 50%+BE) $' + (lc ? lc.tp1 : setup.tp1).toFixed(2),
+          title: '🎯 TP1 (1:1.5 • 50%+BE) $' + (lc ? lc.tp1 : setup.tp1).toFixed(2),
         }),
         candleSeries.createPriceLine({
           price: lc ? lc.tp2 : setup.tp2,
@@ -1262,7 +1262,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Solid,
           axisLabelVisible: true,
-          title: '🏆 TP2 (1:3 RUNNER) $' + (lc ? lc.tp2 : setup.tp2).toFixed(2),
+          title: '🏆 TP2 (1:2.5 RUNNER) $' + (lc ? lc.tp2 : setup.tp2).toFixed(2),
         })
       );
 
@@ -1495,11 +1495,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                       <span class="font-bold text-rose-400 text-xs">$\${lc.stopLoss.toFixed(2)}</span>
                     </div>
                     <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
-                      <span class="text-[9px] uppercase font-bold text-emerald-400/80">🎯 TP1 (1:2)</span>
+                      <span class="text-[9px] uppercase font-bold text-emerald-400/80">🎯 TP1 (1:1.5)</span>
                       <span class="font-bold text-emerald-400 text-xs">$\${lc.tp1.toFixed(2)}</span>
                     </div>
                     <div class="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between">
-                      <span class="text-[9px] uppercase font-bold text-emerald-300/80">🏆 TP2 (1:3)</span>
+                      <span class="text-[9px] uppercase font-bold text-emerald-300/80">🏆 TP2 (1:2.5)</span>
                       <span class="font-extrabold text-emerald-300 text-xs">$\${lc.tp2.toFixed(2)}</span>
                     </div>
                   </div>
@@ -1534,9 +1534,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                             if (isAct) {
                               outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/50 animate-pulse">⚡ LIVE ACTIVATED</span>';
                             } else if (cs.outcome === 'TP2_HIT') {
-                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">🏆 TP2 (1:3)</span>';
+                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">🏆 TP2 (1:2.5)</span>';
                             } else if (cs.outcome === 'TP1_HIT') {
-                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">✅ TP1 (1:2)</span>';
+                              outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">✅ TP1 (1:1.5)</span>';
                             } else if (cs.outcome === 'BE_EXIT') {
                               outBadge = '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300">🛡️ BE</span>';
                             } else {
@@ -1724,8 +1724,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         document.getElementById('marketEntryNote').textContent = 'Locked @ Execution • ' + lc.pnlStatusText;
 
         document.getElementById('waitEntryVal').textContent = '$' + lc.tp1.toFixed(2);
-        document.getElementById('waitCardTitle').textContent = 'TARGET 1: 1:2 R:R (50% PARTIAL + BE)';
-        document.getElementById('waitOrderTypeTag').textContent = '1:2 TP1';
+        document.getElementById('waitCardTitle').textContent = 'TARGET 1: 1:1.5 R:R (50% PARTIAL + BE)';
+        document.getElementById('waitOrderTypeTag').textContent = '1:1.5 TP1';
         document.getElementById('waitEntryNote').textContent = 'Move SL to Breakeven @ $' + lc.entryPrice.toFixed(2) + ' when hit';
       } else {
         if (mktTitle) mktTitle.textContent = 'Option A: Market Price (Now)';
@@ -1741,11 +1741,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       }
 
       document.getElementById('setupSl').textContent = '$' + lc.stopLoss.toFixed(2);
-      document.getElementById('setupSlPips').textContent = '1.5x ATR SL: -' + et.riskPips.toFixed(0) + ' pips ($' + et.riskDollars.toFixed(2) + '/oz)';
+      document.getElementById('setupSlPips').textContent = 'Structural SL (+0.2x ATR): -' + et.riskPips.toFixed(0) + ' pips ($' + et.riskDollars.toFixed(2) + '/oz)';
       document.getElementById('setupTp1').textContent = '$' + lc.tp1.toFixed(2);
-      document.getElementById('setupTp1Pips').textContent = '+' + et.rewardTp1Pips.toFixed(0) + ' pips (1:2 • 50% + BE)';
+      document.getElementById('setupTp1Pips').textContent = '+' + et.rewardTp1Pips.toFixed(0) + ' pips (1:1.5 • 50% + BE)';
       document.getElementById('setupTp2').textContent = '$' + lc.tp2.toFixed(2);
-      document.getElementById('setupTp2Pips').textContent = '+' + et.rewardTp2Pips.toFixed(0) + ' pips (1:3 H4 Runner)';
+      document.getElementById('setupTp2Pips').textContent = '+' + et.rewardTp2Pips.toFixed(0) + ' pips (1:2.5 Runner)';
 
       updateRiskCalc();
       updateTradeProgressBar(lc, et, data.currentPrice);
@@ -1759,29 +1759,42 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           (qm.totalScore >= 90 ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-300');
 
         const vBanner = document.getElementById('quantVerdictBanner');
-        if (qm.isTradeable) {
-          vBanner.textContent = '🎯 90%+ QUALIFIED: ' + qm.actionVerdict;
+        if (qm.allMandatoryConfluencesPassed && (qm.grade === 'A+' || qm.totalScore >= 90)) {
+          vBanner.textContent = '🛡️ V3.0 A+ QUALIFIED (4/4 MANDATORY PASSED): ' + qm.actionVerdict;
           vBanner.className = 'p-2.5 rounded-xl border text-center font-black mono text-xs bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm';
+        } else if (!qm.allMandatoryConfluencesPassed) {
+          vBanner.textContent = '⛔ DISQUALIFIED: MISSING MANDATORY CONFLUENCE (' + qm.actionVerdict + ')';
+          vBanner.className = 'p-2.5 rounded-xl border text-center font-black mono text-xs bg-rose-500/20 text-rose-300 border-rose-500/40';
+        } else if (qm.grade === 'A') {
+          vBanner.textContent = '⚠️ GRADE A (80-89 PTS): DEMO ONLY — ' + qm.actionVerdict;
+          vBanner.className = 'p-2.5 rounded-xl border text-center font-black mono text-xs bg-amber-500/20 text-amber-300 border-amber-500/40';
         } else {
           vBanner.textContent = '✋ STAND ASIDE: ' + qm.actionVerdict + ' (' + qm.totalScore + '/100 PTS)';
           vBanner.className = 'p-2.5 rounded-xl border text-center font-black mono text-xs bg-rose-500/20 text-rose-300 border-rose-500/40';
         }
 
-        const p = qm.pillars;
-        const pList = [p.macroNews, p.marketStructure, p.emaRsiFilter, p.killzoneSweep, p.m15CandleFvg];
+        const pList = qm.v3Pillars ? [
+          qm.v3Pillars.liquiditySweep,
+          qm.v3Pillars.mssDisplacement,
+          qm.v3Pillars.fvgQuality,
+          qm.v3Pillars.ema50_200Regime,
+          qm.v3Pillars.h4TrendConfirmation,
+          qm.v3Pillars.sessionAndNews,
+          qm.v3Pillars.executionAndCosts
+        ].filter(Boolean) : (qm.pillars ? [qm.pillars.macroNews, qm.pillars.marketStructure, qm.pillars.emaRsiFilter, qm.pillars.killzoneSweep, qm.pillars.m15CandleFvg] : []);
+
         document.getElementById('quantPillarsContainer').innerHTML = pList.map((item) => {
           const passPill = item.passed
             ? '<span class="px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">+' + item.awardedPoints + '/' + item.maxPoints + ' PTS</span>'
             : '<span class="px-2 py-0.5 rounded text-[10px] font-black mono bg-rose-500/20 text-rose-300 border border-rose-500/30">+' + item.awardedPoints + '/' + item.maxPoints + ' PTS</span>';
-          return \`
-            <div class="p-2.5 rounded-xl bg-slate-900/90 border \${item.passed ? 'border-slate-800' : 'border-rose-500/20'} space-y-1">
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-xs font-bold text-white">\${item.name}</span>
-                \${passPill}
-              </div>
-              <p class="text-[11px] text-slate-400">\${item.notes}</p>
-            </div>
-          \`;
+          const borderClass = item.passed ? 'border-slate-800' : 'border-rose-500/20';
+          return '<div class="p-2.5 rounded-xl bg-slate-900/90 border ' + borderClass + ' space-y-1">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<span class="text-xs font-bold text-white">' + item.name + '</span>' +
+              passPill +
+            '</div>' +
+            '<p class="text-[11px] text-slate-400">' + item.notes + '</p>' +
+          '</div>';
         }).join('');
       }
 
@@ -1842,12 +1855,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
       // 1 Standard Lot = 100 oz ($1 move = $100)
       const lots = Math.max(0.01, Math.round((riskUsd / (slDollars * 100)) * 100) / 100);
-      const tp1Usd = Math.round(riskUsd * 2);
-      const tp2Usd = Math.round(riskUsd * 3);
+      const tp1Usd = Math.round(riskUsd * 1.5 * 100) / 100;
+      const tp2Usd = Math.round(riskUsd * 2.5 * 100) / 100;
 
       document.getElementById('calcRiskUsd').textContent = '-$' + riskUsd.toFixed(2);
       document.getElementById('calcLots').textContent = lots.toFixed(2) + ' Lots';
-      document.getElementById('calcRewardUsd').textContent = \`+$\${tp1Usd} / +$\${tp2Usd}\`;
+      document.getElementById('calcRewardUsd').textContent = '+$' + tp1Usd.toFixed(2) + ' / +$' + tp2Usd.toFixed(2);
       updatePresetActiveStyles();
     }
 
@@ -2034,9 +2047,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             if (isAct) {
               outBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/50 animate-pulse">⚡ LIVE ACTIVATED</span>';
             } else if (s.outcome === 'TP2_HIT') {
-              outBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/25 text-emerald-300 font-bold">🏆 TP2 (1:3)</span>';
+              outBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/25 text-emerald-300 font-bold">🏆 TP2 (1:2.5)</span>';
             } else if (s.outcome === 'TP1_HIT') {
-              outBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 font-bold">✅ TP1 (1:2)</span>';
+              outBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 font-bold">✅ TP1 (1:1.5)</span>';
             } else if (s.outcome === 'BE_EXIT') {
               outBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-300 font-bold">🛡️ BE</span>';
             } else {
@@ -2103,7 +2116,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <div class="flex items-center gap-2.5">
                   <span class="font-black text-amber-300 text-sm mono uppercase">\${title}</span>
                   <span class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">\${sigs.length} Activations</span>
-                  <span class="hidden sm:inline text-xs text-slate-400 font-sans">• Strict 1:2 / 1:3 R:R</span>
+                  <span class="hidden sm:inline text-xs text-slate-400 font-sans">• Strict 1:1.5 / 1:2.5 R:R</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-amber-400/80 font-bold group-open:hidden">Expand ▶</span>
@@ -2155,9 +2168,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
           : 'bg-rose-500/20 text-rose-300 border border-rose-500/40';
         const outBadge = s.outcome === 'TP2_HIT'
-          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-300 font-bold">🏆 1:3 RUNNER HIT</span>'
+          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-300 font-bold">🏆 1:2.5 RUNNER HIT</span>'
           : s.outcome === 'TP1_HIT'
-          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">✅ 1:2 PARTIAL + BE</span>'
+          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">✅ 1:1.5 PARTIAL + BE</span>'
           : s.outcome === 'SL_HIT'
           ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">❌ SL HIT (-1R)</span>'
           : '<span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">⚡ ACTIVE RUNNING</span>';
@@ -2327,9 +2340,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const dirCls = isB ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
         const outStr = String(t.outcome || '').toUpperCase();
         const outBadge = outStr.includes('TP2')
-          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">🏆 TP2 (1:3+)</span>'
+          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">🏆 TP2 (1:2.5)</span>'
           : outStr.includes('TP1')
-          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">✅ TP1 (1:2)</span>'
+          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">✅ TP1 (1:1.5)</span>'
           : outStr.includes('BE')
           ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-amber-500/15 text-amber-300 border border-amber-500/30">🛡️ BE EXIT</span>'
           : outStr.includes('SL')
@@ -2422,14 +2435,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       const r = latestMtfData.timeframes[tf];
       const et = r.entryTiming;
       const lc = et.lifecycle;
-      const text = \`\${currentSymbol === 'XAUUSD' ? '🪙' : '⚡'} \${uInfo.label} [\${tf.toUpperCase()}] — LIQUIDITY SWEEP + BOS + FVG PRO (Grade \${r.grade} • \${r.probability}%)
-📊 Structure: \${r.ictStructure?.marketStructure} | \${lc.statusBadge}
-📍 Entry: $\${lc.entryPrice.toFixed(2)} (\${et.recommendedOrderType})
-🛑 Hard Stop-Loss (Beyond Sweep Wick): $\${lc.stopLoss.toFixed(2)} (-\${et.riskPips.toFixed(0)} \${uInfo.unit})
-🎯 TP 1 (1:2 RR • Take 50% + Move SL→BE): $\${lc.tp1.toFixed(2)} (+\${et.rewardTp1Pips.toFixed(0)} \${uInfo.unit})
-🏆 TP 2 (1:3 RR • Liquidity Runner): $\${lc.tp2.toFixed(2)} (+\${et.rewardTp2Pips.toFixed(0)} \${uInfo.unit})\`;
+      const text = (currentSymbol === 'XAUUSD' ? '🪙' : '⚡') + ' ' + uInfo.label + ' [' + tf.toUpperCase() + '] — 4-CONFLUENCE V3.0 (Grade ' + r.grade + ' • ' + r.probability + '%)\\n'
+        + '📊 Structure: ' + (r.ictStructure ? r.ictStructure.marketStructure : 'N/A') + ' | ' + lc.statusBadge + '\\n'
+        + '📍 Entry (CE 50% FVG): $' + lc.entryPrice.toFixed(2) + ' (' + et.recommendedOrderType + ')\\n'
+        + '🛑 Hard Structural SL (+0.2x ATR): $' + lc.stopLoss.toFixed(2) + ' (-' + et.riskPips.toFixed(0) + ' ' + uInfo.unit + ')\\n'
+        + '🎯 TP 1 (1:1.5 RR • Take 50% + Move SL→BE): $' + lc.tp1.toFixed(2) + ' (+' + et.rewardTp1Pips.toFixed(0) + ' ' + uInfo.unit + ')\\n'
+        + '🏆 TP 2 (1:2.5 RR • Runner): $' + lc.tp2.toFixed(2) + ' (+' + et.rewardTp2Pips.toFixed(0) + ' ' + uInfo.unit + ')';
       navigator.clipboard.writeText(text);
-      showToast(\`Copied \${uInfo.label} \${tf.toUpperCase()} Setup!\`);
+      showToast('Copied ' + uInfo.label + ' ' + tf.toUpperCase() + ' Setup!');
     }
 
     function filterSignalList(tf) {

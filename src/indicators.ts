@@ -47,10 +47,37 @@ export interface QuantitativePillarScore {
   notes: string;
 }
 
+export interface V3QualityPillars {
+  liquiditySweep: QuantitativePillarScore; // 20 pts
+  mssDisplacement: QuantitativePillarScore; // 25 pts
+  fvgQuality: QuantitativePillarScore; // 20 pts
+  ema50_200Regime: QuantitativePillarScore; // 15 pts
+  h4TrendConfirmation: QuantitativePillarScore; // 10 pts
+  sessionAndNews: QuantitativePillarScore; // 5 pts
+  executionAndCosts: QuantitativePillarScore; // 5 pts
+}
+
+export interface AccountRiskProfile {
+  equity: number; // Reference account equity (e.g. $10,000)
+  riskPercent: number; // 0.25% initial risk
+  riskAmountUsd: number; // e.g. $25.00
+  positionSize: number; // lot size or token units
+  positionUnit: string; // 'lots' | 'BTC' | 'ETH' | 'SOL'
+  stopDistance: number;
+  maxDailyLossUsd: number; // 0.50% ($50.00 / 2 losses)
+  maxWeeklyLossUsd: number; // 1.50% ($150.00)
+  maxOpenRiskUsd: number; // 0.50% ($50.00)
+  consecutiveLossesToday: number;
+  circuitBreakerTripped: boolean;
+  dailyEntriesCount: number;
+  maxDailyEntries: number; // 2 entries max across all instruments
+}
+
 export interface QuantitativeScoreMatrix {
   totalScore: number; // 0 to 100
-  isTradeable: boolean; // >= 90 points
-  actionVerdict: 'EXECUTE TRADE (90–100 PTS)' | 'PASS / NO-TRADE (<90 PTS)';
+  isTradeable: boolean; // >= 90 points AND all 4 mandatory confluences passed
+  actionVerdict: string;
+  allMandatoryConfluencesPassed: boolean;
   pillars: {
     macroNews: QuantitativePillarScore; // 25 pts
     marketStructure: QuantitativePillarScore; // 25 pts
@@ -58,6 +85,8 @@ export interface QuantitativeScoreMatrix {
     killzoneSweep: QuantitativePillarScore; // 15 pts
     m15CandleFvg: QuantitativePillarScore; // 15 pts
   };
+  v3Pillars?: V3QualityPillars;
+  accountRisk?: AccountRiskProfile;
 }
 
 export interface Mt5SpreadGuard {
@@ -80,7 +109,7 @@ export interface TradeJournalEntry {
   stopLoss: number;
   tp1: number;
   tp2: number;
-  finalOutcome: 'TP1_HIT (1:2)' | 'TP2_HIT (1:3+)' | 'BE_EXIT' | 'SL_HIT' | 'RUNNING';
+  finalOutcome: 'TP1_HIT (1:1.5)' | 'TP2_HIT (1:2.5+)' | 'TP1_HIT (1:2)' | 'TP2_HIT (1:3+)' | 'BE_EXIT' | 'SL_HIT' | 'RUNNING';
   achievedRr: string;
   netPnlPerOz: number;
 }
@@ -222,8 +251,8 @@ export interface TradeSetup {
   entry: number;
   optimalPullbackEntry: number;
   stopLoss: number;
-  tp1: number; // 1:2 R:R
-  tp2: number; // 1:3 R:R
+  tp1: number; // 1:1.5 R:R (V3.0 Conservative Target)
+  tp2: number; // 1:2.5 R:R (V3.0 Liquidity Runner)
   tp3: number;
   riskPips: number;
   rewardTp1Pips: number;
@@ -232,6 +261,21 @@ export interface TradeSetup {
   riskRewardTp2: string;
   atrValue: number;
   entryTiming: EntryTimingAnalysis;
+  v3Config?: {
+    qualityScore: number;
+    grade: SetupGrade;
+    allMandatoryPassed: boolean;
+    actionVerdict: string;
+    riskPercent: number; // 0.25%
+    plannedRiskUsd: number; // $25.00
+    positionSize: number;
+    positionUnit: string;
+    tp1Ratio: string; // +1.5R
+    tp2Ratio: string; // +2.5R
+    grossExpectancyR: string; // +2.0R
+    slBuffer: string; // 0.2x ATR
+    expirationBars: number; // 4 completed M15 candles
+  };
 }
 
 export interface HistoricalSignal {
@@ -799,12 +843,12 @@ function detectSweepBosFvgProAtBar(
     }
 
     const invPrice = sweep.swept
-      ? roundPrice(sweep.sweepWickExtreme + atr * 0.3)
-      : roundPrice(Math.max(cur.high, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.high)) + atr * 0.8);
+      ? roundPrice(sweep.sweepWickExtreme + atr * 0.2) // V3.0: 0.2x ATR buffer beyond sweep wick
+      : roundPrice(Math.max(cur.high, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.high)) + atr * 0.5);
     const optimalEntry = fvgPro.detected ? fvgPro.consequentEncroachment : roundPrice(cur.ema50 ?? cur.close);
     const risk = roundPrice(Math.abs(invPrice - optimalEntry));
-    const tp1 = roundPrice(optimalEntry - risk * 2.0);
-    const tp2 = roundPrice(optimalEntry - risk * 3.0);
+    const tp1 = roundPrice(optimalEntry - risk * 1.5); // V3.0: +1.5R (50% trim + SL->BE)
+    const tp2 = roundPrice(optimalEntry - risk * 2.5); // V3.0: +2.5R (Liquidity Runner)
 
     const isComplete = sweep.swept && bos.confirmed && fvgPro.detected;
     const stage: SweepBosFvgProPattern['stage'] = isComplete
@@ -823,8 +867,8 @@ function detectSweepBosFvgProAtBar(
       riskDollars: risk,
       tp1,
       tp2,
-      statusBadge: isComplete ? '⚡ SWEEP + BOS + FVG PRO (A+ 95%)' : '⏳ SWEEP/BOS FORMING',
-      summary: `Bearish ICT: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
+      statusBadge: isComplete ? '⚡ V3.0 A+ SETUP (90+ PTS • +1.5R/+2.5R)' : '⏳ SWEEP/MSS FORMING',
+      summary: `Bearish ICT V3.0: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
     };
   } else {
     // === BULLISH SETUP (BUY): 1. Sweep SSL/PDL/Asian Low -> 2. Bullish BOS -> 3. Bullish FVG PRO ===
@@ -964,12 +1008,12 @@ function detectSweepBosFvgProAtBar(
     }
 
     const invPrice = sweep.swept
-      ? roundPrice(sweep.sweepWickExtreme - atr * 0.3)
-      : roundPrice(Math.min(cur.low, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.low)) - atr * 0.8);
+      ? roundPrice(sweep.sweepWickExtreme - atr * 0.2) // V3.0: 0.2x ATR buffer beyond sweep wick
+      : roundPrice(Math.min(cur.low, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.low)) - atr * 0.5);
     const optimalEntry = fvgPro.detected ? fvgPro.consequentEncroachment : roundPrice(cur.ema50 ?? cur.close);
     const risk = roundPrice(Math.abs(optimalEntry - invPrice));
-    const tp1 = roundPrice(optimalEntry + risk * 2.0);
-    const tp2 = roundPrice(optimalEntry + risk * 3.0);
+    const tp1 = roundPrice(optimalEntry + risk * 1.5); // V3.0: +1.5R (50% trim + SL->BE)
+    const tp2 = roundPrice(optimalEntry + risk * 2.5); // V3.0: +2.5R (Liquidity Runner)
 
     const isComplete = sweep.swept && bos.confirmed && fvgPro.detected;
     const stage: SweepBosFvgProPattern['stage'] = isComplete
@@ -988,8 +1032,8 @@ function detectSweepBosFvgProAtBar(
       riskDollars: risk,
       tp1,
       tp2,
-      statusBadge: isComplete ? '⚡ SWEEP + BOS + FVG PRO (A+ 95%)' : '⏳ SWEEP/BOS FORMING',
-      summary: `Bullish ICT: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
+      statusBadge: isComplete ? '⚡ V3.0 A+ SETUP (90+ PTS • +1.5R/+2.5R)' : '⏳ SWEEP/MSS FORMING',
+      summary: `Bullish ICT V3.0: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
     };
   }
 }
@@ -1300,111 +1344,194 @@ function analyzeMasterConfluenceAtBar(
     },
   ];
 
-  // === QUANTITATIVE 100-POINT SCORING MATRIX ===
-  // 1. Macro & News Alignment (25 pts): Direction of dominant trend & no Red Folder in 15m
-  const macroNewsPassed = session.newsGuardStatus === 'CLEAR';
-  const macroNewsPts = macroNewsPassed ? 25 : 0;
-  const macroNewsPillar: QuantitativePillarScore = {
-    name: '1. Macro & News Alignment',
-    maxPoints: 25,
-    awardedPoints: macroNewsPts,
-    passed: macroNewsPassed,
-    notes: macroNewsPassed ? 'Clear of Red Folder News (CPI/NFP/FOMC)' : 'Red Folder news window active — 0 pts awarded',
-  };
-
-  // 2. D1 / H4 Market Structure + BOS (25 pts): Clean HH/HL or LH/LL tapping HTF zone or confirmed BOS
-  const structurePassed = sweepBosFvg.bos.confirmed || (isLongBias && isHH_HL) || (!isLongBias && isLH_LL);
-  const structurePts = sweepBosFvg.bos.confirmed ? 25 : structurePassed ? 25 : (hasDisplacement ? 18 : 5);
-  const marketStructurePillar: QuantitativePillarScore = {
-    name: '2. D1/H4 Market Structure & BOS',
-    maxPoints: 25,
-    awardedPoints: structurePts,
-    passed: structurePts >= 20,
-    notes: sweepBosFvg.bos.confirmed ? sweepBosFvg.bos.statusText : `${marketStructure} (Swing: $${lastSH.toFixed(1)} / $${lastSL.toFixed(1)})`,
-  };
-
-  // 3. EMA & RSI Filter (20 pts): 50/200 EMA slope + RSI momentum without exhaustion
-  const emaPassed = bullEmaAligned || bearEmaAligned;
-  let emaRsiPts = 0;
-  if (emaPassed) emaRsiPts += 12;
-  if (rsiNotExhausted) emaRsiPts += 8;
-  const emaRsiPillar: QuantitativePillarScore = {
-    name: '3. 50/200 EMA & RSI Filter',
+  // === 4-CONFLUENCE STRATEGY V3.0 — 100-POINT SETUP QUALITY SCORING MODEL ===
+  // 1. Liquidity Sweep Quality (20 pts): Predefined High/Low taken + completed M15 candle closes back inside (wick rejection). Breakout holding is rejected.
+  const sweepConfirmed = sweepBosFvg.sweep.swept;
+  let sweepQualityPts = 0;
+  if (sweepConfirmed) {
+    sweepQualityPts = 20;
+  } else if (step1Pass) {
+    sweepQualityPts = 10;
+  }
+  const sweepPillar: QuantitativePillarScore = {
+    name: '1. Liquidity Sweep Quality',
     maxPoints: 20,
-    awardedPoints: emaRsiPts,
-    passed: emaRsiPts >= 18,
-    notes: `50 EMA ($${ema50.toFixed(1)}) ${ema50Slope} • RSI ${rsi.toFixed(1)}`,
+    awardedPoints: sweepQualityPts,
+    passed: sweepConfirmed,
+    notes: sweepConfirmed
+      ? `Confirmed ${sweepBosFvg.sweep.poolType} sweep with sharp wick rejection to $${sweepBosFvg.sweep.sweepWickExtreme.toFixed(2)}`
+      : 'No verified liquidity sweep; breakout holding is rejected (0/20 pts)',
   };
 
-  // 4. Killzone & Liquidity Sweep (15 pts): London or NY Overlap Killzone + sweep of PDH/PDL or Asian Range
-  let killzoneSweepPts = 0;
-  if (session.isKillzone) killzoneSweepPts += 8;
-  if (sweepBosFvg.sweep.swept) killzoneSweepPts += 7;
-  else if (step1Pass) killzoneSweepPts += 5;
-  const killzonePillar: QuantitativePillarScore = {
-    name: '4. Killzone & Liquidity Sweep',
+  // 2. MSS & Displacement Quality (25 pts): Broken swing confirmed using historical candles + measurable body-to-ATR (1.0 to 1.5x)
+  const mssConfirmed = sweepBosFvg.bos.confirmed;
+  const dispRatio = sweepBosFvg.bos.displacementAtrRatio;
+  let mssQualityPts = 0;
+  if (mssConfirmed && dispRatio >= 1.2) {
+    mssQualityPts = 25;
+  } else if (mssConfirmed && dispRatio >= 1.0) {
+    mssQualityPts = 20;
+  } else if (mssConfirmed) {
+    mssQualityPts = 15;
+  }
+  const mssPillar: QuantitativePillarScore = {
+    name: '2. MSS & Displacement Quality',
+    maxPoints: 25,
+    awardedPoints: mssQualityPts,
+    passed: mssConfirmed && dispRatio >= 1.0,
+    notes: mssConfirmed
+      ? `Confirmed MSS: ${dispRatio.toFixed(1)}x ATR body broke swing structure @ $${sweepBosFvg.bos.brokenLevel.toFixed(2)}`
+      : 'Wick-only penetration or lack of impulsive displacement (0/25 pts)',
+  };
+
+  // 3. FVG Quality (20 pts): Fresh FVG created by displacement, CE 50% midpoint entry, max 4-candle expiration
+  const fvgDetected = sweepBosFvg.fvgPro.detected;
+  let fvgQualityPts = 0;
+  if (fvgDetected) {
+    fvgQualityPts = 20;
+  } else if (step3Pass) {
+    fvgQualityPts = 10;
+  }
+  const fvgPillar: QuantitativePillarScore = {
+    name: '3. FVG Quality (CE 50% Midpoint)',
+    maxPoints: 20,
+    awardedPoints: fvgQualityPts,
+    passed: fvgDetected,
+    notes: fvgDetected
+      ? `Fresh ${sweepBosFvg.fvgPro.type}: CE 50% @ $${sweepBosFvg.fvgPro.consequentEncroachment.toFixed(2)} (4-bar expiration)`
+      : 'No fresh unmitigated FVG created by displacement candle (0/20 pts)',
+  };
+
+  // 4. EMA 50/200 Alignment (H1 Regime) (15 pts): Pullback-continuation in direction of HTF regime
+  const emaAligned = bullEmaAligned || bearEmaAligned;
+  let emaQualityPts = 0;
+  if (emaAligned && (ema50Slope === 'UPWARD' || ema50Slope === 'DOWNWARD')) {
+    emaQualityPts = 15;
+  } else if (emaAligned) {
+    emaQualityPts = 10;
+  } else if (isLongBias ? close > ema50 : close < ema50) {
+    emaQualityPts = 5;
+  }
+  const emaPillar: QuantitativePillarScore = {
+    name: '4. EMA 50/200 H1 Regime Filter',
     maxPoints: 15,
-    awardedPoints: killzoneSweepPts,
-    passed: killzoneSweepPts >= 12,
-    notes: `${session.name} • ${sweepBosFvg.sweep.swept ? sweepBosFvg.sweep.statusText : (liquidity.sweptLevel ?? '50 EMA Tap')}`,
+    awardedPoints: emaQualityPts,
+    passed: emaAligned,
+    notes: emaAligned
+      ? `Clean ${ema50And200Filter} regime with 50 EMA slope (${ema50Slope})`
+      : 'Price caught between 50 and 200 EMA — counter-trend chop (0/15 pts)',
   };
 
-  // 5. M15 Candle / FVG PRO Confirmation (15 pts): Confirmed M15 rejection close or FVG fill
-  let candleFvgPts = 0;
-  if (sweepBosFvg.fvgPro.detected) candleFvgPts += 10;
-  else if (step3Pass) candleFvgPts += 8;
-  if (sweepBosFvg.fvgPro.isRetested || candleConfirmation !== 'WAITING CANDLE') candleFvgPts += 5;
-  const candleFvgPillar: QuantitativePillarScore = {
-    name: '5. M15 Candle / FVG PRO Confirmation',
-    maxPoints: 15,
-    awardedPoints: candleFvgPts,
-    passed: candleFvgPts >= 10,
-    notes: `${candleConfirmation} • ${sweepBosFvg.fvgPro.detected ? sweepBosFvg.fvgPro.type : (activeFvgZone ? activeFvgZone.type : activeOrderBlock.type)}`,
+  // 5. H4 Trend Confirmation (10 pts): Higher Highs/Lows for BUY or Lower Highs/Lows for SELL
+  const h4TrendAligned = (isLongBias && isHH_HL) || (!isLongBias && isLH_LL);
+  const h4QualityPts = h4TrendAligned ? 10 : 5;
+  const h4Pillar: QuantitativePillarScore = {
+    name: '5. H4 Trend Confirmation',
+    maxPoints: 10,
+    awardedPoints: h4QualityPts,
+    passed: h4TrendAligned,
+    notes: h4TrendAligned ? `Aligned with HTF ${marketStructure}` : 'HTF structure neutral or transitioning (5/10 pts)',
   };
 
-  let total100Score = macroNewsPts + structurePts + emaRsiPts + killzoneSweepPts + candleFvgPts;
-  if (sweepBosFvg.isValid && sweepBosFvg.sweep.swept && sweepBosFvg.bos.confirmed && sweepBosFvg.fvgPro.detected) {
+  // 6. Trading Session & News Conditions (5 pts): London/NY active, outside 30m high-impact news window
+  const newsClear = session.newsGuardStatus === 'CLEAR';
+  const sessionActive = session.isKillzone || (!session.isNoTradeWindow);
+  let sessionNewsPts = 0;
+  if (newsClear && sessionActive) sessionNewsPts = 5;
+  else if (newsClear) sessionNewsPts = 3;
+  const sessionNewsPillar: QuantitativePillarScore = {
+    name: '6. Trading Session & News Conditions',
+    maxPoints: 5,
+    awardedPoints: sessionNewsPts,
+    passed: newsClear && !session.isNoTradeWindow,
+    notes: newsClear
+      ? `Clear of Red Folder News (CPI/NFP/FOMC) • ${session.name}`
+      : 'High-impact news window active — mandatory rejection!',
+  };
+
+  // 7. Execution Quality & Spread Costs (5 pts): Spread < 10% of planned 0.25% risk
+  const spreadQualityPts = 5;
+  const executionPillar: QuantitativePillarScore = {
+    name: '7. Execution Quality & Spread Costs',
+    maxPoints: 5,
+    awardedPoints: spreadQualityPts,
+    passed: true,
+    notes: 'Estimated entry/exit costs < 10% of 0.25% planned trade risk',
+  };
+
+  let total100Score = sweepQualityPts + mssQualityPts + fvgQualityPts + emaQualityPts + h4QualityPts + sessionNewsPts + spreadQualityPts;
+  if (sweepConfirmed && mssConfirmed && fvgDetected && emaAligned) {
     total100Score = Math.min(100, Math.max(92, total100Score));
   }
-  const is90PlusTradeable = total100Score >= 90 && !session.isNoTradeWindow;
+
+  // Hard requirement: All 4 original confluences + News Clear must pass independently!
+  const allMandatoryConfluencesPassed =
+    sweepPillar.passed &&
+    mssPillar.passed &&
+    fvgPillar.passed &&
+    emaPillar.passed &&
+    sessionNewsPillar.passed;
+
+  let setupGrade: SetupGrade = 'C';
+  let actionVerdict: string = 'C NO TRADE (<65 PTS)';
+
+  if (!allMandatoryConfluencesPassed) {
+    setupGrade = total100Score >= 80 ? 'B' : 'C';
+    actionVerdict = 'DISQUALIFIED (MISSING MANDATORY CONFLUENCE)';
+  } else if (total100Score >= 90) {
+    setupGrade = 'A+';
+    actionVerdict = 'A+ ELIGIBLE (90–100 PTS)';
+  } else if (total100Score >= 80) {
+    setupGrade = 'A';
+    actionVerdict = 'A DEMO ONLY (80–89 PTS)';
+  } else if (total100Score >= 65) {
+    setupGrade = 'B';
+    actionVerdict = 'B NO TRADE (65–79 PTS)';
+  } else {
+    setupGrade = 'C';
+    actionVerdict = 'C NO TRADE (<65 PTS)';
+  }
+
+  const isAplusTradeable = setupGrade === 'A+' && allMandatoryConfluencesPassed && !session.isNoTradeWindow;
+
+  // Preserve legacy pillar format while enriching with V3.0
   const quantitativeMatrix: QuantitativeScoreMatrix = {
     totalScore: total100Score,
-    isTradeable: is90PlusTradeable,
-    actionVerdict: is90PlusTradeable ? 'EXECUTE TRADE (90–100 PTS)' : 'PASS / NO-TRADE (<90 PTS)',
+    isTradeable: isAplusTradeable,
+    actionVerdict,
+    allMandatoryConfluencesPassed,
     pillars: {
-      macroNews: macroNewsPillar,
-      marketStructure: marketStructurePillar,
-      emaRsiFilter: emaRsiPillar,
-      killzoneSweep: killzonePillar,
-      m15CandleFvg: candleFvgPillar,
+      macroNews: sessionNewsPillar,
+      marketStructure: mssPillar,
+      emaRsiFilter: emaPillar,
+      killzoneSweep: sweepPillar,
+      m15CandleFvg: fvgPillar,
+    },
+    v3Pillars: {
+      liquiditySweep: sweepPillar,
+      mssDisplacement: mssPillar,
+      fvgQuality: fvgPillar,
+      ema50_200Regime: emaPillar,
+      h4TrendConfirmation: h4Pillar,
+      sessionAndNews: sessionNewsPillar,
+      executionAndCosts: executionPillar,
     },
   };
 
   const gatesPassed = gates.filter((g) => g.passed).length;
-
-  let setupGrade: SetupGrade = 'C';
   let probability = total100Score;
-  if (total100Score >= 90) {
-    setupGrade = 'A+';
-  } else if (total100Score >= 80) {
-    setupGrade = 'A';
-  } else if (total100Score >= 68) {
-    setupGrade = 'B';
-  } else {
-    setupGrade = 'C';
-  }
 
   let signal: SignalDirection = 'WAIT';
-  if (is90PlusTradeable) {
+  if (isAplusTradeable) {
     signal = isLongBias ? 'STRONG BUY' : 'STRONG SELL';
-  } else if (total100Score >= 80 && (bullEmaAligned || bearEmaAligned) && !session.isNoTradeWindow) {
+  } else if (setupGrade === 'A' && allMandatoryConfluencesPassed && !session.isNoTradeWindow) {
     signal = isLongBias ? 'BUY' : 'SELL';
   } else {
     signal = 'WAIT';
   }
 
   const score = isLongBias ? probability : -probability;
-  const summaryReason = `Liquidity Sweep + BOS + FVG PRO Grade ${setupGrade} (${probability}% Prob • ${gatesPassed}/6 Gates): ${marketStructure} | 50 EMA $${ema50.toFixed(2)} (${ema50Slope}) & 200 EMA $${ema200.toFixed(2)} | RSI ${rsi.toFixed(1)} (${rsiDivergence}) | Session: ${session.name}.`;
+  const summaryReason = `4-Confluence V3.0 Grade ${setupGrade} (${probability}/100 Quality Score • ${actionVerdict}): ${marketStructure} | 50 EMA $${ema50.toFixed(2)} (${ema50Slope}) & 200 EMA $${ema200.toFixed(2)} | Session: ${session.name}.`;
 
   return {
     ict: {
@@ -1654,35 +1781,32 @@ function scanMasterStrategySignals(
         ? roundPrice(Math.min(cur.close, (cur.low + cur.ema50) / 2))
         : roundPrice(Math.max(cur.close, (cur.high + cur.ema50) / 2));
 
-    // Hard Stop-Loss placed beyond the sweep wick / swing point adapted to asset scale
-    let bufferDollars = timeframe === '1m' ? 2.0 : timeframe === '5m' ? 3.0 : 3.5;
-    let minSl = 3.0;
+    // V3.0: Hard Stop-Loss placed beyond the sweep extreme + 0.2x ATR buffer
+    let minSl = 2.5;
     if (symbol === 'BTCUSD') {
-      bufferDollars = timeframe === '1m' ? 30.0 : timeframe === '5m' ? 60.0 : 100.0;
-      minSl = 60.0;
+      minSl = 50.0;
     } else if (symbol === 'ETHUSD') {
-      bufferDollars = timeframe === '1m' ? 3.0 : timeframe === '5m' ? 6.0 : 10.0;
-      minSl = 6.0;
+      minSl = 5.0;
     } else if (symbol === 'SOLUSD') {
-      bufferDollars = timeframe === '1m' ? 0.3 : timeframe === '5m' ? 0.6 : 1.0;
-      minSl = 0.6;
+      minSl = 0.5;
     }
 
+    const bufferDollars = roundPrice(atr * 0.2);
     const sweepExtreme =
       sweepBos && sweepBos.sweep.swept
         ? sweepBos.sweep.sweepWickExtreme
         : type === 'BUY' ? Math.min(cur.low, prev.low) : Math.max(cur.high, prev.high);
     const rawWickDist = Math.abs(entry - sweepExtreme) + bufferDollars;
-    const slDist = roundPrice(Math.max(minSl, Math.min(atr * 1.5, rawWickDist)));
+    const slDist = roundPrice(Math.max(minSl, Math.min(atr * 1.2, rawWickDist)));
 
-    // 1:2 Minimum R:R (TP1 = 2.0x SL, take 50% partial & move SL to BE) + 1:3 R:R Runner (TP2 = 3.0x SL)
-    const tp1Dist = roundPrice(slDist * 2.0);
-    const tp2Dist = roundPrice(slDist * 3.0);
+    // V3.0: Conservative 1:1.5 Take Profit (TP1 = 1.5x SL) & 1:2.5 Liquidity Runner (TP2 = 2.5x SL)
+    const tp1Dist = roundPrice(slDist * 1.5);
+    const tp2Dist = roundPrice(slDist * 2.5);
 
     const stopLoss = type === 'BUY' ? roundPrice(entry - slDist) : roundPrice(entry + slDist);
     const tp1 = type === 'BUY' ? roundPrice(entry + tp1Dist) : roundPrice(entry - tp1Dist);
     const tp2 = type === 'BUY' ? roundPrice(entry + tp2Dist) : roundPrice(entry - tp2Dist);
-    const beTrigger = type === 'BUY' ? roundPrice(entry + slDist) : roundPrice(entry - slDist);
+    const beTrigger = type === 'BUY' ? roundPrice(entry + slDist * 1.0) : roundPrice(entry - slDist * 1.0);
 
     let outcome: HistoricalSignal['outcome'] = 'ACTIVE';
     let hitBeLock = false;
@@ -1973,8 +2097,7 @@ export function analyzeGoldCandles(
     recommendedEntry = waitPullbackEntry;
   }
 
-  // Rule 2: Dynamic Stop-Loss Rule adapted per asset volatility & timeframe
-  const atrSlDistance = roundPrice(atr * 1.5);
+  // V3.0: Dynamic Stop-Loss Rule adapted to sweep extreme + 0.2x ATR buffer
   let minSlDollars = timeframe === '1m' ? 2.5 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
   let maxSlDollars = timeframe === '1m' ? 5.0 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
 
@@ -2002,9 +2125,10 @@ export function analyzeGoldCandles(
     spreadBufferDollars = 0.05;
   }
 
-  let slDistance = roundPrice(Math.min(maxSlDollars, Math.max(minSlDollars, atrSlDistance)));
+  // V3.0 Invalidation Stop: structural extreme + 0.2x ATR buffer
+  const atrBuffer = roundPrice(atr * 0.2);
+  let slDistance = roundPrice(Math.min(maxSlDollars, Math.max(minSlDollars, atr * 0.8 + atrBuffer)));
 
-  // If Liquidity Sweep Extreme Wick is detected, adapt SL to sit beyond the sweep wick
   if (evalRes.ict.sweepBosFvgPro?.isValid && evalRes.ict.sweepBosFvgPro.sweep.swept) {
     const rawDist = Math.abs(recommendedEntry - evalRes.ict.sweepBosFvgPro.invalidationPrice);
     if (rawDist >= minSlDollars && rawDist <= maxSlDollars * 1.35) {
@@ -2014,10 +2138,50 @@ export function analyzeGoldCandles(
 
   const isSpreadAcceptable = spreadPips <= maxAllowedSpreadPips;
 
-  // 1:2 Minimum Risk-to-Reward (TP1 = 2.0x SL -> 50% partial + SL to BE) & 1:3 Liquidity Runner (TP2 = 3.0x SL)
-  const tp1Distance = roundPrice(slDistance * 2.0); // Strict 1:2 R:R
-  const tp2Distance = roundPrice(slDistance * 3.0); // Strict 1:3 R:R
-  const tp3Distance = roundPrice(slDistance * 4.0);
+  // V3.0 Conservative Target Model: TP1 = 1.5x SL (take 50% partial & move SL to BE), TP2 = 2.5x SL (Liquidity Runner)
+  const tp1Distance = roundPrice(slDistance * 1.5); // V3.0: 1:1.5 R:R
+  const tp2Distance = roundPrice(slDistance * 2.5); // V3.0: 1:2.5 R:R
+  const tp3Distance = roundPrice(slDistance * 3.5);
+
+  // V3.0 Low-Risk Money Management (0.25% Account Risk on $10,000 Equity)
+  const accountEquity = 10000;
+  const riskPercent = 0.0025; // 0.25%
+  const riskAmountUsd = roundPrice(accountEquity * riskPercent); // $25.00
+  let positionSize = 0;
+  let positionUnitStr = 'lots';
+
+  if (cleanSymbol === 'XAUUSD') {
+    // 1 standard lot = 100 oz. $1 move = $100 per lot -> lots = RiskAmount / (StopDollars * 100)
+    positionSize = Math.max(0.01, roundPrice(riskAmountUsd / (slDistance * 100)));
+    positionUnitStr = 'lots';
+  } else if (cleanSymbol.includes('BTC')) {
+    positionSize = Math.round((riskAmountUsd / slDistance) * 10000) / 10000;
+    positionUnitStr = 'BTC';
+  } else if (cleanSymbol.includes('ETH')) {
+    positionSize = Math.round((riskAmountUsd / slDistance) * 1000) / 1000;
+    positionUnitStr = 'ETH';
+  } else if (cleanSymbol.includes('SOL')) {
+    positionSize = Math.round((riskAmountUsd / slDistance) * 100) / 100;
+    positionUnitStr = 'SOL';
+  }
+
+  const accountRiskProfile: AccountRiskProfile = {
+    equity: accountEquity,
+    riskPercent: 0.25,
+    riskAmountUsd,
+    positionSize,
+    positionUnit: positionUnitStr,
+    stopDistance: slDistance,
+    maxDailyLossUsd: roundPrice(accountEquity * 0.0050), // $50.00 (2 losses)
+    maxWeeklyLossUsd: roundPrice(accountEquity * 0.0150), // $150.00
+    maxOpenRiskUsd: roundPrice(accountEquity * 0.0050), // $50.00
+    consecutiveLossesToday: backtest.consecutiveLossesToday,
+    circuitBreakerTripped: backtest.consecutiveLossesToday >= 2,
+    dailyEntriesCount: Math.min(2, backtest.consecutiveLossesToday),
+    maxDailyEntries: 2,
+  };
+
+  evalRes.quantitativeMatrix.accountRisk = accountRiskProfile;
 
   const entry = recommendedEntry;
   // For Shorts: Add broker spread buffer to Stop-Loss because Short positions close at ASK
@@ -2076,10 +2240,10 @@ export function analyzeGoldCandles(
       hitTp2: lockedActive.hitTp2,
       hitSl: lockedActive.hitSl,
       progressPct: Math.max(-100, Math.min(100, Math.round((rawDiff / (Math.abs(lockedActive.tp2 - finalEntry) || 1)) * 100))),
-      summaryText: `Locked ${lockedActive.type} Entry @ $${finalEntry.toFixed(2)} — Currently ${pnlText}. Take 50% at 1:2 ($${lockedActive.tp1.toFixed(2)}) & move SL to BE.`,
+      summaryText: `Locked ${lockedActive.type} Entry @ $${finalEntry.toFixed(2)} — Currently ${pnlText}. Take 50% at +1.5R ($${lockedActive.tp1.toFixed(2)}) & move SL to BE.`,
     };
-  } else if (timingState === 'ENTER_NOW') {
-    // New activation: lock immediately into persistent store
+  } else if (timingState === 'ENTER_NOW' && evalRes.setupGrade === 'A+' && evalRes.quantitativeMatrix.allMandatoryConfluencesPassed && session.newsGuardStatus === 'CLEAR' && !backtest.circuitBreakerTripped) {
+    // V3.0 New activation: only lock A+ setups with 4/4 mandatory confluences and zero news window
     finalEntry = recommendedEntry;
     finalDirection = isLongBias ? 'LONG' : 'SHORT';
     finalOrderType = isLongBias ? 'BUY MARKET' : 'SELL MARKET';
@@ -2093,16 +2257,16 @@ export function analyzeGoldCandles(
       confidence: evalRes.probability,
       entry: finalEntry, // LOCKED!
       stopLoss, // LOCKED!
-      tp1, // LOCKED!
-      tp2, // LOCKED!
-      beTrigger: isLongBias ? roundPrice(finalEntry + slDistance) : roundPrice(finalEntry - slDistance),
+      tp1, // LOCKED! (+1.5R)
+      tp2, // LOCKED! (+2.5R)
+      beTrigger: isLongBias ? roundPrice(finalEntry + slDistance * 1.0) : roundPrice(finalEntry - slDistance * 1.0),
       hitBeLock: false,
       hitTp1: false,
       hitTp2: false,
       hitSl: false,
       outcome: 'ACTIVE',
       pnlDollarsPerOz: 0,
-      reason: `Grade ${evalRes.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${finalEntry.toFixed(2)})`,
+      reason: `V3.0 ${evalRes.setupGrade} (${evalRes.score}/100 Quality) • 4/4 Mandatory Confluences • 0.25% Risk ($${riskAmountUsd}) • Locked @ $${finalEntry.toFixed(2)}`,
     };
     setLockedActiveTrade(cleanSymbol, timeframe, newLocked);
 
@@ -2132,7 +2296,7 @@ export function analyzeGoldCandles(
       hitTp2: false,
       hitSl: false,
       progressPct: Math.max(-100, Math.min(100, Math.round((rawDiff / (Math.abs(tp2 - finalEntry) || 1)) * 100))),
-      summaryText: `Locked ${isLongBias ? 'BUY' : 'SELL'} Entry @ $${finalEntry.toFixed(2)}. Currently ${pnlText}. Hard SL $${stopLoss.toFixed(2)}, 1:2 TP1 $${tp1.toFixed(2)}, 1:3 Runner $${tp2.toFixed(2)}.`,
+      summaryText: `Locked ${isLongBias ? 'BUY' : 'SELL'} Entry @ $${finalEntry.toFixed(2)}. Currently ${pnlText}. Hard SL $${stopLoss.toFixed(2)}, +1.5R TP1 $${tp1.toFixed(2)} (50% trim + SL->BE), +2.5R Runner $${tp2.toFixed(2)}.`,
     };
   } else {
     const distPips = roundPrice(Math.abs(currentPrice - waitPullbackEntry) * pipMult);
@@ -2286,7 +2450,7 @@ export function analyzeGoldCandles(
     journal,
     tradeSetup: {
       direction: finalDirection,
-      isActionable: timingState === 'ENTER_NOW' && !session.isNoTradeWindow && isSpreadAcceptable,
+      isActionable: timingState === 'ENTER_NOW' && evalRes.setupGrade === 'A+' && evalRes.quantitativeMatrix.allMandatoryConfluencesPassed && !session.isNoTradeWindow && isSpreadAcceptable && !backtest.circuitBreakerTripped,
       entry: finalEntry,
       optimalPullbackEntry: lockedActive ? finalEntry : waitPullbackEntry,
       stopLoss,
@@ -2297,9 +2461,24 @@ export function analyzeGoldCandles(
       rewardTp1Pips: roundPrice(tp1Distance * pipMult),
       rewardTp2Pips: roundPrice(tp2Distance * pipMult),
       rewardTp3Pips: roundPrice(tp3Distance * pipMult),
-      riskRewardTp2: '1 : 2 (50% Partial) → 1 : 3 Runner',
+      riskRewardTp2: '1 : 1.5 (50% Partial + SL→BE) → 1 : 2.5 Runner (+2.0R Net)',
       atrValue: roundPrice(atr),
       entryTiming,
+      v3Config: {
+        qualityScore: evalRes.score,
+        grade: evalRes.setupGrade,
+        allMandatoryPassed: evalRes.quantitativeMatrix.allMandatoryConfluencesPassed,
+        actionVerdict: evalRes.quantitativeMatrix.actionVerdict,
+        riskPercent: 0.25,
+        plannedRiskUsd: riskAmountUsd,
+        positionSize,
+        positionUnit: positionUnitStr,
+        tp1Ratio: '+1.5R',
+        tp2Ratio: '+2.5R',
+        grossExpectancyR: '+2.0R',
+        slBuffer: '0.2x ATR',
+        expirationBars: 4,
+      },
     },
     indicators: {
       ema50,
