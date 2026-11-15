@@ -238,7 +238,36 @@ The single-page terminal UI is divided into modular functional components:
 
 ---
 
-## 8. Directory Structure
+## 8. Telegram Channel Broadcast Hub (`src/telegram.ts`)
+
+Indecator features an automated and on-demand Telegram notification bridge tailored specifically for streaming **4-Confluence V3.0 High-Confidence Setups (`Grade A+`, Score ≥ 90/100, 4/4 mandatory confluences passed)** and trade lifecycle milestone notifications.
+
+### Capabilities & Architecture
+- **Automated Broadcast**: When the scanner detects a new actionable trade setup meeting the A+ criteria ($\ge 90$ points, 4/4 mandatory confluences passed), an institutional HTML signal card is broadcast directly to the configured Telegram channel.
+- **Milestone Broadcast**: Real-time push alerts when trades reach key execution stages:
+  - `TP1 (+1.5R) Hit`: 50% partial profit trimmed, Stop Loss moved to Breakeven (`BE`).
+  - `TP2 (+2.5R Runner) Hit`: 100% full liquidity target reached.
+- **In-Memory Deduplication**: Uses a cache key `${symbol}:${timeframe}:${signalTime}:${direction}:${stage}` to prevent duplicate alerts across fast poll loops.
+- **HTML Message Formatting**: Native Telegram HTML formatting with formatted pricing, pip calculations, risk management values, emoji status badges, and timestamping.
+- **Manual 1-Click Broadcast**: Terminal UI buttons (Hero card, Entry Flow cards, Table view) permit traders to push any setup directly to Telegram with immediate toast feedback.
+- **Status & Ping API**: Built-in verification test ping and connection status inspection endpoints.
+
+### Environment Configuration (`.env`)
+```bash
+TELEGRAM_BOT_TOKEN="123456789:ABCdefGhIJKlmNoPQRstUVwxyz"
+TELEGRAM_CHAT_ID="@your_channel_or_group"
+TELEGRAM_AUTO_BROADCAST=true
+TELEGRAM_MIN_SCORE=90
+```
+
+### REST Endpoints
+- `GET /api/telegram/status`: Returns current bot connection status, masked channel ID, auto-broadcast flag, and minimum score threshold.
+- `POST /api/telegram/test`: Dispatches a verification test ping to confirm bot setup & channel admin permissions.
+- `POST /api/telegram/broadcast`: Broadcasts a trade setup card to Telegram with optional channel override.
+
+---
+
+## 9. Directory Structure
 
 ```
 d:/hono/indecator/
@@ -253,6 +282,7 @@ d:/hono/indecator/
 │   ├── dashboardHtml.ts         # High-performance single-page terminal UI & client scripts
 │   ├── indicators.ts            # ICT 4-confluence calculation, EMA, RSI, MACD, ATR, swing detection
 │   ├── marketData.ts            # Multi-asset price generators, tick feeds, and synthetic OHLCV
+│   ├── telegram.ts              # Telegram Bot API integration, message formatter & deduplication
 │   └── index.ts                 # Hono application entry point, REST API routes & SSE stream
 ├── .env                         # Local environment configuration
 ├── .env.example                 # Cloudflare D1 environment credentials template
@@ -264,7 +294,7 @@ d:/hono/indecator/
 
 ---
 
-## 9. Development & Deployment Commands
+## 10. Development & Deployment Commands
 
 ```bash
 # Start local development server with auto-restart on file changes

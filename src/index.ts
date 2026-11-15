@@ -38,6 +38,14 @@ import {
 } from './marketData.js';
 import { DASHBOARD_HTML } from './dashboardHtml.js';
 import { getAllStoredD1Entries, getD1Status, initD1Database, queryD1TradeHistory } from './d1Database.js';
+import {
+  checkAndBroadcastMilestone,
+  checkAndBroadcastSetup,
+  formatTelegramSignalCard,
+  getTelegramStatus,
+  sendTelegramMessage,
+  sendTelegramTestPing,
+} from './telegram.js';
 
 const app = new Hono();
 
@@ -225,6 +233,81 @@ const handleMtf = async (c: any) => {
     highConfidenceByTf[tf] = entries;
   }
 
+  // Automatic Telegram Channel Broadcast for High-Confidence Setups & Milestones
+  for (const { tf, analysis } of results) {
+    const uInfo = SYMBOL_CONFIGS[symbol];
+    const qm = analysis.scoringMatrix;
+    const ts = analysis.tradeSetup;
+    const lc = ts?.entryTiming?.lifecycle;
+
+    // Check & broadcast actionable A+ / 90%+ setups
+    if (
+      qm &&
+      qm.allMandatoryConfluencesPassed &&
+      (analysis.setupGrade === 'A+' || qm.totalScore >= 90) &&
+      ts &&
+      ts.isActionable
+    ) {
+      void checkAndBroadcastSetup({
+        symbol,
+        displayName: uInfo.displayName,
+        assetIcon: uInfo.icon,
+        timeframe: tf,
+        type: ts.direction === 'LONG' ? 'BUY' : 'SELL',
+        grade: analysis.setupGrade || 'A+',
+        probability: analysis.probability,
+        score: qm.totalScore,
+        allMandatoryPassed: qm.allMandatoryConfluencesPassed,
+        entry: ts.entry,
+        stopLoss: ts.stopLoss,
+        tp1: ts.tp1,
+        tp2: ts.tp2,
+        riskPips: ts.riskPips,
+        rewardTp1Pips: ts.rewardTp1Pips,
+        rewardTp2Pips: ts.rewardTp2Pips,
+        pipUnit: uInfo.unitLabel || 'pips',
+        reason: analysis.summaryReason || `${tf.toUpperCase()} 4-Confluence A+ Confirmed`,
+        plannedRiskUsd: ts.v3Config?.plannedRiskUsd,
+        positionSize: ts.v3Config?.positionSize,
+        positionUnit: ts.v3Config?.positionUnit,
+        time: Math.floor(Date.now() / 1000),
+      });
+    }
+
+    // Check & broadcast milestone updates (TP1 hit / TP2 hit)
+    if (lc && lc.isActivated) {
+      if (lc.hitTp2) {
+        void checkAndBroadcastMilestone({
+          symbol,
+          displayName: uInfo.displayName,
+          assetIcon: uInfo.icon,
+          timeframe: tf,
+          type: lc.direction,
+          stage: 'TP2',
+          entry: lc.entryPrice,
+          targetPrice: lc.tp2,
+          signalTime: lc.activatedTime || 0,
+          pips: ts.rewardTp2Pips,
+          pipUnit: uInfo.unitLabel || 'pips',
+        });
+      } else if (lc.hitTp1) {
+        void checkAndBroadcastMilestone({
+          symbol,
+          displayName: uInfo.displayName,
+          assetIcon: uInfo.icon,
+          timeframe: tf,
+          type: lc.direction,
+          stage: 'TP1',
+          entry: lc.entryPrice,
+          targetPrice: lc.tp1,
+          signalTime: lc.activatedTime || 0,
+          pips: ts.rewardTp1Pips,
+          pipUnit: uInfo.unitLabel || 'pips',
+        });
+      }
+    }
+  }
+
   return c.json({
     symbol: SYMBOL_CONFIGS[symbol].displayName,
     symbolCode: symbol,
@@ -310,6 +393,59 @@ app.get('/history', (c: any) => {
 app.post('/api/d1/init', async (c: any) => {
   const success = await initD1Database(c.env?.DB);
   return c.json({ status: success ? 'ok' : 'fallback', d1: getD1Status() });
+});
+
+// Telegram Channel Integration Endpoints
+app.get('/api/telegram/status', (c: any) => c.json(getTelegramStatus()));
+
+app.post('/api/telegram/test', async (c: any) => {
+  let customChatId: string | undefined;
+  try {
+    const body = await c.req.json();
+    if (body && body.chatId) customChatId = String(body.chatId).trim();
+  } catch {}
+  const res = await sendTelegramTestPing(customChatId);
+  return c.json(res);
+});
+
+app.post('/api/telegram/broadcast', async (c: any) => {
+  try {
+    const body = await c.req.json();
+    if (!body) return c.json({ success: false, error: 'Missing signal body' }, 400);
+
+    const sym = (body.symbol || 'XAUUSD') as SupportedSymbol;
+    const uInfo = SYMBOL_CONFIGS[sym] || SYMBOL_CONFIGS['XAUUSD'];
+
+    const messageHtml = formatTelegramSignalCard({
+      symbol: sym,
+      displayName: body.displayName || uInfo.displayName,
+      assetIcon: body.assetIcon || uInfo.icon,
+      timeframe: body.timeframe || '15m',
+      type: body.type || 'BUY',
+      grade: body.grade || 'A+',
+      probability: Number(body.probability || 95),
+      score: Number(body.score || 95),
+      allMandatoryPassed: body.allMandatoryPassed !== false,
+      entry: Number(body.entry || 0),
+      stopLoss: Number(body.stopLoss || 0),
+      tp1: Number(body.tp1 || 0),
+      tp2: Number(body.tp2 || 0),
+      riskPips: Number(body.riskPips || 0),
+      rewardTp1Pips: Number(body.rewardTp1Pips || 0),
+      rewardTp2Pips: Number(body.rewardTp2Pips || 0),
+      pipUnit: body.pipUnit || uInfo.unitLabel || 'pips',
+      reason: body.reason || 'Manual broadcast from terminal',
+      plannedRiskUsd: Number(body.plannedRiskUsd || 25),
+      positionSize: body.positionSize,
+      positionUnit: body.positionUnit,
+      time: body.time,
+    });
+
+    const res = await sendTelegramMessage(messageHtml, body.chatId);
+    return c.json(res);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
 });
 
 const handleHealth = (c: any) => {

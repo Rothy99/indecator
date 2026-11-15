@@ -118,6 +118,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           🛡️ Breaker: 0/2
         </div>
 
+        <!-- Telegram Channel Broadcast Status / Setup -->
+        <button id="telegramHeaderBtn" onclick="openTelegramModal()" class="px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex items-center gap-1.5" title="Telegram Channel Broadcast Settings & Status">
+          <span class="w-2 h-2 rounded-full bg-slate-500" id="telegramStatusDot"></span>
+          <span>📱</span>
+          <span class="hidden sm:inline" id="telegramHeaderLabel">Telegram</span>
+        </button>
+
         <!-- Audio Alert Chimes & Keyboard Shortcuts Helper -->
         <button id="soundToggleBtn" onclick="toggleAudio()" class="px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1" title="Toggle audio chime alerts (Hotkey: M)">
           <span id="soundIcon">🔊</span>
@@ -408,13 +415,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
           </div>
 
-          <!-- Dual 1-Click Copy Actions (Full Setup + Fast MT5 One-Liner) -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <!-- 1-Click Copy & Push to Telegram Actions -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button onclick="copyTradeSignal()" class="py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 text-slate-950 transition shadow-lg shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-1.5">
               <span>📋 Copy Setup</span>
             </button>
             <button onclick="copyFastOrder()" class="py-2.5 px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-400/50 transition active:scale-[0.99] flex items-center justify-center gap-1.5" title="Copy compact MT5 order syntax (Hotkey: C)">
-              <span>⚡ Fast MT5 Format</span>
+              <span>⚡ Fast MT5</span>
+            </button>
+            <button onclick="broadcastCurrentToTelegram()" class="py-2.5 px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 hover:border-sky-400 transition active:scale-[0.99] flex items-center justify-center gap-1.5" title="Push this setup to your Telegram Channel">
+              <span>📢 Telegram</span>
             </button>
           </div>
         </section>
@@ -812,6 +822,73 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
       <p class="text-[11px] text-slate-400 text-center">Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-amber-300">ESC</kbd> or click outside to close.</p>
+    </div>
+  </div>
+
+  <!-- Telegram Channel Broadcast Settings & Test Modal -->
+  <div id="telegramModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if(event.target===this) toggleTelegramModal(false)">
+    <div class="panel rounded-2xl max-w-lg w-full p-5 space-y-4 border-sky-500/40 shadow-2xl shadow-sky-500/10">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📱</span>
+          <div>
+            <h3 class="text-sm font-extrabold uppercase text-white tracking-wider">Telegram Channel Broadcast Hub</h3>
+            <p class="text-[11px] text-slate-400">Stream 4-Confluence V3.0 High-Confidence (A+) setups to your community</p>
+          </div>
+        </div>
+        <button onclick="toggleTelegramModal(false)" class="text-slate-400 hover:text-white text-base">✕</button>
+      </div>
+
+      <!-- Current Status Card -->
+      <div id="tgStatusCard" class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Connection Status</span>
+          <span id="tgStatusPill" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-400">Checking...</span>
+        </div>
+        <div class="flex items-center justify-between text-xs mono">
+          <span class="text-slate-400">Target Channel:</span>
+          <span id="tgTargetChannel" class="text-white font-bold">Not configured</span>
+        </div>
+        <div class="flex items-center justify-between text-xs mono">
+          <span class="text-slate-400">Filter Level:</span>
+          <span class="text-amber-300 font-bold">Grade A+ (Score ≥ 90 PTS • 4/4 Confluences)</span>
+        </div>
+      </div>
+
+      <!-- Test Broadcast Action -->
+      <div class="space-y-2">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Send Test Alert</label>
+        <div class="flex gap-2">
+          <input type="text" id="tgCustomChatInput" placeholder="Optional Chat ID / Channel (leave blank for .env default)" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-400 mono">
+          <button id="tgSendTestBtn" onclick="sendTelegramTestAlert()" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 whitespace-nowrap">
+            <span>🚀 Send Test</span>
+          </button>
+        </div>
+        <div id="tgTestResult" class="text-[11px] font-mono hidden p-2 rounded-lg"></div>
+      </div>
+
+      <!-- Setup Instructions Accordion -->
+      <details class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs space-y-2 group">
+        <summary class="cursor-pointer font-bold text-amber-300 flex items-center justify-between select-none">
+          <span>📖 How to connect your Telegram Channel (3 Steps)</span>
+          <span class="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div class="pt-2 text-slate-300 space-y-2 leading-relaxed text-[11px]">
+          <p><strong>1. Create a Bot:</strong> Open <a href="https://t.me/BotFather" target="_blank" class="text-sky-400 underline">@BotFather</a> on Telegram, send <code>/newbot</code>, and copy your Bot API Token.</p>
+          <p><strong>2. Add Bot to Channel:</strong> Create a public or private channel on Telegram, go to Channel Settings ➔ Administrators ➔ Add your bot with <em>"Post Messages"</em> permission.</p>
+          <p><strong>3. Save to .env:</strong> Open your project's <code>.env</code> file and add:</p>
+          <pre class="p-2 rounded bg-slate-900 border border-slate-800 text-[10px] text-amber-200 mono select-all">TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNo...
+TELEGRAM_CHAT_ID=@your_channel_username
+TELEGRAM_AUTO_BROADCAST=true
+TELEGRAM_MIN_SCORE=90</pre>
+          <p class="text-slate-400">Restart the server or click <em>Send Test</em> above to confirm!</p>
+        </div>
+      </details>
+
+      <div class="flex items-center justify-between pt-1">
+        <span class="text-[10px] text-slate-500">Only verified 4/4 mandatory A+ setups are broadcasted</span>
+        <button onclick="toggleTelegramModal(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition">Close</button>
+      </div>
     </div>
   </div>
 
@@ -2363,6 +2440,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   outBadge +
                   pnlBadge +
                   '<button data-tf="' + s.timeframe + '" data-entry="' + s.entry + '" data-sl="' + s.stopLoss + '" data-tp1="' + s.tp1 + '" data-tp2="' + s.tp2 + '" data-dir="' + s.type + '" onclick="onEntryCopyBtnClick(this, event)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-xs transition">📋 Copy</button>' +
+                  '<button data-tf="' + s.timeframe + '" onclick="onEntryTelegramBtnClick(this, event)" class="px-2.5 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 hover:border-sky-400 font-bold text-xs transition flex items-center gap-1" title="Push this setup to Telegram Channel">📢 Telegram</button>' +
                 '</div>' +
               '</div>' +
 
@@ -2471,7 +2549,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               '<td class="py-2.5 px-3">' + outBadge + '</td>' +
               '<td id="sig-pnl-' + s.timeframe + '-' + s.time + '" class="py-2.5 px-3 text-right">' + pnlHtml + '</td>' +
               '<td class="py-2.5 px-3 text-center">' +
-                '<button data-tf="' + s.timeframe + '" data-entry="' + s.entry + '" data-sl="' + s.stopLoss + '" data-tp1="' + s.tp1 + '" data-tp2="' + s.tp2 + '" data-dir="' + s.type + '" onclick="onEntryCopyBtnClick(this, event)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-[10px] transition">Copy</button>' +
+                '<div class="flex items-center justify-center gap-1">' +
+                  '<button data-tf="' + s.timeframe + '" data-entry="' + s.entry + '" data-sl="' + s.stopLoss + '" data-tp1="' + s.tp1 + '" data-tp2="' + s.tp2 + '" data-dir="' + s.type + '" onclick="onEntryCopyBtnClick(this, event)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-[10px] transition">Copy</button>' +
+                  '<button data-tf="' + s.timeframe + '" onclick="onEntryTelegramBtnClick(this, event)" class="px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 hover:border-sky-400 font-bold text-[10px] transition" title="Push to Telegram">📢</button>' +
+                '</div>' +
               '</td>' +
             '</tr>';
           }).join('');
@@ -2493,6 +2574,166 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       const tp2 = Number(btn.getAttribute('data-tp2') || 0);
       const dir = btn.getAttribute('data-dir') || 'BUY';
       copySignalOrder(tf, entry, sl, tp1, tp2, dir);
+    }
+
+    function onEntryTelegramBtnClick(btn, e) {
+      if (e) e.stopPropagation();
+      const tf = btn.getAttribute('data-tf') || '15m';
+      broadcastTfToTelegram(tf);
+    }
+
+    let telegramConfig = {
+      isConfigured: false,
+      chatId: '',
+      autoBroadcast: true,
+      minScore: 90
+    };
+
+    async function fetchTelegramStatus() {
+      try {
+        const res = await fetch('/api/telegram/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        telegramConfig = data;
+        updateTelegramUI();
+      } catch (e) {
+        console.error('fetchTelegramStatus err:', e);
+      }
+    }
+
+    function updateTelegramUI() {
+      const dot = document.getElementById('telegramStatusDot');
+      const pill = document.getElementById('tgStatusPill');
+      const target = document.getElementById('tgTargetChannel');
+      if (telegramConfig.isConfigured) {
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        if (pill) {
+          pill.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+          pill.textContent = 'ONLINE (Ready)';
+        }
+        if (target) {
+          target.textContent = telegramConfig.chatId || 'Configured via .env';
+          target.className = 'text-emerald-300 font-bold';
+        }
+      } else {
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        if (pill) {
+          pill.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-500/20 text-amber-300 border border-amber-500/40';
+          pill.textContent = 'NEEDS BOT TOKEN / CHAT ID';
+        }
+        if (target) {
+          target.textContent = 'Not configured in .env';
+          target.className = 'text-amber-300 font-bold';
+        }
+      }
+    }
+
+    function toggleTelegramModal(show) {
+      const modal = document.getElementById('telegramModal');
+      if (!modal) return;
+      if (show) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        fetchTelegramStatus();
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function openTelegramModal() {
+      toggleTelegramModal(true);
+    }
+
+    async function sendTelegramTestAlert() {
+      const input = document.getElementById('tgCustomChatInput');
+      const btn = document.getElementById('tgSendTestBtn');
+      const resDiv = document.getElementById('tgTestResult');
+      const customChatId = input ? input.value.trim() : '';
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳ Sending...</span>';
+      }
+      if (resDiv) {
+        resDiv.className = 'text-[11px] font-mono hidden p-2 rounded-lg';
+        resDiv.textContent = '';
+      }
+
+      try {
+        const res = await fetch('/api/telegram/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: customChatId || undefined })
+        });
+        const data = await res.json();
+        if (resDiv) {
+          resDiv.classList.remove('hidden');
+          if (data.ok) {
+            resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            resDiv.textContent = '✅ ' + (data.message || 'Test broadcast sent successfully!');
+            fetchTelegramStatus();
+          } else {
+            resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40';
+            resDiv.textContent = '❌ Failed: ' + (data.error || 'Check bot token & channel permissions');
+          }
+        }
+      } catch (err) {
+        if (resDiv) {
+          resDiv.classList.remove('hidden');
+          resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40';
+          resDiv.textContent = '❌ Network Error: ' + err.message;
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>🚀 Send Test</span>';
+        }
+      }
+    }
+
+    async function broadcastTfToTelegram(tf) {
+      if (!currentMtfData || !currentMtfData.timeframes) {
+        showCopyToast('⚠️ No active data loaded yet');
+        return;
+      }
+      const tfData = currentMtfData.timeframes[tf];
+      if (!tfData) {
+        showCopyToast('⚠️ Timeframe ' + tf + ' not found');
+        return;
+      }
+      const signal = tfData.signal;
+      if (!signal || signal.type === 'WAIT') {
+        showCopyToast('⚠️ Timeframe ' + tf + ' currently has no active signal');
+        return;
+      }
+
+      showCopyToast('📡 Broadcasting to Telegram...');
+      try {
+        const res = await fetch('/api/telegram/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            signal: signal,
+            symbol: currentSymbol || 'XAUUSD',
+            timeframe: tf,
+            bypassScoreFilter: true
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showCopyToast('📢 Broadcasted to Telegram!');
+        } else {
+          showCopyToast('❌ ' + (data.error || 'Failed to send to Telegram'));
+          openTelegramModal();
+        }
+      } catch (e) {
+        showCopyToast('❌ Error: ' + e.message);
+      }
+    }
+
+    function broadcastCurrentToTelegram() {
+      broadcastTfToTelegram(currentTimeframe);
     }
 
     // Cloudflare D1 Historical Performance & Trade Log Suite
@@ -2939,11 +3180,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         toggleHotkeysModal();
       } else if (key === 'ESCAPE') {
         toggleHotkeysModal(false);
+        toggleTelegramModal(false);
       }
     });
 
     function startApp() {
       try { updateAudioButton(); } catch (e) { console.error('updateAudioButton err:', e); }
+      try { fetchTelegramStatus(); } catch (e) { console.error('fetchTelegramStatus err:', e); }
       try { setMtfView(mtfViewMode); } catch (e) { console.error('setMtfView err:', e); }
       try { setEntryListViewMode(entryListViewMode); } catch (e) { console.error('setEntryListViewMode err:', e); }
       try { updateSymbolButtons(); } catch (e) { console.error('updateSymbolButtons err:', e); }
