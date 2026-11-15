@@ -210,7 +210,7 @@ The single-page terminal UI is divided into modular functional components:
 1. **`📊 Multi-TF Table`**: Matrix alignment across all 6 timeframes with live P&L, structure, and 1-click order copying.
 2. **`🔲 6-TF Grid`**: Card grid layout showing each timeframe's current signal, grade, and setup.
 3. **`⭐ 85%+ Setups`**: Collapsible accordion view isolating only A/A+ institutional setups.
-4. **`📜 Active Entry Log`**: Live blotter of currently running and recent signals with active pip counter.
+4. **`🌊 Trade Entry Flow`**: Visual 4-stage lifecycle pipeline (Sweep ➔ MSS Displacement ➔ CE 50% Entry ➔ TP1 +1.5R & BE Lock ➔ TP2 +2.5R Runner) with real-time progression tracker, live SSE tick updates, status filtering, and dual Flow/Table toggle.
 5. **`📘 D1 Trade History`**: Full performance journal queried from D1 SQLite with:
    - Analytical stats strip (Win Rate, Total Net P&L, Profit Factor, Avg R:R, Total Records).
    - Timeframe filter chips (`ALL`, `M1`, `M5`, `M15`, `M30`, `H1`, `H4`).

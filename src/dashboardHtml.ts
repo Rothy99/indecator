@@ -450,7 +450,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               ⭐ 85%+ Setups
             </button>
             <button id="btnViewSignals" onclick="setMtfView('signals')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
-              📜 Active Entry Log
+              🌊 Trade Entry Flow
             </button>
             <button id="btnViewJournal" onclick="setMtfView('journal')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               📘 D1 Trade History
@@ -512,30 +512,74 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Tab Pane 4: Active Timeframe Entry Logs & Real-Time Orders -->
-      <div id="tabSignalsContainer" class="space-y-3 hidden">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2.5">
+      <!-- Tab Pane 4: Active Timeframe Entry Logs & Real-Time Orders (Execution Flow) -->
+      <div id="tabSignalsContainer" class="space-y-3.5 hidden">
+        <!-- Flow Header & Toolbar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div>
-            <p class="text-xs text-slate-300 font-bold">
-              Active Timeframe Entry Logs & Live Confluence Triggers
-            </p>
-            <p class="text-[11px] text-slate-400">
-              Verified historical & live signals across all timeframes with Hard Structural SL, 1:1.5 & 1:2.5 targets.
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-extrabold uppercase tracking-wider text-white">🌊 Trade Entry Execution Flow</span>
+              <span id="entryFlowCountBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950">-- SETUPS</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              Visual 4-Stage Lifecycle: Sweep ➔ MSS Displacement ➔ FVG CE 50% Entry ➔ TP1 (+1.5R & BE) ➔ TP2 Runner (+2.5R)
             </p>
           </div>
-          <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
-            <button onclick="filterSignalList('90PLUS')" id="flt-90PLUS" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 shadow-sm">⭐ 90%+ ONLY</button>
-            <button onclick="filterSignalList('ALL')" id="flt-ALL" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">ALL TFs</button>
-            <button onclick="filterSignalList('1m')" id="flt-1m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M1</button>
-            <button onclick="filterSignalList('5m')" id="flt-5m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M5</button>
-            <button onclick="filterSignalList('15m')" id="flt-15m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M15</button>
-            <button onclick="filterSignalList('30m')" id="flt-30m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M30</button>
-            <button onclick="filterSignalList('1h')" id="flt-1h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H1</button>
-            <button onclick="filterSignalList('4h')" id="flt-4h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H4</button>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- View Mode Switch: Flow View vs Table View -->
+            <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800">
+              <button id="btnSigViewFlow" onclick="setEntryListViewMode('flow')" class="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-400 text-slate-950 shadow-sm transition">
+                🌊 Flow View
+              </button>
+              <button id="btnSigViewTable" onclick="setEntryListViewMode('table')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+                📋 Table View
+              </button>
+            </div>
+
+            <!-- Timeframe Filter Buttons -->
+            <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
+              <button onclick="filterSignalList('90PLUS')" id="flt-90PLUS" class="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-400 text-slate-950 shadow-sm">⭐ 90%+ ONLY</button>
+              <button onclick="filterSignalList('ALL')" id="flt-ALL" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">ALL TFs</button>
+              <button onclick="filterSignalList('1m')" id="flt-1m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M1</button>
+              <button onclick="filterSignalList('5m')" id="flt-5m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M5</button>
+              <button onclick="filterSignalList('15m')" id="flt-15m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M15</button>
+              <button onclick="filterSignalList('30m')" id="flt-30m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M30</button>
+              <button onclick="filterSignalList('1h')" id="flt-1h" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">H1</button>
+              <button onclick="filterSignalList('4h')" id="flt-4h" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">H4</button>
+            </div>
           </div>
         </div>
-        <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
-        <div data-scroll-key="all-signals-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
+
+        <!-- Outcome Filter Chips & Analytical Mini-Metrics Strip -->
+        <div class="flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs">
+          <!-- Outcome Filter Chips -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
+            <button id="flt-st-ALL" onclick="filterSignalOutcome('ALL')" class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">ALL</button>
+            <button id="flt-st-ACTIVE" onclick="filterSignalOutcome('ACTIVE')" class="px-2 py-0.5 rounded text-[11px] font-bold text-sky-400 hover:bg-slate-800">⚡ ACTIVE</button>
+            <button id="flt-st-TP2" onclick="filterSignalOutcome('TP2')" class="px-2 py-0.5 rounded text-[11px] font-bold text-emerald-300 hover:bg-slate-800">🏆 TP2 (+2.5R)</button>
+            <button id="flt-st-TP1" onclick="filterSignalOutcome('TP1')" class="px-2 py-0.5 rounded text-[11px] font-bold text-emerald-400 hover:bg-slate-800">✅ TP1 (+1.5R)</button>
+            <button id="flt-st-BE" onclick="filterSignalOutcome('BE')" class="px-2 py-0.5 rounded text-[11px] font-bold text-amber-300 hover:bg-slate-800">🛡️ BE EXITS</button>
+            <button id="flt-st-SL" onclick="filterSignalOutcome('SL')" class="px-2 py-0.5 rounded text-[11px] font-bold text-rose-400 hover:bg-slate-800">❌ SL</button>
+          </div>
+
+          <!-- Mini Metrics Summary -->
+          <div class="flex items-center gap-3 font-mono text-[11px] text-slate-300">
+            <span>Win Rate: <strong id="flowWinRate" class="text-emerald-400 font-black">--%</strong></span>
+            <span>Target: <strong class="text-amber-300 font-bold">+2.0R Net</strong></span>
+            <span>Risk/Trade: <strong class="text-white font-bold">0.25%</strong></span>
+          </div>
+        </div>
+
+        <!-- View Pane 1: Flow Cards Pipeline (Default) -->
+        <div id="allSignalsFlowContainer" class="space-y-3">
+          <!-- Populated dynamically with rich Flow Cards -->
+        </div>
+
+        <!-- View Pane 2: High-Density Data Table (Alternative) -->
+        <div id="allSignalsTableWrap" data-scroll-key="all-signals-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60 hidden">
+          <div class="text-[10px] text-slate-500 block sm:hidden font-mono p-2">← Swipe table sideways on mobile →</div>
           <table class="w-full text-left border-collapse text-xs min-w-[800px] sm:min-w-full">
             <thead>
               <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px] bg-slate-950/70">
@@ -1164,21 +1208,44 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         });
       }
 
-      // Live update Active Running rows in the Signals Log table on every tick
+      // Live update Active Running rows in the Signals Log table and Flow Cards on every tick
       if (latestMtfData && latestMtfData.allHighProbSignals) {
         latestMtfData.allHighProbSignals.forEach((s) => {
           if (s.outcome === 'ACTIVE') {
             const diff = s.type === 'BUY' ? bid - s.entry : s.entry - bid;
             s.pnlDollarsPerOz = diff;
+            const sign = diff >= 0 ? '+' : '';
+            const pips = (diff * uInfo.mult).toFixed(1);
+            const pipsStr = (diff >= 0 ? '+' : '') + pips + ' ' + uInfo.unit;
+            const isProf = diff >= 0;
+
             const pnlCell = document.getElementById('sig-pnl-' + s.timeframe + '-' + s.time);
             if (pnlCell) {
-              const sign = diff >= 0 ? '+' : '';
-              const pips = (diff * uInfo.mult).toFixed(0);
-              const pipsStr = (diff >= 0 ? '+' : '') + pips + uInfo.unit[0];
-              const isProf = diff >= 0;
               pnlCell.innerHTML = '<span class="px-2 py-0.5 rounded font-black ' +
                 (isProf ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-rose-500/20 text-rose-300 border border-rose-400/40') +
                 '">' + sign + '$' + diff.toFixed(2) + ' (' + pipsStr + ')</span>';
+            }
+
+            const flowPnl = document.getElementById('sig-flow-pnl-' + s.timeframe + '-' + s.time);
+            if (flowPnl) {
+              flowPnl.className = 'px-2.5 py-1 rounded-md text-xs font-black mono border ' +
+                (isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50' : 'bg-rose-500/20 text-rose-300 border-rose-400/50');
+              flowPnl.textContent = sign + '$' + Math.abs(diff).toFixed(2) + ' (' + sign + pipsStr + ')';
+            }
+
+            const tp1Dist = Math.abs(s.tp1 - s.entry);
+            let pct = 0;
+            if (tp1Dist > 0) {
+              pct = Math.max(0, Math.min(100, Math.round((diff / tp1Dist) * 60)));
+            }
+            const flowBar = document.getElementById('sig-flow-bar-' + s.timeframe + '-' + s.time);
+            if (flowBar) {
+              flowBar.style.width = pct + '%';
+              flowBar.className = 'h-full rounded-full transition-all duration-300 ' + (isProf ? 'bg-emerald-400' : 'bg-rose-500');
+            }
+            const flowText = document.getElementById('sig-flow-progtext-' + s.timeframe + '-' + s.time);
+            if (flowText) {
+              flowText.textContent = pct + '% (' + sign + pipsStr + ')';
             }
           }
         });
@@ -2147,57 +2214,285 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       showToast('📋 Copied ' + tf.toUpperCase() + ' ' + dir + ' @ $' + Number(entry).toFixed(2));
     }
 
+    let entryListViewMode = 'flow';
+    try {
+      const saved = localStorage.getItem('indecator_entry_view');
+      if (saved === 'flow' || saved === 'table') entryListViewMode = saved;
+    } catch {}
+    let entryListStatusFilter = 'ALL';
+
+    function setEntryListViewMode(mode) {
+      entryListViewMode = mode;
+      try { localStorage.setItem('indecator_entry_view', mode); } catch {}
+      const btnFlow = document.getElementById('btnSigViewFlow');
+      const btnTable = document.getElementById('btnSigViewTable');
+      const flowWrap = document.getElementById('allSignalsFlowContainer');
+      const tblWrap = document.getElementById('allSignalsTableWrap');
+      if (btnFlow) btnFlow.className = mode === 'flow'
+        ? 'px-2.5 py-1 rounded-lg text-xs font-black bg-amber-400 text-slate-950 shadow-sm transition'
+        : 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition';
+      if (btnTable) btnTable.className = mode === 'table'
+        ? 'px-2.5 py-1 rounded-lg text-xs font-black bg-amber-400 text-slate-950 shadow-sm transition'
+        : 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition';
+      if (flowWrap) flowWrap.classList.toggle('hidden', mode !== 'flow');
+      if (tblWrap) tblWrap.classList.toggle('hidden', mode !== 'table');
+    }
+
+    function filterSignalOutcome(outcome) {
+      entryListStatusFilter = outcome;
+      ['ALL', 'ACTIVE', 'TP2', 'TP1', 'BE', 'SL'].forEach((st) => {
+        const btn = document.getElementById('flt-st-' + st);
+        if (!btn) return;
+        btn.className = st === outcome
+          ? 'px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950'
+          : 'px-2 py-0.5 rounded text-[11px] font-bold text-slate-400 hover:bg-slate-800';
+      });
+      if (latestMtfData) renderAllHighProbSignalsTable(latestMtfData.allHighProbSignals || []);
+    }
+
     function renderAllHighProbSignalsTable(allSignals) {
-      const filtered = signalListFilter === '90PLUS'
+      if (!Array.isArray(allSignals)) return;
+
+      let list = signalListFilter === '90PLUS'
         ? allSignals.filter((s) => s.probability >= 82 || s.grade === 'A+' || s.grade === 'A')
         : signalListFilter === 'ALL'
         ? allSignals
         : allSignals.filter((s) => s.timeframe === signalListFilter);
 
-      const tbody = document.getElementById('allSignalsTableBody');
-      if (!tbody) return;
-      if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="py-4 text-center text-slate-500">No active signals found in current scan window</td></tr>';
-        return;
+      if (entryListStatusFilter !== 'ALL') {
+        if (entryListStatusFilter === 'ACTIVE') list = list.filter((s) => s.outcome === 'ACTIVE');
+        else if (entryListStatusFilter === 'TP2') list = list.filter((s) => s.outcome === 'TP2_HIT');
+        else if (entryListStatusFilter === 'TP1') list = list.filter((s) => s.outcome === 'TP1_HIT');
+        else if (entryListStatusFilter === 'BE') list = list.filter((s) => s.outcome === 'BE_EXIT');
+        else if (entryListStatusFilter === 'SL') list = list.filter((s) => s.outcome === 'SL_HIT');
       }
 
-      tbody.innerHTML = filtered.map((s) => {
-        const dt = new Date(s.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-        const isB = s.type === 'BUY';
-        const sigCls = isB
-          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-          : 'bg-rose-500/20 text-rose-300 border border-rose-500/40';
-        const outBadge = s.outcome === 'TP2_HIT'
-          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-300 font-bold">🏆 1:2.5 RUNNER HIT</span>'
-          : s.outcome === 'TP1_HIT'
-          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">✅ 1:1.5 PARTIAL + BE</span>'
-          : s.outcome === 'SL_HIT'
-          ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">❌ SL HIT (-1R)</span>'
-          : '<span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">⚡ ACTIVE RUNNING</span>';
-        const pnlColor = s.pnlDollarsPerOz >= 0 ? 'text-emerald-400' : 'text-rose-400';
-        const pnlHtml = s.outcome === 'ACTIVE'
-          ? '<span class="px-2 py-0.5 rounded font-black ' + (s.pnlDollarsPerOz >= 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-rose-500/20 text-rose-300 border border-rose-400/40') + '">' + (s.pnlDollarsPerOz >= 0 ? '+' : '') + '$' + s.pnlDollarsPerOz.toFixed(2) + ' (' + (s.pnlDollarsPerOz * 10).toFixed(0) + 'p)</span>'
-          : '<span class="font-bold ' + pnlColor + '">' + (s.pnlDollarsPerOz >= 0 ? '+' : '') + '$' + s.pnlDollarsPerOz.toFixed(2) + '</span>';
+      const countEl = document.getElementById('entryFlowCountBadge');
+      if (countEl) countEl.textContent = list.length + ' SETUPS';
 
-        return \`
-          <tr onclick="switchTimeframe('\${s.timeframe}')" class="hover:bg-slate-900/70 cursor-pointer transition">
-            <td class="py-2.5 px-3 text-slate-300">\${dt}</td>
-            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-bold uppercase">\${s.timeframe}</span></td>
-            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded font-black \${sigCls}">\${s.type}</span></td>
-            <td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px]">\${s.grade}</span> <span class="text-white font-bold ml-1">\${s.probability}%</span></td>
-            <td class="py-2.5 px-3 font-black text-amber-300 bg-amber-400/10 border-x border-amber-400/20">$\${s.entry.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-rose-400 font-semibold">$\${s.stopLoss.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-emerald-400 font-semibold">$\${s.tp1.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-emerald-300 font-bold">$\${s.tp2.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-slate-300 font-sans">\${s.reason}</td>
-            <td class="py-2.5 px-3">\${outBadge}</td>
-            <td id="sig-pnl-\${s.timeframe}-\${s.time}" class="py-2.5 px-3 text-right">\${pnlHtml}</td>
-            <td class="py-2.5 px-3 text-center">
-              <button onclick="event.stopPropagation(); copySignalOrder('\${s.timeframe}', \${s.entry}, \${s.stopLoss}, \${s.tp1}, \${s.tp2}, '\${s.type}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-[10px] transition">Copy</button>
-            </td>
-          </tr>
-        \`;
-      }).join('');
+      const closed = list.filter((s) => s.outcome !== 'ACTIVE');
+      const wins = closed.filter((s) => s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT').length;
+      const wr = closed.length > 0 ? ((wins / closed.length) * 100).toFixed(0) : '0';
+      const wrEl = document.getElementById('flowWinRate');
+      if (wrEl) wrEl.textContent = wr + '% (' + wins + '/' + closed.length + ')';
+
+      const uInfo = getAssetUnitInfo();
+      const flowContainer = document.getElementById('allSignalsFlowContainer');
+      const tbody = document.getElementById('allSignalsTableBody');
+
+      // 1. Render Step Flow View
+      if (flowContainer) {
+        if (list.length === 0) {
+          flowContainer.innerHTML = '<div class="p-8 text-center text-slate-500 rounded-2xl border border-slate-800/80 bg-slate-900/40 mono text-xs">No trade entry flows matching current filter criteria</div>';
+        } else {
+          flowContainer.innerHTML = list.map((s) => {
+            const dt = new Date(s.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const isB = s.type === 'BUY';
+            const curBid = lastKnownBid || s.entry;
+            const diff = isB ? curBid - s.entry : s.entry - curBid;
+            const livePips = (diff * uInfo.mult).toFixed(1);
+            const isProf = diff >= 0;
+            const sign = isProf ? '+' : '';
+
+            const slDistance = Math.abs(s.entry - s.stopLoss);
+            const slPips = (slDistance * uInfo.mult).toFixed(0);
+            const tp1Distance = Math.abs(s.tp1 - s.entry);
+            const tp1Pips = (tp1Distance * uInfo.mult).toFixed(0);
+            const tp2Distance = Math.abs(s.tp2 - s.entry);
+            const tp2Pips = (tp2Distance * uInfo.mult).toFixed(0);
+
+            let pct = 0;
+            if (s.outcome === 'TP2_HIT') pct = 100;
+            else if (s.outcome === 'TP1_HIT') pct = 60;
+            else if (s.outcome === 'BE_EXIT') pct = 50;
+            else if (s.outcome === 'SL_HIT') pct = 0;
+            else if (s.outcome === 'ACTIVE') {
+              if (tp1Distance > 0) {
+                pct = Math.max(0, Math.min(100, Math.round((diff / tp1Distance) * 60)));
+              }
+            }
+
+            let outBadge = '';
+            let cardBorder = 'border-slate-800';
+            if (s.outcome === 'ACTIVE') {
+              cardBorder = 'border-sky-500/40 shadow-sky-500/5';
+              outBadge = '<span class="px-2.5 py-1 rounded-md text-xs font-black bg-sky-500/20 text-sky-300 border border-sky-400/50 animate-pulse flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>⚡ LIVE IN FLIGHT</span>';
+            } else if (s.outcome === 'TP2_HIT') {
+              cardBorder = 'border-emerald-500/40 shadow-emerald-500/5';
+              outBadge = '<span class="px-2.5 py-1 rounded-md text-xs font-black bg-emerald-500/25 text-emerald-300 border border-emerald-500/50">🏆 TP2 RUNNER HIT (+2.5R)</span>';
+            } else if (s.outcome === 'TP1_HIT') {
+              cardBorder = 'border-emerald-500/30';
+              outBadge = '<span class="px-2.5 py-1 rounded-md text-xs font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">✅ TP1 HIT (+1.5R • BE LOCKED)</span>';
+            } else if (s.outcome === 'BE_EXIT') {
+              cardBorder = 'border-amber-500/30';
+              outBadge = '<span class="px-2.5 py-1 rounded-md text-xs font-black bg-amber-500/15 text-amber-300 border border-amber-500/30">🛡️ BREAKEVEN EXIT (+$0.00)</span>';
+            } else {
+              cardBorder = 'border-rose-500/30';
+              outBadge = '<span class="px-2.5 py-1 rounded-md text-xs font-black bg-rose-500/20 text-rose-300 border border-rose-500/40">❌ STOP LOSS HIT (-1.0R)</span>';
+            }
+
+            let pnlBadge = '';
+            if (s.outcome === 'ACTIVE') {
+              pnlBadge = '<span id="sig-flow-pnl-' + s.timeframe + '-' + s.time + '" class="px-2.5 py-1 rounded-md text-xs font-black mono border ' +
+                (isProf ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50' : 'bg-rose-500/20 text-rose-300 border-rose-400/50') + '">' +
+                sign + '$' + Math.abs(diff).toFixed(2) + ' (' + sign + livePips + ' ' + uInfo.unit + ')</span>';
+            } else {
+              const p = Number(s.pnlDollarsPerOz || 0);
+              const isP = p >= 0;
+              pnlBadge = '<span class="px-2.5 py-1 rounded-md text-xs font-black mono ' +
+                (isP ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20') + '">' +
+                (isP ? '+' : '') + '$' + p.toFixed(2) + '</span>';
+            }
+
+            const stage1Passed = true;
+            const stage3Passed = s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT' || s.outcome === 'BE_EXIT';
+            const stage4Passed = s.outcome === 'TP2_HIT';
+
+            return '<div data-tf="' + s.timeframe + '" onclick="onEntryFlowCardClick(this)" class="p-3.5 sm:p-4 rounded-2xl bg-slate-900/90 border ' + cardBorder + ' hover:border-amber-400/50 transition cursor-pointer shadow-md space-y-3">' +
+              '<div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-800/80">' +
+                '<div class="flex items-center gap-2 flex-wrap">' +
+                  '<span class="px-2.5 py-1 rounded-md text-xs font-black mono bg-slate-800 text-amber-300 uppercase">' + s.timeframe + '</span>' +
+                  '<span class="px-2.5 py-1 rounded-md text-xs font-black mono border ' + (isB ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40') + '">' +
+                    (isB ? '🟢 BUY' : '🔴 SELL') +
+                  '</span>' +
+                  '<span class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950">' + s.grade + ' ' + s.probability + '%</span>' +
+                  '<span class="text-xs text-slate-400 font-mono">' + dt + '</span>' +
+                  '<span class="text-xs text-slate-400 hidden md:inline">• ' + (s.reason || 'Confluence Confirmed') + '</span>' +
+                '</div>' +
+                '<div class="flex items-center gap-2">' +
+                  outBadge +
+                  pnlBadge +
+                  '<button data-tf="' + s.timeframe + '" data-entry="' + s.entry + '" data-sl="' + s.stopLoss + '" data-tp1="' + s.tp1 + '" data-tp2="' + s.tp2 + '" data-dir="' + s.type + '" onclick="onEntryCopyBtnClick(this, event)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-xs transition">📋 Copy</button>' +
+                '</div>' +
+              '</div>' +
+
+              '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">' +
+                '<div class="p-2.5 rounded-xl bg-slate-950/80 border ' + (stage1Passed ? 'border-emerald-500/30' : 'border-slate-800') + ' space-y-1">' +
+                  '<div class="flex items-center justify-between text-[10px] uppercase font-extrabold">' +
+                    '<span class="text-slate-400">1. SWEEP & MSS</span>' +
+                    '<span class="text-emerald-400 font-bold">✓ PASS</span>' +
+                  '</div>' +
+                  '<p class="text-xs text-white font-semibold truncate">' + (s.reason || 'Session Liquidity Swept') + '</p>' +
+                  '<p class="text-[10px] text-slate-400">Displacement Body Close Confirmed</p>' +
+                '</div>' +
+
+                '<div class="p-2.5 rounded-xl bg-slate-950/80 border border-amber-400/30 space-y-1">' +
+                  '<div class="flex items-center justify-between text-[10px] uppercase font-extrabold">' +
+                    '<span class="text-amber-300">2. CE 50% ENTRY</span>' +
+                    '<span class="text-white font-black mono">$' + s.entry.toFixed(2) + '</span>' +
+                  '</div>' +
+                  '<p class="text-xs text-white font-semibold">Limit FVG Retest Order</p>' +
+                  '<div class="flex items-center justify-between text-[10px] text-slate-400">' +
+                    '<span>SL: $' + s.stopLoss.toFixed(2) + '</span>' +
+                    '<span class="text-rose-400 font-bold">-' + slPips + ' ' + uInfo.unit + ' (0.25% Risk)</span>' +
+                  '</div>' +
+                '</div>' +
+
+                '<div class="p-2.5 rounded-xl bg-slate-950/80 border ' + (stage3Passed ? 'border-emerald-500/40' : (s.outcome === 'SL_HIT' ? 'border-rose-500/20' : 'border-slate-800')) + ' space-y-1">' +
+                  '<div class="flex items-center justify-between text-[10px] uppercase font-extrabold">' +
+                    '<span class="text-emerald-400">3. TP1 (+1.5R) & BE</span>' +
+                    '<span class="text-white font-black mono">$' + s.tp1.toFixed(2) + '</span>' +
+                  '</div>' +
+                  '<p class="text-xs ' + (stage3Passed ? 'text-emerald-300 font-bold' : 'text-slate-300') + '">' +
+                    (stage3Passed ? '✓ 50% Trim & SL Moved to BE' : (s.outcome === 'ACTIVE' ? 'Target in flight' : 'Target +1.5R')) +
+                  '</p>' +
+                  '<div class="flex items-center justify-between text-[10px] text-slate-400">' +
+                    '<span>Reward: +' + tp1Pips + ' ' + uInfo.unit + '</span>' +
+                    '<span class="text-emerald-400 font-bold">Risk-Free Lock</span>' +
+                  '</div>' +
+                '</div>' +
+
+                '<div class="p-2.5 rounded-xl bg-slate-950/80 border ' + (stage4Passed ? 'border-emerald-400/50' : (s.outcome === 'SL_HIT' ? 'border-rose-500/20' : 'border-slate-800')) + ' space-y-1">' +
+                  '<div class="flex items-center justify-between text-[10px] uppercase font-extrabold">' +
+                    '<span class="text-emerald-300">4. TP2 (+2.5R RUNNER)</span>' +
+                    '<span class="text-white font-black mono">$' + s.tp2.toFixed(2) + '</span>' +
+                  '</div>' +
+                  '<p class="text-xs ' + (stage4Passed ? 'text-emerald-300 font-black' : (s.outcome === 'BE_EXIT' ? 'text-amber-300' : 'text-slate-300')) + '">' +
+                    (stage4Passed ? '🏆 Full Target Hit (+2.5R)' : (s.outcome === 'BE_EXIT' ? 'Protected @ Breakeven' : 'Opposing Liquidity')) +
+                  '</p>' +
+                  '<div class="flex items-center justify-between text-[10px] text-slate-400">' +
+                    '<span>Reward: +' + tp2Pips + ' ' + uInfo.unit + '</span>' +
+                    '<span class="text-emerald-300 font-bold">+2.0R Net Gross</span>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+
+              '<div class="pt-1.5 border-t border-slate-800/60 space-y-1">' +
+                '<div class="flex items-center justify-between text-[10px] font-mono text-slate-400">' +
+                  '<span>Progress: <strong id="sig-flow-progtext-' + s.timeframe + '-' + s.time + '" class="text-amber-300 font-bold">' + pct + '%</strong></span>' +
+                  '<span>Entry $' + s.entry.toFixed(2) + ' ➔ TP1 $' + s.tp1.toFixed(2) + ' ➔ TP2 $' + s.tp2.toFixed(2) + '</span>' +
+                '</div>' +
+                '<div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">' +
+                  '<div id="sig-flow-bar-' + s.timeframe + '-' + s.time + '" class="h-full rounded-full transition-all duration-300 ' +
+                    (s.outcome === 'TP2_HIT' ? 'bg-emerald-400' : (s.outcome === 'TP1_HIT' ? 'bg-emerald-500' : (s.outcome === 'BE_EXIT' ? 'bg-amber-400' : (s.outcome === 'SL_HIT' ? 'bg-rose-500' : (isProf ? 'bg-emerald-400' : 'bg-rose-500'))))) +
+                    '" style="width: ' + pct + '%"></div>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+        }
+      }
+
+      // 2. Render Compact Table View
+      if (tbody) {
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" class="py-4 text-center text-slate-500">No active signals found in current scan window</td></tr>';
+        } else {
+          tbody.innerHTML = list.map((s) => {
+            const dt = new Date(s.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const isB = s.type === 'BUY';
+            const sigCls = isB
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40';
+            const outBadge = s.outcome === 'TP2_HIT'
+              ? '<span class="px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-300 font-bold">🏆 1:2.5 RUNNER HIT</span>'
+              : s.outcome === 'TP1_HIT'
+              ? '<span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">✅ 1:1.5 PARTIAL + BE</span>'
+              : s.outcome === 'BE_EXIT'
+              ? '<span class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold">🛡️ BE EXIT</span>'
+              : s.outcome === 'SL_HIT'
+              ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">❌ SL HIT (-1R)</span>'
+              : '<span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">⚡ ACTIVE RUNNING</span>';
+            const pnlColor = s.pnlDollarsPerOz >= 0 ? 'text-emerald-400' : 'text-rose-400';
+            const pnlHtml = s.outcome === 'ACTIVE'
+              ? '<span class="px-2 py-0.5 rounded font-black ' + (s.pnlDollarsPerOz >= 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-rose-500/20 text-rose-300 border border-rose-400/40') + '">' + (s.pnlDollarsPerOz >= 0 ? '+' : '') + '$' + s.pnlDollarsPerOz.toFixed(2) + ' (' + (s.pnlDollarsPerOz * 10).toFixed(0) + 'p)</span>'
+              : '<span class="font-bold ' + pnlColor + '">' + (s.pnlDollarsPerOz >= 0 ? '+' : '') + '$' + s.pnlDollarsPerOz.toFixed(2) + '</span>';
+
+            return '<tr data-tf="' + s.timeframe + '" onclick="onEntryFlowCardClick(this)" class="hover:bg-slate-900/70 cursor-pointer transition">' +
+              '<td class="py-2.5 px-3 text-slate-300">' + dt + '</td>' +
+              '<td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-bold uppercase">' + s.timeframe + '</span></td>' +
+              '<td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded font-black ' + sigCls + '">' + s.type + '</span></td>' +
+              '<td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px]">' + s.grade + '</span> <span class="text-white font-bold ml-1">' + s.probability + '%</span></td>' +
+              '<td class="py-2.5 px-3 font-black text-amber-300 bg-amber-400/10 border-x border-amber-400/20">$' + s.entry.toFixed(2) + '</td>' +
+              '<td class="py-2.5 px-3 text-rose-400 font-semibold">$' + s.stopLoss.toFixed(2) + '</td>' +
+              '<td class="py-2.5 px-3 text-emerald-400 font-semibold">$' + s.tp1.toFixed(2) + '</td>' +
+              '<td class="py-2.5 px-3 text-emerald-300 font-bold">$' + s.tp2.toFixed(2) + '</td>' +
+              '<td class="py-2.5 px-3 text-slate-300 font-sans">' + (s.reason || '') + '</td>' +
+              '<td class="py-2.5 px-3">' + outBadge + '</td>' +
+              '<td id="sig-pnl-' + s.timeframe + '-' + s.time + '" class="py-2.5 px-3 text-right">' + pnlHtml + '</td>' +
+              '<td class="py-2.5 px-3 text-center">' +
+                '<button data-tf="' + s.timeframe + '" data-entry="' + s.entry + '" data-sl="' + s.stopLoss + '" data-tp1="' + s.tp1 + '" data-tp2="' + s.tp2 + '" data-dir="' + s.type + '" onclick="onEntryCopyBtnClick(this, event)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-[10px] transition">Copy</button>' +
+              '</td>' +
+            '</tr>';
+          }).join('');
+        }
+      }
+    }
+
+    function onEntryFlowCardClick(el) {
+      const tf = el.getAttribute('data-tf');
+      if (tf) switchTimeframe(tf);
+    }
+
+    function onEntryCopyBtnClick(btn, e) {
+      if (e) e.stopPropagation();
+      const tf = btn.getAttribute('data-tf') || '15m';
+      const entry = Number(btn.getAttribute('data-entry') || 0);
+      const sl = Number(btn.getAttribute('data-sl') || 0);
+      const tp1 = Number(btn.getAttribute('data-tp1') || 0);
+      const tp2 = Number(btn.getAttribute('data-tp2') || 0);
+      const dir = btn.getAttribute('data-dir') || 'BUY';
+      copySignalOrder(tf, entry, sl, tp1, tp2, dir);
     }
 
     // Cloudflare D1 Historical Performance & Trade Log Suite
@@ -2650,6 +2945,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     function startApp() {
       try { updateAudioButton(); } catch (e) { console.error('updateAudioButton err:', e); }
       try { setMtfView(mtfViewMode); } catch (e) { console.error('setMtfView err:', e); }
+      try { setEntryListViewMode(entryListViewMode); } catch (e) { console.error('setEntryListViewMode err:', e); }
       try { updateSymbolButtons(); } catch (e) { console.error('updateSymbolButtons err:', e); }
       try { initCharts(); } catch (e) { console.error('initCharts err:', e); }
       try { connectRealtimeTickStream(); } catch (e) { console.error('stream err:', e); }
