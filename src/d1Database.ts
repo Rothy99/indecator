@@ -38,7 +38,7 @@ let memoryStore: LocalD1Storage = {
 let localSqliteDb: any = null;
 let isD1Initialized = false;
 
-// Initialize local SQLite engine (Node.js built-in SQLite, matching Cloudflare D1 engine)
+// Initialize local SQLite engine with WAL mode and busy timeout for high-concurrency
 function getLocalSqliteDb(): any {
   if (localSqliteDb) return localSqliteDb;
   try {
@@ -48,6 +48,14 @@ function getLocalSqliteDb(): any {
       mkdirSync(dir, { recursive: true });
     }
     localSqliteDb = new DatabaseSync(LOCAL_SQLITE_PATH);
+    // Enable WAL mode (Write-Ahead Logging) to allow non-blocking concurrent readers & writers
+    try {
+      localSqliteDb.exec(`
+        PRAGMA journal_mode = WAL;
+        PRAGMA synchronous = NORMAL;
+        PRAGMA busy_timeout = 5000;
+      `);
+    } catch {}
     return localSqliteDb;
   } catch (err) {
     console.warn('[D1 Local] SQLite engine notice:', err);
@@ -124,7 +132,7 @@ export async function executeD1Query<T = any>(
         stmt.run(...params);
       }
     } catch (err) {
-      console.warn('[D1 Local SQLite Query Error]:', err);
+      console.warn('[D1 Local SQLite Query Notice]:', err);
     }
   }
 
@@ -187,24 +195,17 @@ export async function initD1Database(cfBinding?: any): Promise<boolean> {
   `;
 
   try {
-    await executeD1Query(createTableSql, [], cfBinding);
-    await executeD1Query(
-      `CREATE INDEX IF NOT EXISTS idx_trade_entries_tf_outcome ON trade_entries(timeframe, outcome);`,
-      [],
-      cfBinding
-    );
-    await executeD1Query(
-      `CREATE INDEX IF NOT EXISTS idx_trade_entries_time ON trade_entries(time DESC);`,
-      [],
-      cfBinding
-    );
-
-    // Sync any existing JSON backup records into Local D1 SQLite if database is fresh
     const db = getLocalSqliteDb();
     if (db) {
+      db.exec(createTableSql);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_trade_entries_tf_outcome ON trade_entries(timeframe, outcome);`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_trade_entries_time ON trade_entries(time DESC);`);
+
+      // Pre-seed from JSON backup if SQLite is fresh
       try {
         const countRow = db.prepare('SELECT COUNT(*) as c FROM trade_entries').get() as any;
         if (!countRow || countRow.c === 0) {
+          db.exec('BEGIN TRANSACTION');
           const insertStmt = db.prepare(`
             INSERT INTO trade_entries (
               id, timeframe, time, type, grade, probability, confidence,
@@ -234,10 +235,26 @@ export async function initD1Database(cfBinding?: any): Promise<boolean> {
               );
             }
           }
+          db.exec('COMMIT');
         }
       } catch (err) {
-        console.warn('[D1 Local Sync Notice]:', err);
+        try { db.exec('ROLLBACK'); } catch {}
+        console.warn('[D1 Local Pre-seed Notice]:', err);
       }
+    }
+
+    if (cfBinding) {
+      await executeD1Query(createTableSql, [], cfBinding);
+      await executeD1Query(
+        `CREATE INDEX IF NOT EXISTS idx_trade_entries_tf_outcome ON trade_entries(timeframe, outcome);`,
+        [],
+        cfBinding
+      );
+      await executeD1Query(
+        `CREATE INDEX IF NOT EXISTS idx_trade_entries_time ON trade_entries(time DESC);`,
+        [],
+        cfBinding
+      );
     }
 
     isD1Initialized = true;
@@ -257,7 +274,7 @@ export async function getD1ActiveTrade(
   timeframe: string,
   cfBinding?: any
 ): Promise<LockedActivePosition | null> {
-  // Check in-memory store first
+  // Check fast in-memory store first (0ms latency)
   if (memoryStore.activeByTf[timeframe]) {
     return memoryStore.activeByTf[timeframe];
   }
@@ -306,6 +323,10 @@ export async function getD1ClosedHistory(
   limit = 20,
   cfBinding?: any
 ): Promise<HistoricalSignal[]> {
+  if (memoryStore.closedByTf[timeframe]?.length) {
+    return memoryStore.closedByTf[timeframe].slice(0, limit);
+  }
+
   const rows = await executeD1Query<any>(
     `SELECT * FROM trade_entries WHERE timeframe = ? AND outcome != 'ACTIVE' ORDER BY time DESC LIMIT ?`,
     [timeframe, limit],
@@ -341,51 +362,53 @@ export async function saveD1ActiveTrade(
   trade: LockedActivePosition,
   cfBinding?: any
 ): Promise<void> {
+  const current = memoryStore.activeByTf[trade.timeframe];
+  const isIdentical =
+    current &&
+    current.id === trade.id &&
+    current.hitBeLock === trade.hitBeLock &&
+    current.hitTp1 === trade.hitTp1 &&
+    current.hitTp2 === trade.hitTp2 &&
+    current.hitSl === trade.hitSl &&
+    current.outcome === trade.outcome &&
+    current.pnlDollarsPerOz === trade.pnlDollarsPerOz;
+
   memoryStore.activeByTf[trade.timeframe] = trade;
+
+  // Only perform disk write if trade state actually changed
+  if (isIdentical) return;
+
   saveLocalFallback(memoryStore);
 
-  const nowIso = new Date().toISOString();
-  const sql = `
-    INSERT INTO trade_entries (
-      id, timeframe, time, type, grade, probability, confidence,
-      entry, stop_loss, tp1, tp2, be_trigger, hit_be_lock, hit_tp1, hit_tp2, hit_sl,
-      outcome, pnl_dollars_per_oz, reason, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      hit_be_lock = excluded.hit_be_lock,
-      hit_tp1 = excluded.hit_tp1,
-      hit_tp2 = excluded.hit_tp2,
-      hit_sl = excluded.hit_sl,
-      outcome = excluded.outcome,
-      pnl_dollars_per_oz = excluded.pnl_dollars_per_oz,
-      updated_at = excluded.updated_at;
-  `;
-
-  const params = [
-    trade.id,
-    trade.timeframe,
-    trade.time,
-    trade.type,
-    trade.grade,
-    trade.probability,
-    trade.confidence,
-    trade.entry,
-    trade.stopLoss,
-    trade.tp1,
-    trade.tp2,
-    trade.beTrigger,
-    trade.hitBeLock ? 1 : 0,
-    trade.hitTp1 ? 1 : 0,
-    trade.hitTp2 ? 1 : 0,
-    trade.hitSl ? 1 : 0,
-    trade.outcome,
-    trade.pnlDollarsPerOz,
-    trade.reason,
-    nowIso,
-    nowIso,
-  ];
-
-  void executeD1Query(sql, params, cfBinding);
+  const db = getLocalSqliteDb();
+  if (db) {
+    try {
+      const nowIso = new Date().toISOString();
+      const stmt = db.prepare(`
+        INSERT INTO trade_entries (
+          id, timeframe, time, type, grade, probability, confidence,
+          entry, stop_loss, tp1, tp2, be_trigger, hit_be_lock, hit_tp1, hit_tp2, hit_sl,
+          outcome, pnl_dollars_per_oz, reason, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          hit_be_lock = excluded.hit_be_lock,
+          hit_tp1 = excluded.hit_tp1,
+          hit_tp2 = excluded.hit_tp2,
+          hit_sl = excluded.hit_sl,
+          outcome = excluded.outcome,
+          pnl_dollars_per_oz = excluded.pnl_dollars_per_oz,
+          updated_at = excluded.updated_at;
+      `);
+      stmt.run(
+        trade.id, trade.timeframe, trade.time, trade.type, trade.grade,
+        trade.probability, trade.confidence, trade.entry, trade.stopLoss, trade.tp1, trade.tp2,
+        trade.beTrigger, trade.hitBeLock ? 1 : 0, trade.hitTp1 ? 1 : 0, trade.hitTp2 ? 1 : 0, trade.hitSl ? 1 : 0,
+        trade.outcome, trade.pnlDollarsPerOz, trade.reason, nowIso, nowIso
+      );
+    } catch (err) {
+      console.warn('[D1 Local Active Save Notice]:', err);
+    }
+  }
 }
 
 /**
@@ -417,31 +440,35 @@ export async function archiveD1ClosedTrade(
   }
   saveLocalFallback(memoryStore);
 
-  const nowIso = new Date().toISOString();
-  const sql = `
-    UPDATE trade_entries SET
-      outcome = ?,
-      hit_be_lock = ?,
-      hit_tp1 = ?,
-      hit_tp2 = ?,
-      hit_sl = ?,
-      pnl_dollars_per_oz = ?,
-      updated_at = ?
-    WHERE id = ?;
-  `;
-
-  const params = [
-    trade.outcome,
-    trade.hitBeLock ? 1 : 0,
-    trade.hitTp1 ? 1 : 0,
-    trade.hitTp2 ? 1 : 0,
-    trade.hitSl ? 1 : 0,
-    trade.pnlDollarsPerOz,
-    nowIso,
-    trade.id,
-  ];
-
-  void executeD1Query(sql, params, cfBinding);
+  const db = getLocalSqliteDb();
+  if (db) {
+    try {
+      const nowIso = new Date().toISOString();
+      const stmt = db.prepare(`
+        UPDATE trade_entries SET
+          outcome = ?,
+          hit_be_lock = ?,
+          hit_tp1 = ?,
+          hit_tp2 = ?,
+          hit_sl = ?,
+          pnl_dollars_per_oz = ?,
+          updated_at = ?
+        WHERE id = ?;
+      `);
+      stmt.run(
+        trade.outcome,
+        trade.hitBeLock ? 1 : 0,
+        trade.hitTp1 ? 1 : 0,
+        trade.hitTp2 ? 1 : 0,
+        trade.hitSl ? 1 : 0,
+        trade.pnlDollarsPerOz,
+        nowIso,
+        trade.id
+      );
+    } catch (err) {
+      console.warn('[D1 Local Archive Notice]:', err);
+    }
+  }
 }
 
 /**
@@ -454,16 +481,17 @@ export async function saveD1ClosedList(
 ): Promise<void> {
   const existing = memoryStore.closedByTf[timeframe] || [];
   const merged = [...existing];
-  let hasNew = false;
+  const newItems: HistoricalSignal[] = [];
 
   for (const s of list) {
     if (!merged.some((m) => m.time === s.time)) {
       merged.push(s);
-      hasNew = true;
+      newItems.push(s);
     }
   }
 
-  if (!hasNew && memoryStore.closedByTf[timeframe]?.length) {
+  // Fast exit: if no new trades were discovered, do nothing (0ms)
+  if (newItems.length === 0 && memoryStore.closedByTf[timeframe]?.length) {
     return;
   }
 
@@ -471,41 +499,37 @@ export async function saveD1ClosedList(
   memoryStore.closedByTf[timeframe] = merged.slice(0, 30);
   saveLocalFallback(memoryStore);
 
-  const nowIso = new Date().toISOString();
-  for (const s of list) {
-    const id = `TF_${timeframe}_${s.time}`;
-    const sql = `
-      INSERT INTO trade_entries (
-        id, timeframe, time, type, grade, probability, confidence,
-        entry, stop_loss, tp1, tp2, be_trigger, hit_be_lock, hit_tp1, hit_tp2, hit_sl,
-        outcome, pnl_dollars_per_oz, reason, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO NOTHING;
-    `;
-    const params = [
-      id,
-      timeframe,
-      s.time,
-      s.type,
-      s.grade,
-      s.probability,
-      s.confidence,
-      s.entry,
-      s.stopLoss,
-      s.tp1,
-      s.tp2,
-      s.entry,
-      s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT' ? 1 : 0,
-      s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT' ? 1 : 0,
-      s.outcome === 'TP2_HIT' ? 1 : 0,
-      s.outcome === 'SL_HIT' ? 1 : 0,
-      s.outcome,
-      s.pnlDollarsPerOz,
-      s.reason,
-      nowIso,
-      nowIso,
-    ];
-    void executeD1Query(sql, params, cfBinding);
+  // Batch insert new items inside a fast SQLite transaction
+  if (newItems.length > 0) {
+    const db = getLocalSqliteDb();
+    if (db) {
+      try {
+        db.exec('BEGIN TRANSACTION');
+        const insertStmt = db.prepare(`
+          INSERT INTO trade_entries (
+            id, timeframe, time, type, grade, probability, confidence,
+            entry, stop_loss, tp1, tp2, be_trigger, hit_be_lock, hit_tp1, hit_tp2, hit_sl,
+            outcome, pnl_dollars_per_oz, reason, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO NOTHING;
+        `);
+        const nowIso = new Date().toISOString();
+        for (const s of newItems) {
+          insertStmt.run(
+            `TF_${timeframe}_${s.time}`, timeframe, s.time, s.type, s.grade,
+            s.probability, s.confidence, s.entry, s.stopLoss, s.tp1, s.tp2,
+            s.entry, s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT' ? 1 : 0,
+            s.outcome === 'TP1_HIT' || s.outcome === 'TP2_HIT' ? 1 : 0,
+            s.outcome === 'TP2_HIT' ? 1 : 0, s.outcome === 'SL_HIT' ? 1 : 0,
+            s.outcome, s.pnlDollarsPerOz || 0, s.reason || '', nowIso, nowIso
+          );
+        }
+        db.exec('COMMIT');
+      } catch (err) {
+        try { db.exec('ROLLBACK'); } catch {}
+        console.warn('[D1 Local Batch Insert Notice]:', err);
+      }
+    }
   }
 }
 
