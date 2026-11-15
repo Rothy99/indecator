@@ -37,7 +37,7 @@ import {
   SYMBOL_CONFIGS,
 } from './marketData.js';
 import { DASHBOARD_HTML } from './dashboardHtml.js';
-import { getAllStoredD1Entries, getD1Status, initD1Database } from './d1Database.js';
+import { getAllStoredD1Entries, getD1Status, initD1Database, queryD1TradeHistory } from './d1Database.js';
 
 const app = new Hono();
 
@@ -289,6 +289,23 @@ app.get('/api/d1/entries', (c: any) =>
 app.get('/d1/entries', (c: any) =>
   c.json({ status: 'ok', d1: getD1Status(), entries: getAllStoredD1Entries() })
 );
+
+app.get('/api/history', (c: any) => {
+  const timeframe = c.req.query('timeframe') || 'ALL';
+  const outcome = c.req.query('outcome') || 'ALL';
+  const grade = c.req.query('grade') || 'ALL';
+  const limit = Number(c.req.query('limit')) || 100;
+  const report = queryD1TradeHistory({ timeframe, outcome, grade, limit });
+  return c.json({ status: 'ok', d1: getD1Status(), ...report });
+});
+app.get('/history', (c: any) => {
+  const timeframe = c.req.query('timeframe') || 'ALL';
+  const outcome = c.req.query('outcome') || 'ALL';
+  const grade = c.req.query('grade') || 'ALL';
+  const limit = Number(c.req.query('limit')) || 100;
+  const report = queryD1TradeHistory({ timeframe, outcome, grade, limit });
+  return c.json({ status: 'ok', d1: getD1Status(), ...report });
+});
 
 app.post('/api/d1/init', async (c: any) => {
   const success = await initD1Database(c.env?.DB);

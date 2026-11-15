@@ -450,10 +450,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               ⭐ 85%+ Setups
             </button>
             <button id="btnViewSignals" onclick="setMtfView('signals')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
-              📜 Activated Signals
+              📜 Active Entry Log
             </button>
             <button id="btnViewJournal" onclick="setMtfView('journal')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
-              📘 20-Trade Journal
+              📘 D1 Trade History
             </button>
             <button id="btnViewFeed" onclick="setMtfView('feed')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               ⚡ Blotter Feed
@@ -512,12 +512,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Tab Pane 4: 4-Confluence Activated Signals Log -->
+      <!-- Tab Pane 4: Active Timeframe Entry Logs & Real-Time Orders -->
       <div id="tabSignalsContainer" class="space-y-3 hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2.5">
-          <p class="text-xs text-slate-400">
-            Verified historical signals across all timeframes with Hard SL and 1:2 / 1:3 targets.
-          </p>
+          <div>
+            <p class="text-xs text-slate-300 font-bold">
+              Active Timeframe Entry Logs & Live Confluence Triggers
+            </p>
+            <p class="text-[11px] text-slate-400">
+              Verified historical & live signals across all timeframes with Hard SL, 1:2 & 1:3 targets.
+            </p>
+          </div>
           <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
             <button onclick="filterSignalList('90PLUS')" id="flt-90PLUS" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950 shadow-sm">⭐ 90%+ ONLY</button>
             <button onclick="filterSignalList('ALL')" id="flt-ALL" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">ALL TFs</button>
@@ -531,20 +536,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
         <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
         <div data-scroll-key="all-signals-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
-          <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
+          <table class="w-full text-left border-collapse text-xs min-w-[800px] sm:min-w-full">
             <thead>
-              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
+              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px] bg-slate-950/70">
                 <th class="py-2.5 px-3">Time</th>
                 <th class="py-2.5 px-3">TF</th>
                 <th class="py-2.5 px-3">Signal</th>
                 <th class="py-2.5 px-3">Grade</th>
                 <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
-                <th class="py-2.5 px-3">Hard SL (1.5x ATR)</th>
-                <th class="py-2.5 px-3">TP 1 (1:2 • 50% + BE)</th>
-                <th class="py-2.5 px-3">TP 2 (1:3 • Runner)</th>
+                <th class="py-2.5 px-3 text-rose-400">Hard SL (1.5x ATR)</th>
+                <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:2 • 50% + BE)</th>
+                <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:3 • Runner)</th>
                 <th class="py-2.5 px-3">Confluence Trigger</th>
                 <th class="py-2.5 px-3">Outcome</th>
                 <th class="py-2.5 px-3 text-right">Net Move</th>
+                <th class="py-2.5 px-3 text-center">Copy</th>
               </tr>
             </thead>
             <tbody id="allSignalsTableBody" class="divide-y divide-slate-800/60 mono">
@@ -554,43 +560,139 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Tab Pane 5: Rule 5: 20-Trade Rule-Adherence Journal -->
-      <div id="tabJournalContainer" class="space-y-3 hidden">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2.5">
-          <div>
-            <p class="text-xs text-slate-400">
-              Rule 5: Judge your execution by discipline across 20 consecutive trades. Logged with Score (90%+ only), M15 close wait, and spread.
-            </p>
+      <!-- Tab Pane 5: Cloudflare D1 Historical Trade Blotter & Rule-Adherence Analytics -->
+      <div id="tabJournalContainer" class="space-y-4 hidden">
+        <!-- Analytics Performance Strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Win Rate</span>
+            <div id="d1StatWinRate" class="text-xl font-black text-amber-300 mono mt-1">--%</div>
+            <div id="d1StatWinLoss" class="text-[10px] text-slate-400 mt-0.5">-- W / -- L / -- BE</div>
           </div>
-          <div id="journalStatsBadge" class="px-3 py-1 rounded-lg text-xs font-black mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-            20-Trade Win Rate: --%
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Net P&L</span>
+            <div id="d1StatNetPnl" class="text-xl font-black text-emerald-400 mono mt-1">+$0.00</div>
+            <div id="d1StatPnlSub" class="text-[10px] text-slate-400 mt-0.5">Net points / oz</div>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Profit Factor</span>
+            <div id="d1StatProfitFactor" class="text-xl font-black text-white mono mt-1">--</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">Gross Wins / Losses</div>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Average R:R</span>
+            <div id="d1StatAvgRr" class="text-xl font-black text-white mono mt-1">--</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">Target: 1:2.0+</div>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3 col-span-2 sm:col-span-1">
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">D1 Persistence</span>
+            <div id="d1StatTotalTrades" class="text-xl font-black text-amber-300 mono mt-1">-- trades</div>
+            <div class="text-[10px] text-emerald-400 font-bold mt-0.5 flex items-center gap-1">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Cloudflare D1 Local
+            </div>
           </div>
         </div>
+
+        <!-- Multi-Criteria Filter and Action Bar -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-3 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2.5">
+            <!-- Timeframe Chips -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1">Timeframe:</span>
+              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-wrap gap-0.5">
+                <button onclick="setD1HistoryFilter('timeframe', 'ALL')" id="d1flt-tf-ALL" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
+                <button onclick="setD1HistoryFilter('timeframe', '1m')" id="d1flt-tf-1m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M1</button>
+                <button onclick="setD1HistoryFilter('timeframe', '5m')" id="d1flt-tf-5m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M5</button>
+                <button onclick="setD1HistoryFilter('timeframe', '15m')" id="d1flt-tf-15m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M15</button>
+                <button onclick="setD1HistoryFilter('timeframe', '30m')" id="d1flt-tf-30m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M30</button>
+                <button onclick="setD1HistoryFilter('timeframe', '1h')" id="d1flt-tf-1h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H1</button>
+                <button onclick="setD1HistoryFilter('timeframe', '4h')" id="d1flt-tf-4h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H4</button>
+              </div>
+            </div>
+
+            <!-- Grade Filter -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1">Grade:</span>
+              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-wrap gap-0.5">
+                <button onclick="setD1HistoryFilter('grade', 'ALL')" id="d1flt-gr-ALL" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
+                <button onclick="setD1HistoryFilter('grade', '90PLUS')" id="d1flt-gr-90PLUS" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">⭐ 90%+ ONLY</button>
+              </div>
+            </div>
+
+            <!-- Outcome Filter -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1">Outcome:</span>
+              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-wrap gap-0.5">
+                <button onclick="setD1HistoryFilter('outcome', 'ALL')" id="d1flt-oc-ALL" class="px-2 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
+                <button onclick="setD1HistoryFilter('outcome', 'WINS')" id="d1flt-oc-WINS" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">WINS</button>
+                <button onclick="setD1HistoryFilter('outcome', 'TP2_HIT')" id="d1flt-oc-TP2_HIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">🏆 TP2</button>
+                <button onclick="setD1HistoryFilter('outcome', 'TP1_HIT')" id="d1flt-oc-TP1_HIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">✅ TP1</button>
+                <button onclick="setD1HistoryFilter('outcome', 'BE_EXIT')" id="d1flt-oc-BE_EXIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">🛡️ BE</button>
+                <button onclick="setD1HistoryFilter('outcome', 'SL_HIT')" id="d1flt-oc-SL_HIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">❌ SL</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-slate-800/60">
+            <!-- Search Filter -->
+            <div class="relative flex-1 min-w-[200px]">
+              <input type="text" id="d1HistorySearch" oninput="onD1SearchChange(this.value)" placeholder="Search reason, price, or date..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 mono">
+            </div>
+
+            <!-- Limit and Actions -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <label class="text-[11px] text-slate-400 font-bold uppercase">Rows:</label>
+              <select id="d1HistoryLimitSelect" onchange="setD1HistoryLimit(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400 mono">
+                <option value="50">50 rows</option>
+                <option value="100" selected>100 rows</option>
+                <option value="250">250 rows</option>
+                <option value="500">500 rows</option>
+              </select>
+
+              <button onclick="exportHistoryCsv()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center gap-1.5">
+                <span>📥 Export CSV</span>
+              </button>
+              <button onclick="copyHistorySummary()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center gap-1.5">
+                <span>📋 Copy Summary</span>
+              </button>
+              <button onclick="fetchD1History(true)" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400/30 transition flex items-center gap-1.5">
+                <span>🔄 Refresh</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="text-[10px] text-slate-500 block sm:hidden font-mono">← Swipe table sideways on mobile →</div>
-        <div data-scroll-key="journal-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/60">
-          <table class="w-full text-left border-collapse text-xs min-w-[700px] sm:min-w-full">
+
+        <!-- High Performance History Table -->
+        <div data-scroll-key="d1-history-table-wrap" onscroll="onInnerScroll(this)" class="overflow-x-auto rounded-xl border border-slate-800/80">
+          <table class="w-full text-left border-collapse text-xs min-w-[850px] sm:min-w-full">
             <thead>
-              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
+              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px] bg-slate-950/80 sticky top-0">
                 <th class="py-2.5 px-3">#</th>
-                <th class="py-2.5 px-3">Time</th>
+                <th class="py-2.5 px-3">Date & Time</th>
                 <th class="py-2.5 px-3">TF</th>
                 <th class="py-2.5 px-3">Dir</th>
-                <th class="py-2.5 px-3 text-amber-300">Score (90%+)</th>
-                <th class="py-2.5 px-3">M15 Close Waited</th>
-                <th class="py-2.5 px-3">Spread @ Entry</th>
-                <th class="py-2.5 px-3">Entry Price</th>
-                <th class="py-2.5 px-3 text-rose-400">Stop-Loss</th>
+                <th class="py-2.5 px-3 text-amber-300">Grade & Score</th>
+                <th class="py-2.5 px-3 text-amber-300 font-extrabold bg-amber-400/10 border-x border-amber-400/20">📍 Entry Price</th>
+                <th class="py-2.5 px-3 text-rose-400">Hard SL</th>
                 <th class="py-2.5 px-3 text-emerald-400">TP 1 (1:2)</th>
                 <th class="py-2.5 px-3 text-emerald-300">TP 2 (1:3+)</th>
                 <th class="py-2.5 px-3">Outcome</th>
                 <th class="py-2.5 px-3">Achieved R:R</th>
                 <th class="py-2.5 px-3 text-right">Net P&L</th>
+                <th class="py-2.5 px-3">Confluence Reason</th>
               </tr>
             </thead>
             <tbody id="journalTableBody" class="divide-y divide-slate-800/60 mono">
-              <!-- Populated dynamically -->
+              <!-- Populated dynamically from Cloudflare D1 Local SQLite -->
             </tbody>
           </table>
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-500 pt-1 px-1">
+          <span id="d1HistoryStatusText">Loading D1 history records...</span>
+          <span class="mono text-[11px]">Database: D1 Local SQLite (data/d1_local.sqlite)</span>
         </div>
       </div>
 
@@ -844,6 +946,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       Object.entries(tabBtns).forEach(([k, btn]) => {
         if (btn) btn.className = k === mode ? activeBtnCls : inactiveBtnCls;
       });
+
+      if (mode === 'journal') {
+        fetchD1History();
+      }
     }
 
     function initCharts() {
@@ -2021,6 +2127,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       requestAnimationFrame(restoreAllScrollStates);
     }
 
+    function copySignalOrder(tf, entry, sl, tp1, tp2, dir) {
+      const text = currentSymbol + ' ' + dir + ' ' + Number(entry).toFixed(2) + ' SL ' + Number(sl).toFixed(2) + ' TP1 ' + Number(tp1).toFixed(2) + ' TP2 ' + Number(tp2).toFixed(2);
+      navigator.clipboard.writeText(text);
+      playChime('chime');
+      showToast('📋 Copied ' + tf.toUpperCase() + ' ' + dir + ' @ $' + Number(entry).toFixed(2));
+    }
+
     function renderAllHighProbSignalsTable(allSignals) {
       const filtered = signalListFilter === '90PLUS'
         ? allSignals.filter((s) => s.probability >= 82 || s.grade === 'A+' || s.grade === 'A')
@@ -2029,8 +2142,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         : allSignals.filter((s) => s.timeframe === signalListFilter);
 
       const tbody = document.getElementById('allSignalsTableBody');
+      if (!tbody) return;
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="py-4 text-center text-slate-500">No 90%+ confident signals found in current scan window</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="py-4 text-center text-slate-500">No active signals found in current scan window</td></tr>';
         return;
       }
 
@@ -2065,62 +2179,241 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <td class="py-2.5 px-3 text-slate-300 font-sans">\${s.reason}</td>
             <td class="py-2.5 px-3">\${outBadge}</td>
             <td id="sig-pnl-\${s.timeframe}-\${s.time}" class="py-2.5 px-3 text-right">\${pnlHtml}</td>
+            <td class="py-2.5 px-3 text-center">
+              <button onclick="event.stopPropagation(); copySignalOrder('\${s.timeframe}', \${s.entry}, \${s.stopLoss}, \${s.tp1}, \${s.tp2}, '\${s.type}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-[10px] transition">Copy</button>
+            </td>
           </tr>
         \`;
       }).join('');
     }
 
-    function renderJournalTable(journalEntries) {
+    // Cloudflare D1 Historical Performance & Trade Log Suite
+    const d1HistoryState = {
+      timeframe: 'ALL',
+      grade: 'ALL',
+      outcome: 'ALL',
+      limit: 100,
+      search: '',
+      data: null,
+      isLoading: false
+    };
+
+    function setD1HistoryFilter(type, value) {
+      if (type === 'timeframe') {
+        d1HistoryState.timeframe = value;
+        ['ALL', '1m', '5m', '15m', '30m', '1h', '4h'].forEach((id) => {
+          const btn = document.getElementById('d1flt-tf-' + id);
+          if (!btn) return;
+          btn.className = id === value
+            ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950'
+            : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white';
+        });
+      } else if (type === 'grade') {
+        d1HistoryState.grade = value;
+        ['ALL', '90PLUS'].forEach((id) => {
+          const btn = document.getElementById('d1flt-gr-' + id);
+          if (!btn) return;
+          btn.className = id === value
+            ? 'px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950'
+            : 'px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white';
+        });
+      } else if (type === 'outcome') {
+        d1HistoryState.outcome = value;
+        ['ALL', 'WINS', 'TP2_HIT', 'TP1_HIT', 'BE_EXIT', 'SL_HIT'].forEach((id) => {
+          const btn = document.getElementById('d1flt-oc-' + id);
+          if (!btn) return;
+          btn.className = id === value
+            ? 'px-2 py-1 rounded text-xs font-black bg-amber-400 text-slate-950'
+            : 'px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white';
+        });
+      }
+      fetchD1History(true);
+    }
+
+    function setD1HistoryLimit(val) {
+      d1HistoryState.limit = parseInt(val, 10) || 100;
+      fetchD1History(true);
+    }
+
+    function onD1SearchChange(query) {
+      d1HistoryState.search = (query || '').toLowerCase().trim();
+      if (d1HistoryState.data) {
+        renderD1History(d1HistoryState.data);
+      }
+    }
+
+    async function fetchD1History(force) {
+      if (d1HistoryState.isLoading && !force) return;
+      d1HistoryState.isLoading = true;
+      const statusEl = document.getElementById('d1HistoryStatusText');
+      if (statusEl) statusEl.textContent = 'Querying Cloudflare D1 Local database...';
+
+      try {
+        const params = new URLSearchParams();
+        if (d1HistoryState.timeframe && d1HistoryState.timeframe !== 'ALL') {
+          params.append('timeframe', d1HistoryState.timeframe);
+        }
+        if (d1HistoryState.outcome && d1HistoryState.outcome !== 'ALL') {
+          params.append('outcome', d1HistoryState.outcome);
+        }
+        if (d1HistoryState.grade && d1HistoryState.grade !== 'ALL') {
+          params.append('grade', d1HistoryState.grade);
+        }
+        params.append('limit', String(d1HistoryState.limit || 100));
+
+        const res = await fetch('/api/history?' + params.toString());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        d1HistoryState.data = json;
+        renderD1History(json);
+      } catch (err) {
+        console.error('fetchD1History error:', err);
+        if (statusEl) statusEl.textContent = 'Failed to load D1 history: ' + (err.message || String(err));
+      } finally {
+        d1HistoryState.isLoading = false;
+      }
+    }
+
+    function renderD1History(result) {
+      if (!result) return;
+      const stats = result.stats || {};
+      const winRateEl = document.getElementById('d1StatWinRate');
+      const winLossEl = document.getElementById('d1StatWinLoss');
+      const netPnlEl = document.getElementById('d1StatNetPnl');
+      const profitFactorEl = document.getElementById('d1StatProfitFactor');
+      const avgRrEl = document.getElementById('d1StatAvgRr');
+      const totalTradesEl = document.getElementById('d1StatTotalTrades');
+      const statusEl = document.getElementById('d1HistoryStatusText');
+
+      if (winRateEl) winRateEl.textContent = (typeof stats.winRate === 'number' ? stats.winRate.toFixed(1) : '--') + '%';
+      if (winLossEl) winLossEl.textContent = (stats.wins || 0) + ' W / ' + (stats.losses || 0) + ' L / ' + (stats.beExits || 0) + ' BE';
+      if (netPnlEl) {
+        const pnl = stats.totalNetPnl || 0;
+        netPnlEl.className = 'text-xl font-black mono mt-1 ' + (pnl >= 0 ? 'text-emerald-400' : 'text-rose-400');
+        netPnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+      }
+      if (profitFactorEl) profitFactorEl.textContent = typeof stats.profitFactor === 'number' ? stats.profitFactor.toFixed(2) : '--';
+      if (avgRrEl) avgRrEl.textContent = stats.avgRr || '--';
+      if (totalTradesEl) totalTradesEl.textContent = (stats.totalTrades || 0).toLocaleString() + ' trades';
+
       const tbody = document.getElementById('journalTableBody');
       if (!tbody) return;
-      if (!journalEntries || journalEntries.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="14" class="py-4 text-center text-slate-500">No journal entries recorded yet</td></tr>';
+
+      let list = result.trades || [];
+      if (d1HistoryState.search) {
+        const q = d1HistoryState.search;
+        list = list.filter((t) => {
+          return (t.reason && t.reason.toLowerCase().includes(q))
+            || (t.timeframe && t.timeframe.toLowerCase().includes(q))
+            || (t.direction && t.direction.toLowerCase().includes(q))
+            || (t.dateIso && t.dateIso.toLowerCase().includes(q))
+            || String(t.entryPrice).includes(q)
+            || String(t.tradeNumber).includes(q);
+        });
+      }
+
+      if (statusEl) {
+        statusEl.textContent = 'Displaying ' + list.length + ' of ' + (stats.totalTrades || list.length) + ' trades (Filter: ' + d1HistoryState.timeframe + ' / ' + d1HistoryState.outcome + ')';
+      }
+
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13" class="py-6 text-center text-slate-500 font-sans">No historical trades found matching filter criteria</td></tr>';
         return;
       }
 
-      const wins = journalEntries.filter((j) => j.finalOutcome.includes('TP1') || j.finalOutcome.includes('TP2')).length;
-      const closed = journalEntries.filter((j) => j.finalOutcome !== 'RUNNING').length;
-      const winPct = closed > 0 ? Math.round((wins / closed) * 100) : 0;
-      const statsBadge = document.getElementById('journalStatsBadge');
-      if (statsBadge) {
-        statsBadge.textContent = '20-Trade Win Rate: ' + winPct + '% (' + wins + 'W / ' + (closed - wins) + 'L)';
-      }
-
-      tbody.innerHTML = journalEntries.map((j) => {
-        const dt = new Date(j.timestamp * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-        const isB = j.direction === 'BUY';
+      tbody.innerHTML = list.map((t) => {
+        const dt = t.dateIso ? new Date(t.dateIso).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : (new Date(t.time * 1000).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
+        const isB = t.direction === 'BUY';
         const dirCls = isB ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-        const outBadge = j.finalOutcome.includes('TP2')
-          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-300 font-bold">🏆 TP2 (1:3+)</span>'
-          : j.finalOutcome.includes('TP1')
-          ? '<span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">✅ TP1 (1:2)</span>'
-          : j.finalOutcome.includes('BE')
-          ? '<span class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold">🛡️ BE EXIT</span>'
-          : j.finalOutcome.includes('SL')
-          ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">❌ SL HIT (-1R)</span>'
-          : '<span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">⚡ RUNNING</span>';
+        const outStr = String(t.outcome || '').toUpperCase();
+        const outBadge = outStr.includes('TP2')
+          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">🏆 TP2 (1:3+)</span>'
+          : outStr.includes('TP1')
+          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">✅ TP1 (1:2)</span>'
+          : outStr.includes('BE')
+          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-amber-500/15 text-amber-300 border border-amber-500/30">🛡️ BE EXIT</span>'
+          : outStr.includes('SL')
+          ? '<span class="px-2 py-0.5 rounded font-black text-[11px] bg-rose-500/20 text-rose-300 border border-rose-500/40">❌ SL HIT (-1R)</span>'
+          : '<span class="px-2 py-0.5 rounded font-bold text-[11px] bg-sky-500/20 text-sky-300">' + outStr + '</span>';
 
-        const pnlCls = j.netPnlPerOz >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+        const pnl = Number(t.pnlDollars || 0);
+        const pnlCls = pnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
 
         return \`
           <tr class="hover:bg-slate-900/60 transition">
-            <td class="py-2.5 px-3 text-slate-400 font-bold">\${j.tradeNumber}</td>
+            <td class="py-2.5 px-3 text-slate-500 font-bold">\${t.tradeNumber}</td>
             <td class="py-2.5 px-3 text-slate-300">\${dt}</td>
-            <td class="py-2.5 px-3 uppercase text-amber-300 font-extrabold">\${j.timeframe}</td>
-            <td class="py-2.5 px-3 \${dirCls}">\${j.direction}</td>
-            <td class="py-2.5 px-3 font-black text-amber-400">\${j.confluenceScore}%</td>
-            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-300">YES ✓</span></td>
-            <td class="py-2.5 px-3 text-slate-300">\${j.spreadAtEntry.toFixed(1)} pt</td>
-            <td class="py-2.5 px-3 text-amber-300 font-bold">$\${j.entryPrice.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-rose-400">$\${j.stopLoss.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-emerald-400">$\${j.tp1.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-emerald-300 font-bold">$\${j.tp2.toFixed(2)}</td>
+            <td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-bold uppercase text-[11px]">\${t.timeframe}</span></td>
+            <td class="py-2.5 px-3 \${dirCls}">\${t.direction}</td>
+            <td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px]">\${t.grade || 'A'}</span> <span class="font-bold text-white ml-1">\${t.score}%</span></td>
+            <td class="py-2.5 px-3 font-black text-amber-300 bg-amber-400/10 border-x border-amber-400/20">$\${Number(t.entryPrice).toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-rose-400">$\${Number(t.stopLoss).toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-emerald-400">$\${Number(t.tp1).toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-emerald-300 font-bold">$\${Number(t.tp2).toFixed(2)}</td>
             <td class="py-2.5 px-3">\${outBadge}</td>
-            <td class="py-2.5 px-3 font-black mono text-white">\${j.achievedRr}</td>
-            <td class="py-2.5 px-3 text-right \${pnlCls}">\${j.netPnlPerOz >= 0 ? '+' : ''}$\${j.netPnlPerOz.toFixed(2)}</td>
+            <td class="py-2.5 px-3 font-black mono text-white">\${t.achievedRr || '--'}</td>
+            <td class="py-2.5 px-3 text-right \${pnlCls}">\${pnl >= 0 ? '+' : ''}$\${pnl.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-slate-300 font-sans truncate max-w-[200px]" title="\${t.reason || ''}">\${t.reason || '--'}</td>
           </tr>
         \`;
       }).join('');
+    }
+
+    function exportHistoryCsv() {
+      if (!d1HistoryState.data || !d1HistoryState.data.trades || d1HistoryState.data.trades.length === 0) {
+        showToast('No trade records to export');
+        return;
+      }
+      const headers = ['Trade_Num', 'Timestamp', 'Date_UTC', 'Timeframe', 'Direction', 'Score', 'Grade', 'Entry_Price', 'Stop_Loss', 'TP1', 'TP2', 'Outcome', 'Achieved_RR', 'Net_PnL_USD', 'Net_Pips', 'Reason'];
+      const rows = d1HistoryState.data.trades.map((t) => [
+        t.tradeNumber,
+        t.time,
+        '"' + (t.dateIso || '') + '"',
+        t.timeframe,
+        t.direction,
+        t.score,
+        t.grade,
+        Number(t.entryPrice).toFixed(2),
+        Number(t.stopLoss).toFixed(2),
+        Number(t.tp1).toFixed(2),
+        Number(t.tp2).toFixed(2),
+        t.outcome,
+        '"' + (t.achievedRr || '') + '"',
+        Number(t.pnlDollars || 0).toFixed(2),
+        t.pips || 0,
+        '"' + (t.reason || '').replace(/"/g, '""') + '"'
+      ].join(','));
+      const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent([headers.join(','), ...rows].join('\\n'));
+      const link = document.createElement('a');
+      link.setAttribute('href', csvContent);
+      link.setAttribute('download', 'indecator_d1_history_' + currentSymbol + '_' + new Date().toISOString().slice(0, 10) + '.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('📥 Exported ' + rows.length + ' D1 Trades to CSV');
+    }
+
+    function copyHistorySummary() {
+      if (!d1HistoryState.data || !d1HistoryState.data.stats) {
+        showToast('No statistics loaded yet');
+        return;
+      }
+      const s = d1HistoryState.data.stats;
+      const text = '📊 INDECATOR D1 PERFORMANCE JOURNAL [' + currentSymbol + ']\\n'
+        + 'Total Stored in D1: ' + s.totalTrades + ' trades\\n'
+        + 'Win Rate: ' + s.winRate.toFixed(1) + '% (' + s.wins + 'W / ' + s.losses + 'L / ' + s.beExits + 'BE)\\n'
+        + 'Profit Factor: ' + s.profitFactor.toFixed(2) + '\\n'
+        + 'Average R:R: ' + s.avgRr + '\\n'
+        + 'Total Net P&L: ' + (s.totalNetPnl >= 0 ? '+' : '') + '$' + s.totalNetPnl.toFixed(2) + '\\n'
+        + 'Filter: Timeframe=' + d1HistoryState.timeframe + ' | Outcome=' + d1HistoryState.outcome + ' | Grade=' + d1HistoryState.grade;
+      navigator.clipboard.writeText(text);
+      showToast('📋 Copied D1 Performance Summary');
+    }
+
+    function renderJournalTable(journalEntries) {
+      if (!d1HistoryState.data) {
+        fetchD1History();
+      }
     }
 
     function copyTfOrder(tf) {
@@ -2347,8 +2640,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       try { updateSymbolButtons(); } catch (e) { console.error('updateSymbolButtons err:', e); }
       try { initCharts(); } catch (e) { console.error('initCharts err:', e); }
       try { connectRealtimeTickStream(); } catch (e) { console.error('stream err:', e); }
+      try { fetchD1History(); } catch (e) { console.error('fetchD1History err:', e); }
       loadSignalData();
       setInterval(loadSignalData, 2000);
+      setInterval(() => {
+        if (mtfViewMode === 'journal') fetchD1History();
+      }, 10000);
     }
 
     if (document.readyState === 'loading') {

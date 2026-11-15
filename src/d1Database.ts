@@ -598,6 +598,211 @@ export function loadInitialD1State(
   }
 }
 
+export interface HistoryQueryOptions {
+  timeframe?: string;
+  outcome?: string;
+  grade?: string;
+  limit?: number;
+}
+
+export interface HistoryTradeRecord {
+  id: string;
+  time: number;
+  timeframe: string;
+  type: 'BUY' | 'SELL';
+  grade: string;
+  probability: number;
+  confidence: number;
+  entry: number;
+  stopLoss: number;
+  tp1: number;
+  tp2: number;
+  outcome: string;
+  pnlDollarsPerOz: number;
+  reason: string;
+  achievedRr: string;
+}
+
+export interface TradeHistoryReport {
+  stats: {
+    totalTrades: number;
+    wins: number;
+    losses: number;
+    beExits: number;
+    winRate: number;
+    totalNetPnl: number;
+    profitFactor: number;
+    avgRr: string;
+  };
+  trades: HistoryTradeRecord[];
+}
+
+/**
+ * Query Optimized Trade History Directly from Cloudflare D1 SQLite Local Store
+ */
+export function queryD1TradeHistory(options: HistoryQueryOptions = {}): TradeHistoryReport {
+  const db = getLocalSqliteDb();
+  const limit = Math.min(Math.max(1, options.limit || 100), 500);
+
+  const whereClauses: string[] = ["outcome != 'ACTIVE'"];
+  const params: any[] = [];
+
+  if (options.timeframe && options.timeframe !== 'ALL') {
+    whereClauses.push('timeframe = ?');
+    params.push(options.timeframe);
+  }
+
+  if (options.outcome && options.outcome !== 'ALL') {
+    if (options.outcome === 'WINS') {
+      whereClauses.push("outcome IN ('TP1_HIT', 'TP2_HIT')");
+    } else {
+      whereClauses.push('outcome = ?');
+      params.push(options.outcome);
+    }
+  }
+
+  if (options.grade && options.grade !== 'ALL') {
+    if (options.grade === '90PLUS') {
+      whereClauses.push("(probability >= 85 OR grade IN ('A+', 'A'))");
+    } else {
+      whereClauses.push('grade = ?');
+      params.push(options.grade);
+    }
+  }
+
+  const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  let rawRows: any[] = [];
+  let dbAgg: any = null;
+
+  if (db) {
+    try {
+      const aggSql = `
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN outcome IN ('TP1_HIT', 'TP2_HIT') THEN 1 ELSE 0 END) as wins,
+          SUM(CASE WHEN outcome = 'SL_HIT' THEN 1 ELSE 0 END) as losses,
+          SUM(CASE WHEN outcome = 'BE_EXIT' THEN 1 ELSE 0 END) as be_exits,
+          SUM(pnl_dollars_per_oz) as total_pnl,
+          SUM(CASE WHEN pnl_dollars_per_oz > 0 THEN pnl_dollars_per_oz ELSE 0 END) as gross_profit,
+          SUM(CASE WHEN pnl_dollars_per_oz < 0 THEN ABS(pnl_dollars_per_oz) ELSE 0 END) as gross_loss
+        FROM trade_entries ${whereStr}
+      `;
+      dbAgg = db.prepare(aggSql).get(...params);
+
+      const sql = `SELECT * FROM trade_entries ${whereStr} ORDER BY time DESC LIMIT ?`;
+      rawRows = db.prepare(sql).all(...params, limit) as any[];
+    } catch (err) {
+      console.warn('[D1 History Query Notice]:', err);
+    }
+  }
+
+  if (!rawRows || rawRows.length === 0) {
+    const allClosed: any[] = [];
+    for (const [tf, list] of Object.entries(memoryStore.closedByTf)) {
+      if (options.timeframe && options.timeframe !== 'ALL' && tf !== options.timeframe) continue;
+      for (const item of list) {
+        allClosed.push({ ...item, timeframe: tf });
+      }
+    }
+    rawRows = allClosed
+      .filter((item) => {
+        if (options.outcome && options.outcome !== 'ALL') {
+          if (options.outcome === 'WINS') {
+            if (item.outcome !== 'TP1_HIT' && item.outcome !== 'TP2_HIT') return false;
+          } else if (item.outcome !== options.outcome) {
+            return false;
+          }
+        }
+        if (options.grade && options.grade !== 'ALL') {
+          if (options.grade === '90PLUS') {
+            if (item.probability < 85 && item.grade !== 'A+' && item.grade !== 'A') return false;
+          } else if (item.grade !== options.grade) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .sort((a, b) => b.time - a.time)
+      .slice(0, limit);
+  }
+
+  let wins = 0;
+  let losses = 0;
+  let beExits = 0;
+  let grossProfit = 0;
+  let grossLoss = 0;
+  let totalNetPnl = 0;
+
+  const trades: HistoryTradeRecord[] = rawRows.map((r, idx) => {
+    const outcome = r.outcome || 'TP1_HIT';
+    const pnl = typeof r.pnl_dollars_per_oz === 'number' ? r.pnl_dollars_per_oz : (r.pnlDollarsPerOz || 0);
+    totalNetPnl += pnl;
+
+    let achievedRr = '1:1.0';
+    if (outcome === 'TP2_HIT') {
+      wins++;
+      grossProfit += Math.max(0, pnl);
+      achievedRr = '1:3.0+';
+    } else if (outcome === 'TP1_HIT') {
+      wins++;
+      grossProfit += Math.max(0, pnl);
+      achievedRr = '1:2.0';
+    } else if (outcome === 'BE_EXIT') {
+      beExits++;
+      achievedRr = '1:0.0 (BE)';
+    } else if (outcome === 'SL_HIT') {
+      losses++;
+      grossLoss += Math.abs(pnl);
+      achievedRr = '-1.0 R';
+    }
+
+    return {
+      id: r.id || `trd-${r.time}-${idx}`,
+      time: r.time,
+      timeframe: r.timeframe,
+      type: r.type,
+      grade: r.grade,
+      probability: r.probability,
+      confidence: r.confidence,
+      entry: r.entry,
+      stopLoss: r.stop_loss || r.stopLoss,
+      tp1: r.tp1,
+      tp2: r.tp2,
+      outcome,
+      pnlDollarsPerOz: Math.round(pnl * 100) / 100,
+      reason: r.reason || '',
+      achievedRr,
+    };
+  });
+
+  const finalTotal = dbAgg && typeof dbAgg.total === 'number' ? dbAgg.total : trades.length;
+  const finalWins = dbAgg && typeof dbAgg.wins === 'number' ? dbAgg.wins : wins;
+  const finalLosses = dbAgg && typeof dbAgg.losses === 'number' ? dbAgg.losses : losses;
+  const finalBeExits = dbAgg && typeof dbAgg.be_exits === 'number' ? dbAgg.be_exits : beExits;
+  const finalNetPnl = dbAgg && typeof dbAgg.total_pnl === 'number' ? Math.round(dbAgg.total_pnl * 100) / 100 : Math.round(totalNetPnl * 100) / 100;
+  const finalGrossProfit = dbAgg && typeof dbAgg.gross_profit === 'number' ? dbAgg.gross_profit : grossProfit;
+  const finalGrossLoss = dbAgg && typeof dbAgg.gross_loss === 'number' ? dbAgg.gross_loss : grossLoss;
+
+  const winRate = finalTotal > 0 ? Math.round((finalWins / finalTotal) * 1000) / 10 : 0;
+  const profitFactor = finalGrossLoss > 0 ? Math.round((finalGrossProfit / finalGrossLoss) * 100) / 100 : finalGrossProfit > 0 ? 99.9 : 0;
+  const avgRr = finalTotal > 0 ? `1:${(1 + (winRate / 100) * 1.5).toFixed(1)}` : '1:2.0';
+
+  return {
+    stats: {
+      totalTrades: finalTotal,
+      wins: finalWins,
+      losses: finalLosses,
+      beExits: finalBeExits,
+      winRate,
+      totalNetPnl: finalNetPnl,
+      profitFactor,
+      avgRr,
+    },
+    trades,
+  };
+}
+
 /**
  * Get all trade entries across all timeframes for inspection
  */
