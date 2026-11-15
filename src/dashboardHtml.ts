@@ -109,8 +109,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </button>
         </div>
 
-        <div id="d1DbPill" title="Cloudflare D1 Database Persistent Trade Storage" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-sky-500/15 text-sky-300 border border-sky-500/30">
-          💾 D1 DB: Active
+        <div id="d1DbPill" title="Cloudflare D1 Local SQLite Database (d59c377c-934d-43b9-b00a-dee0c947be28)" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>🗄️ D1 Local: Active</span>
         </div>
 
         <div id="circuitBreakerPill" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
