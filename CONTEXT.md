@@ -267,7 +267,19 @@ TELEGRAM_MIN_SCORE=90
 
 ---
 
-## 9. Directory Structure
+## 9. Mobile Responsiveness & Touch UX Architecture
+
+The terminal is engineered for seamless operation on mobile devices (smartphones, tablets) with native app ergonomics:
+- **Fluid Header**: Re-organized into two compact rows on screens < 640px; title and quick action icons on top, scrollable asset switcher (`🪙 Gold`, `₿ BTC`, `Ξ ETH`, `◎ SOL`), and compact live bid/ask/spread ticker below.
+- **Horizontal Swipeable MTF Rail**: Timeframe chips (`1m` to `4h`) transform from a vertical grid into a smooth horizontal touch-scrolling rail with CSS scroll-snap (`snap-x`), preserving screen real-estate.
+- **Side-by-Side Dual Entry & Coordinates**: Market vs FVG Limit entry options render side-by-side (`grid-cols-2`), and execution coordinates (Hard SL, TP1, TP2) sit on a single 3-column row (`grid-cols-3`), saving over 200px of vertical scrolling.
+- **Touch-Optimized Lightweight Chart**: Enhanced with `handleScroll: { vertTouchDrag: false }` so traders can scroll the page vertically without getting their touch gestures trapped in the chart canvas.
+- **Swipeable Drawer & Filter Rails**: Tab selectors and filter chips (Timeframe, Grade, Outcome) glide horizontally on mobile with zero text wrapping.
+- **Fixed Mobile Bottom Quick-Action Bar**: An always-visible bottom bar (`sm:hidden`) featuring active Timeframe cycle button, live price ticker, signal status badge, 1-tap `📋 Copy Setup`, and `📢 Telegram` broadcast button.
+
+---
+
+## 10. Directory Structure
 
 ```
 d:/hono/indecator/

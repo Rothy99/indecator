@@ -2,7 +2,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#060911" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>XAU/USD — The 4-Confluence Master Strategy Terminal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/js/lightweight-charts.js"></script>
@@ -17,6 +20,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       font-family: 'Inter', sans-serif;
       background-color: #060911;
       color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
     }
     .mono { font-family: 'JetBrains Mono', monospace; }
     .panel {
@@ -48,135 +52,162 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     .overflow-x-auto {
       -webkit-overflow-scrolling: touch;
     }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+    .safe-pb { padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)); }
+    .safe-pt { padding-top: max(0.5rem, env(safe-area-inset-top, 0px)); }
+    @media (max-width: 640px) {
+      body { padding-bottom: 4.5rem; }
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
   <!-- Top Bar: MT5 Spot XAU/USD + Live Session Killzone Clock (GMT+7 Phnom Penh / UTC) -->
   <header class="border-b border-slate-800 bg-[#060911]/95 sticky top-0 z-40 backdrop-blur-md">
-    <div class="max-w-[1600px] mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
-      <div class="flex items-center gap-2 sm:gap-4 flex-wrap w-full lg:w-auto justify-between lg:justify-start">
-        <div class="flex items-center gap-2 sm:gap-2.5">
+    <div class="max-w-[1600px] mx-auto px-2.5 sm:px-4 py-2 sm:py-2.5 flex flex-col lg:flex-row items-center justify-between gap-2 sm:gap-2.5">
+      <!-- Top / Left Line: Logo, Title, Live Pulse & Mobile Utilities -->
+      <div class="flex items-center justify-between w-full lg:w-auto gap-2">
+        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-xs mono shrink-0">
             4-CONF
           </div>
-          <div>
+          <div class="min-w-0">
             <div class="flex items-center gap-1.5 sm:gap-2">
-              <span id="headerSymbolTitle" class="font-extrabold text-sm sm:text-base tracking-tight text-white">XAU/USD MASTER</span>
-              <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span id="headerSymbolTitle" class="font-extrabold text-sm sm:text-base tracking-tight text-white truncate">XAU/USD MASTER</span>
+              <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                LIVE 0.8s
+                LIVE
               </span>
             </div>
-            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[220px] sm:max-w-none">⚡ 4-Confluence V3.0 (Sweep + MSS + FVG CE 50% + H1 EMA) • 1:1.5 & 1:2.5 R:R</span>
+            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[190px] xs:max-w-[280px] sm:max-w-none">⚡ 4-Confluence V3.0 (Sweep + MSS + FVG CE 50%)</span>
           </div>
         </div>
 
-        <!-- Live Bid / Ask / Spread Box (Mobile Optimized) -->
-        <div id="priceBox" class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 transition-colors w-full sm:w-auto justify-between sm:justify-start">
-          <div>
-            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 BID</span>
-            <span id="livePrice" class="mono text-lg sm:text-2xl font-black text-white tracking-tight">$----.--</span>
-          </div>
-          <div class="border-l border-slate-800 pl-2 sm:pl-3">
-            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 ASK</span>
-            <span id="liveAsk" class="mono text-sm sm:text-base font-bold text-amber-300">$----.--</span>
-          </div>
-          <div class="border-l border-slate-800 pl-2 sm:pl-3">
-            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">SPREAD</span>
-            <span id="liveSpread" class="mono text-[11px] sm:text-xs font-bold text-emerald-400">-- pt</span>
-          </div>
-          <span id="spreadGuardBadge" class="px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">SPREAD OK</span>
-          <span id="priceDirArrow" class="text-sm sm:text-base font-bold text-amber-400">●</span>
+        <!-- Quick Utility Buttons (Right on Mobile, Part of Controls on Desktop) -->
+        <div class="flex items-center gap-1 sm:hidden">
+          <button onclick="openTelegramModal()" class="p-1.5 rounded-lg text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-300" title="Telegram Channel Broadcast">
+            <span>📱</span>
+          </button>
+          <button onclick="toggleAudio()" class="p-1.5 rounded-lg text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300" title="Toggle Sound">
+            <span id="soundIconMob">🔊</span>
+          </button>
+          <button onclick="toggleHotkeysModal(true)" class="p-1.5 rounded-lg text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300" title="Shortcuts">
+            <span>⌨️</span>
+          </button>
         </div>
       </div>
 
-      <!-- Multi-Asset Switcher + Timeframe Selector + Circuit Breaker + Cloudflare D1 Indicator -->
-      <div class="flex items-center justify-between sm:justify-end gap-2 w-full lg:w-auto flex-wrap">
-        <!-- Multi-Asset Switcher: Gold & Major Crypto -->
-        <div class="inline-flex rounded-lg bg-slate-900 p-0.5 sm:p-1 border border-slate-800 overflow-x-auto gap-0.5">
-          <button onclick="switchSymbol('XAUUSD')" id="sym-XAUUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-black transition-all bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm">
-            <span>🪙</span><span>Gold</span>
-          </button>
-          <button onclick="switchSymbol('BTCUSD')" id="sym-BTCUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
-            <span>₿</span><span>BTC</span>
-          </button>
-          <button onclick="switchSymbol('ETHUSD')" id="sym-ETHUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
-            <span>Ξ</span><span>ETH</span>
-          </button>
-          <button onclick="switchSymbol('SOLUSD')" id="sym-SOLUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
-            <span>◎</span><span>SOL</span>
-          </button>
+      <!-- Mid / Sub Line: Live Bid/Ask/Spread & Asset Switcher -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2 w-full lg:w-auto">
+        <!-- Live Bid / Ask / Spread Box (Mobile Optimized) -->
+        <div id="priceBox" class="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 transition-colors justify-between sm:justify-start">
+          <div>
+            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 BID</span>
+            <span id="livePrice" class="mono text-base sm:text-2xl font-black text-white tracking-tight">$----.--</span>
+          </div>
+          <div class="border-l border-slate-800 pl-2 sm:pl-3">
+            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 ASK</span>
+            <span id="liveAsk" class="mono text-xs sm:text-base font-bold text-amber-300">$----.--</span>
+          </div>
+          <div class="border-l border-slate-800 pl-2 sm:pl-3">
+            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">SPREAD</span>
+            <span id="liveSpread" class="mono text-[10px] sm:text-xs font-bold text-emerald-400">-- pt</span>
+          </div>
+          <span id="spreadGuardBadge" class="px-1.5 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">OK</span>
+          <span id="priceDirArrow" class="text-xs sm:text-base font-bold text-amber-400">●</span>
         </div>
 
-        <div id="d1DbPill" title="Cloudflare D1 Local SQLite Database (d59c377c-934d-43b9-b00a-dee0c947be28)" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>🗄️ D1 Local: Active</span>
+        <!-- Multi-Asset Switcher + Status Badges -->
+        <div class="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 flex-wrap">
+          <!-- Multi-Asset Switcher: Gold & Major Crypto -->
+          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 sm:p-1 border border-slate-800 overflow-x-auto scrollbar-none gap-0.5">
+            <button onclick="switchSymbol('XAUUSD')" id="sym-XAUUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-black transition-all bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm">
+              <span>🪙</span><span>Gold</span>
+            </button>
+            <button onclick="switchSymbol('BTCUSD')" id="sym-BTCUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+              <span>₿</span><span>BTC</span>
+            </button>
+            <button onclick="switchSymbol('ETHUSD')" id="sym-ETHUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+              <span>Ξ</span><span>ETH</span>
+            </button>
+            <button onclick="switchSymbol('SOLUSD')" id="sym-SOLUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+              <span>◎</span><span>SOL</span>
+            </button>
+          </div>
+
+          <div id="d1DbPill" title="Cloudflare D1 Local SQLite Database" class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="hidden sm:inline">🗄️ D1 Local: Active</span>
+            <span class="sm:hidden">D1</span>
+          </div>
+
+          <div id="circuitBreakerPill" class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            <span class="hidden sm:inline">🛡️ Breaker: 0/2</span>
+            <span class="sm:hidden">🛡️ 0/2</span>
+          </div>
+
+          <!-- Desktop Utility Buttons -->
+          <div class="hidden sm:flex items-center gap-1.5">
+            <button id="telegramHeaderBtn" onclick="openTelegramModal()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex items-center gap-1.5" title="Telegram Channel Broadcast Settings & Status">
+              <span class="w-2 h-2 rounded-full bg-slate-500" id="telegramStatusDot"></span>
+              <span>📱</span>
+              <span class="hidden md:inline" id="telegramHeaderLabel">Telegram</span>
+            </button>
+
+            <button id="soundToggleBtn" onclick="toggleAudio()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1" title="Toggle audio chime alerts (Hotkey: M)">
+              <span id="soundIcon">🔊</span>
+              <span class="hidden md:inline" id="soundLabel">Sound ON</span>
+            </button>
+
+            <button onclick="toggleHotkeysModal(true)" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-amber-300 transition flex items-center gap-1" title="Trading hotkeys cheatsheet (Hotkey: ?)">
+              <span>⌨️</span>
+              <span class="hidden md:inline">Shortcuts</span>
+            </button>
+          </div>
+
         </div>
-
-        <div id="circuitBreakerPill" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-          🛡️ Breaker: 0/2
-        </div>
-
-        <!-- Telegram Channel Broadcast Status / Setup -->
-        <button id="telegramHeaderBtn" onclick="openTelegramModal()" class="px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex items-center gap-1.5" title="Telegram Channel Broadcast Settings & Status">
-          <span class="w-2 h-2 rounded-full bg-slate-500" id="telegramStatusDot"></span>
-          <span>📱</span>
-          <span class="hidden sm:inline" id="telegramHeaderLabel">Telegram</span>
-        </button>
-
-        <!-- Audio Alert Chimes & Keyboard Shortcuts Helper -->
-        <button id="soundToggleBtn" onclick="toggleAudio()" class="px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1" title="Toggle audio chime alerts (Hotkey: M)">
-          <span id="soundIcon">🔊</span>
-          <span class="hidden sm:inline" id="soundLabel">Sound ON</span>
-        </button>
-
-        <button onclick="toggleHotkeysModal(true)" class="px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-amber-300 transition flex items-center gap-1" title="Trading hotkeys cheatsheet (Hotkey: ?)">
-          <span>⌨️</span>
-          <span class="hidden md:inline">Shortcuts</span>
-        </button>
-
       </div>
     </div>
   </header>
 
-    <main class="max-w-[1600px] w-full mx-auto px-3 sm:px-4 py-2 sm:py-3 flex-1 space-y-3">
+    <main class="max-w-[1600px] w-full mx-auto px-2.5 sm:px-4 py-2 sm:py-3 flex-1 space-y-3">
 
     <!-- ========================================================================= -->
     <!-- TIER 1: INSTITUTIONAL MARKET CONTEXT & KILLZONE (PANORAMIC STRIP)          -->
     <!-- ========================================================================= -->
-    <section class="panel rounded-xl px-3 sm:px-4 py-2 border-slate-800 bg-slate-950/80 shadow-sm flex flex-wrap items-center justify-between gap-2.5 text-xs">
+    <section class="panel rounded-xl px-2.5 sm:px-4 py-2 border-slate-800 bg-slate-950/80 shadow-sm flex flex-wrap items-center justify-between gap-2 sm:gap-2.5 text-xs">
       <!-- Session Killzone Window (GMT+7 Phnom Penh & UTC) -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <span id="sessionBadge" class="px-2.5 py-0.5 rounded text-[11px] font-black mono bg-amber-400 text-slate-950">SESSION</span>
-        <span id="sessionClock" class="mono text-xs font-bold text-white">--:-- GMT+7 | --:-- UTC</span>
+      <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <span id="sessionBadge" class="px-2 sm:px-2.5 py-0.5 rounded text-[10px] sm:text-[11px] font-black mono bg-amber-400 text-slate-950">SESSION</span>
+        <span id="sessionClock" class="mono text-[11px] sm:text-xs font-bold text-white">--:-- GMT+7 | --:-- UTC</span>
         <span id="sessionActionText" class="text-[11px] text-slate-400 hidden xl:inline border-l border-slate-800 pl-2">Loading session killzone rules...</span>
       </div>
 
       <!-- Institutional Liquidity Levels (PDH, PDL, Asian High, Asian Low) -->
-      <div class="flex items-center gap-1.5 sm:gap-2 mono flex-wrap">
-        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
-          <span class="text-[9px] text-slate-400 uppercase font-bold">PDH</span>
-          <span id="lvlPdh" class="text-xs font-black text-rose-300">$----</span>
+      <div class="flex items-center gap-1 sm:gap-2 mono overflow-x-auto scrollbar-none max-w-full pb-0.5 sm:pb-0">
+        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <span class="text-[8px] sm:text-[9px] text-slate-400 uppercase font-bold">PDH</span>
+          <span id="lvlPdh" class="text-[11px] sm:text-xs font-black text-rose-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
-          <span class="text-[9px] text-slate-400 uppercase font-bold">PDL</span>
-          <span id="lvlPdl" class="text-xs font-black text-emerald-300">$----</span>
+        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <span class="text-[8px] sm:text-[9px] text-slate-400 uppercase font-bold">PDL</span>
+          <span id="lvlPdl" class="text-[11px] sm:text-xs font-black text-emerald-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
-          <span class="text-[9px] text-amber-400/80 uppercase font-bold">Asian H</span>
-          <span id="lvlAsianHigh" class="text-xs font-black text-amber-300">$----</span>
+        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <span class="text-[8px] sm:text-[9px] text-amber-400/80 uppercase font-bold">Asian H</span>
+          <span id="lvlAsianHigh" class="text-[11px] sm:text-xs font-black text-amber-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1.5">
-          <span class="text-[9px] text-amber-400/80 uppercase font-bold">Asian L</span>
-          <span id="lvlAsianLow" class="text-xs font-black text-amber-300">$----</span>
+        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <span class="text-[8px] sm:text-[9px] text-amber-400/80 uppercase font-bold">Asian L</span>
+          <span id="lvlAsianLow" class="text-[11px] sm:text-xs font-black text-amber-300">$----</span>
         </div>
       </div>
 
       <!-- Macro News Guard & MT5 Spread Buffer -->
-      <div class="flex items-center gap-2">
-        <span id="newsStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">NEWS CLEAR</span>
-        <span id="spreadNoticeBox" class="text-[11px] mono text-emerald-400 font-bold hidden sm:inline">Spread: -- pt</span>
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <span id="newsStatusBadge" class="px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">NEWS CLEAR</span>
+        <span id="spreadNoticeBox" class="text-[10px] sm:text-[11px] mono text-emerald-400 font-bold hidden sm:inline">Spread: -- pt</span>
         <span id="newsStatusNote" class="hidden"></span>
       </div>
     </section>
@@ -192,8 +223,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       <div class="xl:col-span-7 2xl:col-span-8 space-y-4">
 
         <!-- 6-Timeframe Interactive Ribbon (Top of Chart) -->
-        <div id="mtfEasyContainer" class="panel rounded-2xl p-3.5 space-y-2.5">
-          <div class="flex items-center justify-between text-xs border-b border-slate-800/80 pb-2">
+        <div id="mtfEasyContainer" class="panel rounded-2xl p-2.5 sm:p-3.5 space-y-2 sm:space-y-2.5">
+          <div class="flex items-center justify-between text-xs border-b border-slate-800/80 pb-1.5 sm:pb-2">
             <span class="font-extrabold uppercase tracking-wider text-[11px] text-amber-300 flex items-center gap-2">
               <span>⚡ Multi-Timeframe Status Strip</span>
               <span class="text-[10px] text-slate-400 font-normal hidden sm:inline">(Click any chip to switch active chart & setup)</span>
@@ -203,36 +234,36 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               Live Real-Time P&L
             </span>
           </div>
-          <div id="mtfEasyStripContainer" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div id="mtfEasyStripContainer" class="flex overflow-x-auto sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-2 pb-1 sm:pb-0 scrollbar-none snap-x">
             <!-- Populated dynamically with 6 sleek interactive chips -->
           </div>
         </div>
 
         <!-- Interactive Lightweight Chart -->
-        <div class="panel rounded-2xl p-4 flex flex-col gap-3">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
-            <div class="flex flex-wrap items-center gap-3 sm:gap-4 text-xs">
-              <span class="font-extrabold text-white flex items-center gap-2">
+        <div class="panel rounded-2xl p-2.5 sm:p-4 flex flex-col gap-2.5 sm:gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
+              <span class="font-extrabold text-white flex items-center gap-1.5 sm:gap-2">
                 <span id="chartTfLabel" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono text-xs">15M</span>
-                <span>Institutional 50/200 EMA & Key Levels</span>
+                <span class="text-[11px] sm:text-xs">50/200 EMA & Key Levels</span>
               </span>
-              <span class="flex items-center gap-1.5 text-purple-400 font-bold mono text-[11px]">
-                <span class="w-3 h-0.5 bg-purple-400 inline-block"></span>50 EMA (Slope)
+              <span class="flex items-center gap-1 text-purple-400 font-bold mono text-[10px] sm:text-[11px]">
+                <span class="w-2.5 sm:w-3 h-0.5 bg-purple-400 inline-block"></span>50 EMA
               </span>
-              <span class="flex items-center gap-1.5 text-sky-400 font-bold mono text-[11px]">
-                <span class="w-3 h-0.5 bg-sky-400 inline-block"></span>200 EMA (Macro)
+              <span class="flex items-center gap-1 text-sky-400 font-bold mono text-[10px] sm:text-[11px]">
+                <span class="w-2.5 sm:w-3 h-0.5 bg-sky-400 inline-block"></span>200 EMA
               </span>
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/25">
-                SL / TP / PDH-PDL Lines: ON
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/25">
+                Lines: ON
               </button>
-              <button onclick="resetChartZoom()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+              <button onclick="resetChartZoom()" class="px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
                 Fit Chart
               </button>
             </div>
           </div>
-          <div id="priceChart" class="w-full h-[360px] sm:h-[450px] rounded-xl overflow-hidden bg-slate-950/70 border border-slate-900"></div>
+          <div id="priceChart" class="w-full h-[280px] sm:h-[450px] rounded-xl overflow-hidden bg-slate-950/70 border border-slate-900"></div>
         </div>
 
         <!-- Strategy Confluence & 100-Point Quantitative Matrix (Collapsible Clean Bar) -->
@@ -321,23 +352,23 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- Dual Entry Options (Option A: Market Price vs Option B: FVG PRO Retest) -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div id="marketEntryCard" onclick="copyValue('marketEntryVal')" class="cursor-pointer p-3 rounded-xl bg-slate-900/90 border border-slate-700 hover:border-slate-500 transition">
+          <div class="grid grid-cols-2 gap-2 sm:gap-2.5">
+            <div id="marketEntryCard" onclick="copyValue('marketEntryVal')" class="cursor-pointer p-2.5 sm:p-3 rounded-xl bg-slate-900/90 border border-slate-700 hover:border-slate-500 transition">
               <div class="flex items-center justify-between">
-                <span id="marketCardTitle" class="text-[10px] font-extrabold uppercase text-slate-300">Option A: Market</span>
-                <span id="marketEntryStatusTag" class="px-1.5 py-0.5 rounded text-[9px] font-black mono bg-slate-800 text-slate-300">--</span>
+                <span id="marketCardTitle" class="text-[9px] sm:text-[10px] font-extrabold uppercase text-slate-300">Option A: Market</span>
+                <span id="marketEntryStatusTag" class="px-1 py-0.2 rounded text-[8px] sm:text-[9px] font-black mono bg-slate-800 text-slate-300">--</span>
               </div>
-              <div id="marketEntryVal" class="mono text-xl sm:text-2xl font-black text-white mt-1">$----.--</div>
-              <div id="marketEntryNote" class="text-[10px] text-slate-400 mt-0.5">Live MT5 Spot Price</div>
+              <div id="marketEntryVal" class="mono text-lg sm:text-2xl font-black text-white mt-1">$----.--</div>
+              <div id="marketEntryNote" class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 truncate">Live MT5 Spot Price</div>
             </div>
 
-            <div id="waitEntryCard" onclick="copyValue('waitEntryVal')" class="cursor-pointer p-3 rounded-xl bg-amber-500/10 border-2 border-amber-400/70 hover:border-amber-300 transition">
+            <div id="waitEntryCard" onclick="copyValue('waitEntryVal')" class="cursor-pointer p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border-2 border-amber-400/70 hover:border-amber-300 transition">
               <div class="flex items-center justify-between">
-                <span id="waitCardTitle" class="text-[10px] font-extrabold uppercase text-amber-300">Option B: FVG Limit</span>
-                <span id="waitOrderTypeTag" class="px-1.5 py-0.5 rounded text-[9px] font-black mono bg-amber-400 text-slate-950">LIMIT / RETEST</span>
+                <span id="waitCardTitle" class="text-[9px] sm:text-[10px] font-extrabold uppercase text-amber-300">Option B: FVG Limit</span>
+                <span id="waitOrderTypeTag" class="px-1 py-0.2 rounded text-[8px] sm:text-[9px] font-black mono bg-amber-400 text-slate-950">LIMIT / RETEST</span>
               </div>
-              <div id="waitEntryVal" class="mono text-xl sm:text-2xl font-black text-amber-300 mt-1">$----.--</div>
-              <div id="waitEntryNote" class="text-[10px] text-amber-200/80 mt-0.5">Retest to CE 50%</div>
+              <div id="waitEntryVal" class="mono text-lg sm:text-2xl font-black text-amber-300 mt-1">$----.--</div>
+              <div id="waitEntryNote" class="text-[9px] sm:text-[10px] text-amber-200/80 mt-0.5 truncate">Retest to CE 50%</div>
             </div>
           </div>
 
@@ -347,29 +378,29 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <span>Execution Coordinates</span>
               <span class="text-[9px] text-slate-500 font-normal">Click any value to copy</span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <div onclick="copyValue('setupSl')" class="cursor-pointer p-2.5 rounded-xl bg-rose-950/35 border border-rose-500/45 hover:border-rose-400 transition">
-                <span class="text-[9px] font-bold uppercase text-rose-300 block">🛑 Hard SL</span>
-                <div id="setupSl" class="mono text-base sm:text-lg font-black text-rose-400 mt-0.5">$----.--</div>
-                <span id="setupSlPips" class="mono text-[10px] text-rose-300/80 block leading-tight">Risk: -- pt</span>
+            <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
+              <div onclick="copyValue('setupSl')" class="cursor-pointer p-2 sm:p-2.5 rounded-xl bg-rose-950/35 border border-rose-500/45 hover:border-rose-400 transition">
+                <span class="text-[8px] sm:text-[9px] font-bold uppercase text-rose-300 block truncate">🛑 Hard SL</span>
+                <div id="setupSl" class="mono text-sm sm:text-lg font-black text-rose-400 mt-0.5">$----.--</div>
+                <span id="setupSlPips" class="mono text-[9px] sm:text-[10px] text-rose-300/80 block leading-tight truncate">Risk: -- pt</span>
               </div>
 
-              <div onclick="copyValue('setupTp1')" class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/45 hover:border-emerald-400 transition">
-                <span class="text-[9px] font-bold uppercase text-emerald-300 block">🎯 TP 1 (1:1.5)</span>
-                <div id="setupTp1" class="mono text-base sm:text-lg font-black text-emerald-400 mt-0.5">$----.--</div>
-                <span id="setupTp1Pips" class="mono text-[10px] text-emerald-300/80 block leading-tight">+-- pt (BE)</span>
+              <div onclick="copyValue('setupTp1')" class="cursor-pointer p-2 sm:p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/45 hover:border-emerald-400 transition">
+                <span class="text-[8px] sm:text-[9px] font-bold uppercase text-emerald-300 block truncate">🎯 TP 1 (1:1.5)</span>
+                <div id="setupTp1" class="mono text-sm sm:text-lg font-black text-emerald-400 mt-0.5">$----.--</div>
+                <span id="setupTp1Pips" class="mono text-[9px] sm:text-[10px] text-emerald-300/80 block leading-tight truncate">+-- pt (BE)</span>
               </div>
 
-              <div onclick="copyValue('setupTp2')" class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/55 border border-emerald-400/60 hover:border-emerald-300 transition">
-                <span class="text-[9px] font-bold uppercase text-emerald-200 block">🏆 TP 2 (1:2.5)</span>
-                <div id="setupTp2" class="mono text-base sm:text-lg font-black text-emerald-300 mt-0.5">$----.--</div>
-                <span id="setupTp2Pips" class="mono text-[10px] text-emerald-200/90 block leading-tight">+-- pt (Runner)</span>
+              <div onclick="copyValue('setupTp2')" class="cursor-pointer p-2 sm:p-2.5 rounded-xl bg-emerald-950/55 border border-emerald-400/60 hover:border-emerald-300 transition">
+                <span class="text-[8px] sm:text-[9px] font-bold uppercase text-emerald-200 block truncate">🏆 TP 2 (1:2.5)</span>
+                <div id="setupTp2" class="mono text-sm sm:text-lg font-black text-emerald-300 mt-0.5">$----.--</div>
+                <span id="setupTp2Pips" class="mono text-[9px] sm:text-[10px] text-emerald-200/90 block leading-tight truncate">+-- pt (Runner)</span>
               </div>
             </div>
           </div>
 
           <!-- Strict 1% Risk Calculator (MT5 Lot Size Sizer) -->
-          <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-800 space-y-2">
+          <div class="bg-slate-950/90 p-2.5 sm:p-3 rounded-xl border border-slate-800 space-y-2">
             <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
               <span>⚖️ Strict 1% Risk Calculator</span>
               <span class="text-[9px] text-amber-400 mono font-bold">Rule 4: Never >2%</span>
@@ -386,17 +417,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
 
             <!-- Quick Equity & Risk Presets -->
-            <div class="flex items-center gap-1 pt-1 overflow-x-auto pb-0.5 text-[10px]">
-              <span class="text-[9px] text-slate-500 uppercase font-bold mr-0.5">Preset:</span>
-              <button type="button" onclick="setEquityPreset(500)" id="preset-eq-500" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$500</button>
-              <button type="button" onclick="setEquityPreset(1000)" id="preset-eq-1000" class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-black mono border border-amber-400/40">$1K</button>
-              <button type="button" onclick="setEquityPreset(5000)" id="preset-eq-5000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$5K</button>
-              <button type="button" onclick="setEquityPreset(10000)" id="preset-eq-10000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">$10K</button>
-              <span class="text-slate-700 mx-0.5">|</span>
-              <button type="button" onclick="setRiskPreset(0.25)" id="preset-rk-025" class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono border border-amber-400">0.25% (V3.0)</button>
-              <button type="button" onclick="setRiskPreset(0.5)" id="preset-rk-05" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">0.5%</button>
-              <button type="button" onclick="setRiskPreset(1.0)" id="preset-rk-10" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800">1.0%</button>
-              <button type="button" onclick="setRiskPreset(2.0)" id="preset-rk-20" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-rose-300 font-bold mono border border-slate-800">2.0%</button>
+            <div class="flex items-center gap-1 pt-1 overflow-x-auto scrollbar-none pb-0.5 text-[10px]">
+              <span class="text-[9px] text-slate-500 uppercase font-bold mr-0.5 shrink-0">Preset:</span>
+              <button type="button" onclick="setEquityPreset(500)" id="preset-eq-500" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800 shrink-0">$500</button>
+              <button type="button" onclick="setEquityPreset(1000)" id="preset-eq-1000" class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-black mono border border-amber-400/40 shrink-0">$1K</button>
+              <button type="button" onclick="setEquityPreset(5000)" id="preset-eq-5000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800 shrink-0">$5K</button>
+              <button type="button" onclick="setEquityPreset(10000)" id="preset-eq-10000" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800 shrink-0">$10K</button>
+              <span class="text-slate-700 mx-0.5 shrink-0">|</span>
+              <button type="button" onclick="setRiskPreset(0.25)" id="preset-rk-025" class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono border border-amber-400 shrink-0">0.25% (V3.0)</button>
+              <button type="button" onclick="setRiskPreset(0.5)" id="preset-rk-05" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800 shrink-0">0.5%</button>
+              <button type="button" onclick="setRiskPreset(1.0)" id="preset-rk-10" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800 shrink-0">1.0%</button>
+              <button type="button" onclick="setRiskPreset(2.0)" id="preset-rk-20" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-rose-300 font-bold mono border border-slate-800 shrink-0">2.0%</button>
             </div>
 
             <div class="grid grid-cols-3 gap-1.5 text-center text-xs pt-1">
@@ -410,21 +441,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </div>
               <div class="p-1 rounded bg-slate-900 border border-slate-800">
                 <span class="text-[8px] text-slate-400 uppercase block">1:1.5 / 1:2.5 Profit</span>
-                <span id="calcRewardUsd" class="mono text-[11px] font-bold text-emerald-400">+$3.75 / +$6.25</span>
+                <span id="calcRewardUsd" class="mono text-[10px] sm:text-[11px] font-bold text-emerald-400">+$3.75 / +$6.25</span>
               </div>
             </div>
           </div>
 
           <!-- 1-Click Copy & Push to Telegram Actions -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <button onclick="copyTradeSignal()" class="py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 text-slate-950 transition shadow-lg shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-1.5">
-              <span>📋 Copy Setup</span>
+          <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
+            <button onclick="copyTradeSignal()" class="py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 text-slate-950 transition shadow-lg shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-1">
+              <span>📋</span><span class="hidden xs:inline">Copy</span><span> Setup</span>
             </button>
-            <button onclick="copyFastOrder()" class="py-2.5 px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-400/50 transition active:scale-[0.99] flex items-center justify-center gap-1.5" title="Copy compact MT5 order syntax (Hotkey: C)">
-              <span>⚡ Fast MT5</span>
+            <button onclick="copyFastOrder()" class="py-2.5 px-2 sm:px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-400/50 transition active:scale-[0.99] flex items-center justify-center gap-1" title="Copy compact MT5 order syntax (Hotkey: C)">
+              <span>⚡</span><span class="hidden xs:inline">Fast </span><span>MT5</span>
             </button>
-            <button onclick="broadcastCurrentToTelegram()" class="py-2.5 px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 hover:border-sky-400 transition active:scale-[0.99] flex items-center justify-center gap-1.5" title="Push this setup to your Telegram Channel">
-              <span>📢 Telegram</span>
+            <button onclick="broadcastCurrentToTelegram()" class="py-2.5 px-2 sm:px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 hover:border-sky-400 transition active:scale-[0.99] flex items-center justify-center gap-1" title="Push this setup to your Telegram Channel">
+              <span>📢</span><span class="hidden xs:inline">Telegram</span>
             </button>
           </div>
         </section>
@@ -448,24 +479,24 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </p>
         </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
-          <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
-            <button id="btnViewTable" onclick="setMtfView('table')" class="px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
+        <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          <div class="flex items-center overflow-x-auto flex-nowrap scrollbar-none gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 w-full sm:w-auto">
+            <button id="btnViewTable" onclick="setMtfView('table')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
               📊 Multi-TF Table
             </button>
-            <button id="btnViewGrid" onclick="setMtfView('grid')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewGrid" onclick="setMtfView('grid')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               🔲 6-TF Grid
             </button>
-            <button id="btnViewConfident" onclick="setMtfView('confident')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewConfident" onclick="setMtfView('confident')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               ⭐ 85%+ Setups
             </button>
-            <button id="btnViewSignals" onclick="setMtfView('signals')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewSignals" onclick="setMtfView('signals')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               🌊 Trade Entry Flow
             </button>
-            <button id="btnViewJournal" onclick="setMtfView('journal')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewJournal" onclick="setMtfView('journal')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               📘 D1 Trade History
             </button>
-            <button id="btnViewFeed" onclick="setMtfView('feed')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewFeed" onclick="setMtfView('feed')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
               ⚡ Blotter Feed
             </button>
             <!-- Hidden easy button preserved for backward compatibility -->
@@ -548,15 +579,15 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
 
             <!-- Timeframe Filter Buttons -->
-            <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800 flex-wrap gap-1">
-              <button onclick="filterSignalList('90PLUS')" id="flt-90PLUS" class="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-400 text-slate-950 shadow-sm">⭐ 90%+ ONLY</button>
-              <button onclick="filterSignalList('ALL')" id="flt-ALL" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">ALL TFs</button>
-              <button onclick="filterSignalList('1m')" id="flt-1m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M1</button>
-              <button onclick="filterSignalList('5m')" id="flt-5m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M5</button>
-              <button onclick="filterSignalList('15m')" id="flt-15m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M15</button>
-              <button onclick="filterSignalList('30m')" id="flt-30m" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M30</button>
-              <button onclick="filterSignalList('1h')" id="flt-1h" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">H1</button>
-              <button onclick="filterSignalList('4h')" id="flt-4h" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">H4</button>
+            <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800 overflow-x-auto scrollbar-none flex-nowrap max-w-full gap-1">
+              <button onclick="filterSignalList('90PLUS')" id="flt-90PLUS" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-black bg-amber-400 text-slate-950 shadow-sm">⭐ 90%+ ONLY</button>
+              <button onclick="filterSignalList('ALL')" id="flt-ALL" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">ALL TFs</button>
+              <button onclick="filterSignalList('1m')" id="flt-1m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M1</button>
+              <button onclick="filterSignalList('5m')" id="flt-5m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M5</button>
+              <button onclick="filterSignalList('15m')" id="flt-15m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M15</button>
+              <button onclick="filterSignalList('30m')" id="flt-30m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">M30</button>
+              <button onclick="filterSignalList('1h')" id="flt-1h" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">H1</button>
+              <button onclick="filterSignalList('4h')" id="flt-4h" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">H4</button>
             </div>
           </div>
         </div>
@@ -564,14 +595,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <!-- Outcome Filter Chips & Analytical Mini-Metrics Strip -->
         <div class="flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs">
           <!-- Outcome Filter Chips -->
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
-            <button id="flt-st-ALL" onclick="filterSignalOutcome('ALL')" class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">ALL</button>
-            <button id="flt-st-ACTIVE" onclick="filterSignalOutcome('ACTIVE')" class="px-2 py-0.5 rounded text-[11px] font-bold text-sky-400 hover:bg-slate-800">⚡ ACTIVE</button>
-            <button id="flt-st-TP2" onclick="filterSignalOutcome('TP2')" class="px-2 py-0.5 rounded text-[11px] font-bold text-emerald-300 hover:bg-slate-800">🏆 TP2 (+2.5R)</button>
-            <button id="flt-st-TP1" onclick="filterSignalOutcome('TP1')" class="px-2 py-0.5 rounded text-[11px] font-bold text-emerald-400 hover:bg-slate-800">✅ TP1 (+1.5R)</button>
-            <button id="flt-st-BE" onclick="filterSignalOutcome('BE')" class="px-2 py-0.5 rounded text-[11px] font-bold text-amber-300 hover:bg-slate-800">🛡️ BE EXITS</button>
-            <button id="flt-st-SL" onclick="filterSignalOutcome('SL')" class="px-2 py-0.5 rounded text-[11px] font-bold text-rose-400 hover:bg-slate-800">❌ SL</button>
+          <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-nowrap max-w-full pb-0.5">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">Status:</span>
+            <button id="flt-st-ALL" onclick="filterSignalOutcome('ALL')" class="whitespace-nowrap shrink-0 px-2 py-0.5 rounded text-[11px] font-black bg-amber-400 text-slate-950">ALL</button>
+            <button id="flt-st-ACTIVE" onclick="filterSignalOutcome('ACTIVE')" class="whitespace-nowrap shrink-0 px-2 py-0.5 rounded text-[11px] font-bold text-sky-400 hover:bg-slate-800">⚡ ACTIVE</button>
+            <button id="flt-st-TP2" onclick="filterSignalOutcome('TP2')" class="whitespace-nowrap shrink-0 px-2 py-0.5 rounded text-[11px] font-bold text-emerald-300 hover:bg-slate-800">🏆 TP2 (+2.5R)</button>
+            <button id="flt-st-TP1" onclick="filterSignalOutcome('TP1')" class="whitespace-nowrap shrink-0 px-2 py-0.5 rounded text-[11px] font-bold text-emerald-400 hover:bg-slate-800">✅ TP1 (+1.5R)</button>
+            <button id="flt-st-BE" onclick="filterSignalOutcome('BE')" class="whitespace-nowrap shrink-0 px-2 py-0.5 rounded text-[11px] font-bold text-amber-300 hover:bg-slate-800">🛡️ BE EXITS</button>
+            <button id="flt-st-SL" onclick="filterSignalOutcome('SL')" class="whitespace-nowrap shrink-0 px-2 py-0.5 rounded text-[11px] font-bold text-rose-400 hover:bg-slate-800">❌ SL</button>
           </div>
 
           <!-- Mini Metrics Summary -->
@@ -652,38 +683,38 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-3 space-y-3">
           <div class="flex flex-wrap items-center justify-between gap-2.5">
             <!-- Timeframe Chips -->
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1">Timeframe:</span>
-              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-wrap gap-0.5">
-                <button onclick="setD1HistoryFilter('timeframe', 'ALL')" id="d1flt-tf-ALL" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
-                <button onclick="setD1HistoryFilter('timeframe', '1m')" id="d1flt-tf-1m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M1</button>
-                <button onclick="setD1HistoryFilter('timeframe', '5m')" id="d1flt-tf-5m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M5</button>
-                <button onclick="setD1HistoryFilter('timeframe', '15m')" id="d1flt-tf-15m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M15</button>
-                <button onclick="setD1HistoryFilter('timeframe', '30m')" id="d1flt-tf-30m" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M30</button>
-                <button onclick="setD1HistoryFilter('timeframe', '1h')" id="d1flt-tf-1h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H1</button>
-                <button onclick="setD1HistoryFilter('timeframe', '4h')" id="d1flt-tf-4h" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H4</button>
+            <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-nowrap max-w-full">
+              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1 shrink-0">Timeframe:</span>
+              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-nowrap gap-0.5">
+                <button onclick="setD1HistoryFilter('timeframe', 'ALL')" id="d1flt-tf-ALL" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
+                <button onclick="setD1HistoryFilter('timeframe', '1m')" id="d1flt-tf-1m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M1</button>
+                <button onclick="setD1HistoryFilter('timeframe', '5m')" id="d1flt-tf-5m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M5</button>
+                <button onclick="setD1HistoryFilter('timeframe', '15m')" id="d1flt-tf-15m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M15</button>
+                <button onclick="setD1HistoryFilter('timeframe', '30m')" id="d1flt-tf-30m" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">M30</button>
+                <button onclick="setD1HistoryFilter('timeframe', '1h')" id="d1flt-tf-1h" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H1</button>
+                <button onclick="setD1HistoryFilter('timeframe', '4h')" id="d1flt-tf-4h" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">H4</button>
               </div>
             </div>
 
             <!-- Grade Filter -->
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1">Grade:</span>
-              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-wrap gap-0.5">
-                <button onclick="setD1HistoryFilter('grade', 'ALL')" id="d1flt-gr-ALL" class="px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
-                <button onclick="setD1HistoryFilter('grade', '90PLUS')" id="d1flt-gr-90PLUS" class="px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">⭐ 90%+ ONLY</button>
+            <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-nowrap">
+              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1 shrink-0">Grade:</span>
+              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-nowrap gap-0.5">
+                <button onclick="setD1HistoryFilter('grade', 'ALL')" id="d1flt-gr-ALL" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
+                <button onclick="setD1HistoryFilter('grade', '90PLUS')" id="d1flt-gr-90PLUS" class="whitespace-nowrap shrink-0 px-2.5 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">⭐ 90%+ ONLY</button>
               </div>
             </div>
 
             <!-- Outcome Filter -->
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1">Outcome:</span>
-              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-wrap gap-0.5">
-                <button onclick="setD1HistoryFilter('outcome', 'ALL')" id="d1flt-oc-ALL" class="px-2 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
-                <button onclick="setD1HistoryFilter('outcome', 'WINS')" id="d1flt-oc-WINS" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">WINS</button>
-                <button onclick="setD1HistoryFilter('outcome', 'TP2_HIT')" id="d1flt-oc-TP2_HIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">🏆 TP2</button>
-                <button onclick="setD1HistoryFilter('outcome', 'TP1_HIT')" id="d1flt-oc-TP1_HIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">✅ TP1</button>
-                <button onclick="setD1HistoryFilter('outcome', 'BE_EXIT')" id="d1flt-oc-BE_EXIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">🛡️ BE</button>
-                <button onclick="setD1HistoryFilter('outcome', 'SL_HIT')" id="d1flt-oc-SL_HIT" class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">❌ SL</button>
+            <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-nowrap max-w-full">
+              <span class="text-[11px] font-bold text-slate-400 uppercase mr-1 shrink-0">Outcome:</span>
+              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 flex-nowrap gap-0.5">
+                <button onclick="setD1HistoryFilter('outcome', 'ALL')" id="d1flt-oc-ALL" class="whitespace-nowrap shrink-0 px-2 py-1 rounded text-xs font-black bg-amber-400 text-slate-950">ALL</button>
+                <button onclick="setD1HistoryFilter('outcome', 'WINS')" id="d1flt-oc-WINS" class="whitespace-nowrap shrink-0 px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">WINS</button>
+                <button onclick="setD1HistoryFilter('outcome', 'TP2_HIT')" id="d1flt-oc-TP2_HIT" class="whitespace-nowrap shrink-0 px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">🏆 TP2</button>
+                <button onclick="setD1HistoryFilter('outcome', 'TP1_HIT')" id="d1flt-oc-TP1_HIT" class="whitespace-nowrap shrink-0 px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">✅ TP1</button>
+                <button onclick="setD1HistoryFilter('outcome', 'BE_EXIT')" id="d1flt-oc-BE_EXIT" class="whitespace-nowrap shrink-0 px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">🛡️ BE</button>
+                <button onclick="setD1HistoryFilter('outcome', 'SL_HIT')" id="d1flt-oc-SL_HIT" class="whitespace-nowrap shrink-0 px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white">❌ SL</button>
               </div>
             </div>
           </div>
@@ -786,8 +817,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   </main>
 
   <!-- Keyboard Shortcuts Cheatsheet Modal -->
-  <div id="hotkeysModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if(event.target===this) toggleHotkeysModal(false)">
-    <div class="panel rounded-2xl max-w-md w-full p-5 space-y-4 border-amber-500/40 shadow-2xl shadow-amber-500/10">
+  <div id="hotkeysModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4" onclick="if(event.target===this) toggleHotkeysModal(false)">
+    <div class="panel rounded-2xl max-w-md w-full p-4 sm:p-5 space-y-3 sm:space-y-4 border-amber-500/40 shadow-2xl shadow-amber-500/10 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="text-lg">⌨️</span>
@@ -826,8 +857,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   </div>
 
   <!-- Telegram Channel Broadcast Settings & Test Modal -->
-  <div id="telegramModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if(event.target===this) toggleTelegramModal(false)">
-    <div class="panel rounded-2xl max-w-lg w-full p-5 space-y-4 border-sky-500/40 shadow-2xl shadow-sky-500/10">
+  <div id="telegramModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4" onclick="if(event.target===this) toggleTelegramModal(false)">
+    <div class="panel rounded-2xl max-w-lg w-full p-4 sm:p-5 space-y-3 sm:space-y-4 border-sky-500/40 shadow-2xl shadow-sky-500/10 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="text-xl">📱</span>
@@ -892,7 +923,39 @@ TELEGRAM_MIN_SCORE=90</pre>
     </div>
   </div>
 
-  <div id="copyToast" class="fixed bottom-5 right-5 z-50 hidden px-4 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-xl">
+  <!-- Fixed Mobile Bottom Quick-Action Bar (sm:hidden) -->
+  <div id="mobileBottomBar" class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 px-3 py-2 safe-pb flex items-center justify-between shadow-2xl sm:hidden">
+    <div class="flex items-center gap-2">
+      <div onclick="switchTimeframe(getNextTimeframe())" class="cursor-pointer px-2 py-1 rounded bg-slate-800 border border-slate-700 text-amber-300 font-black mono text-xs uppercase flex items-center gap-1 active:scale-95 transition" title="Tap to switch timeframe">
+        <span id="mobTfBadge">15M</span>
+        <span class="text-[9px] text-slate-400">▼</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span id="mobSignalType" class="px-1.5 py-0.2 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">BUY</span>
+          <span id="mobPrice" class="mono text-xs font-black text-white">$----.--</span>
+        </div>
+        <div class="flex items-center gap-1 text-[9px] mono text-slate-400">
+          <span id="mobGradeScore" class="text-amber-300 font-bold">A+ 95%</span>
+          <span>•</span>
+          <span id="mobPnl" class="font-bold text-emerald-400">+$0.00</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button onclick="copyTradeSignal()" class="px-2.5 py-1.5 rounded-lg bg-amber-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-md flex items-center gap-1">
+        <span>📋</span><span>Copy</span>
+      </button>
+      <button onclick="broadcastCurrentToTelegram()" class="px-2 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 font-bold text-xs transition active:scale-95" title="Push to Telegram">
+        <span>📢</span>
+      </button>
+      <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs active:scale-95" title="Back to top">
+        <span>⬆️</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="copyToast" class="fixed bottom-16 sm:bottom-5 right-5 z-50 hidden px-4 py-2.5 rounded-xl bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-xl">
     Copied!
   </div>
 
@@ -1061,8 +1124,8 @@ TELEGRAM_MIN_SCORE=90</pre>
         if (el) el.classList.toggle('hidden', k !== mode);
       });
 
-      const activeBtnCls = 'px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm';
-      const inactiveBtnCls = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition';
+      const activeBtnCls = 'whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm';
+      const inactiveBtnCls = 'whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition';
 
       Object.entries(tabBtns).forEach(([k, btn]) => {
         if (btn) btn.className = k === mode ? activeBtnCls : inactiveBtnCls;
@@ -1096,7 +1159,18 @@ TELEGRAM_MIN_SCORE=90</pre>
           crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
           rightPriceScale: { borderColor: '#1e293b' },
           timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false },
-          height: window.innerWidth < 640 ? 320 : 430,
+          handleScroll: {
+            mouseWheel: true,
+            pressedMouseMove: true,
+            horzTouchDrag: true,
+            vertTouchDrag: false,
+          },
+          handleScale: {
+            axisPressedMouseMove: true,
+            mouseWheel: true,
+            pinch: true,
+          },
+          height: window.innerWidth < 640 ? 280 : 430,
         });
 
         candleSeries = priceChart.addCandlestickSeries({
@@ -1117,7 +1191,7 @@ TELEGRAM_MIN_SCORE=90</pre>
           const isMob = window.innerWidth < 640;
           priceChart.applyOptions({
             width: priceEl.clientWidth,
-            height: isMob ? 360 : 450,
+            height: isMob ? 280 : 450,
           });
         });
 
@@ -1507,11 +1581,11 @@ TELEGRAM_MIN_SCORE=90</pre>
       const cbPill = document.getElementById('circuitBreakerPill');
       const lossesToday = data.backtest?.consecutiveLossesToday ?? 0;
       if (data.backtest?.circuitBreakerTripped) {
-        cbPill.textContent = \`🛑 CIRCUIT BREAKER TRIPPED (\${lossesToday}/2 Losses — Stop Trading Today)\`;
-        cbPill.className = 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold mono bg-rose-500 text-white';
+        cbPill.innerHTML = \`<span class="hidden sm:inline">🛑 CIRCUIT BREAKER TRIPPED (\${lossesToday}/2 Losses)</span><span class="sm:hidden">🛑 TRIPPED</span>\`;
+        cbPill.className = 'px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-rose-500 text-white';
       } else {
-        cbPill.textContent = \`🛡️ Circuit Breaker: \${lossesToday}/2 Consecutive Losses\`;
-        cbPill.className = 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+        cbPill.innerHTML = \`<span class="hidden sm:inline">🛡️ Breaker: \${lossesToday}/2 Losses</span><span class="sm:hidden">🛡️ \${lossesToday}/2</span>\`;
+        cbPill.className = 'px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
       }
 
       // All-Timeframe Matrix (Responsive Grid + Table)
@@ -1543,7 +1617,7 @@ TELEGRAM_MIN_SCORE=90</pre>
               : '<span class="text-amber-300 font-bold">⏳ Wait FVG</span>';
 
             return \`
-              <div onclick="switchTimeframe('\${tf}')" class="rounded-xl p-2.5 transition-all cursor-pointer flex flex-col justify-between \${cardBorder}">
+              <div onclick="switchTimeframe('\${tf}')" class="rounded-xl p-2 sm:p-2.5 transition-all cursor-pointer flex flex-col justify-between min-w-[125px] sm:min-w-0 snap-start shrink-0 sm:shrink \${cardBorder}">
                 <div class="flex items-center justify-between gap-1 mb-1.5">
                   <span class="px-2 py-0.5 rounded text-[11px] font-black mono bg-slate-800 uppercase \${isSelected ? 'text-amber-300' : 'text-white'}">\${TF_LABELS[tf] || tf.toUpperCase()}</span>
                   <div class="flex items-center gap-1">
@@ -1844,6 +1918,8 @@ TELEGRAM_MIN_SCORE=90</pre>
       document.getElementById('lifecyclePnlBig').textContent = lc.pnlStatusText;
       document.getElementById('lifecycleSubText').textContent = lc.summaryText;
 
+      try { updateMobileBottomBar(data, lc); } catch {}
+
       // Render 3-Step M15 Checklist
       document.getElementById('m15ChecklistContainer').innerHTML = (data.m15Checklist || []).map((item) => {
         const icon = item.passed ? '✅' : '⏳';
@@ -2096,6 +2172,43 @@ TELEGRAM_MIN_SCORE=90</pre>
       document.getElementById('progDistSl').textContent = pipsToSl + ' ' + uInfo.unit + ' to SL';
       document.getElementById('progDistTp1').textContent = pipsToTp1 + ' ' + uInfo.unit + ' to TP1';
       document.getElementById('progStatusText').textContent = pct + '% to TP1';
+    }
+
+    function getNextTimeframe() {
+      const tfs = ['1m', '5m', '15m', '30m', '1h', '4h'];
+      const idx = tfs.indexOf(currentTimeframe);
+      return tfs[(idx + 1) % tfs.length];
+    }
+
+    function updateMobileBottomBar(data, lc) {
+      const tfEl = document.getElementById('mobTfBadge');
+      const typeEl = document.getElementById('mobSignalType');
+      const priceEl = document.getElementById('mobPrice');
+      const gradeEl = document.getElementById('mobGradeScore');
+      const pnlEl = document.getElementById('mobPnl');
+
+      if (tfEl) tfEl.textContent = (currentTimeframe || '15m').toUpperCase();
+      if (priceEl && data && data.price) priceEl.textContent = '$' + Number(data.price).toFixed(2);
+      if (typeEl && data) {
+        const isB = (data.tradeSetup?.direction || 'BUY') === 'LONG' || data.signal === 'BUY';
+        typeEl.textContent = isB ? 'BUY' : 'SELL';
+        typeEl.className = isB
+          ? 'px-1.5 py-0.2 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          : 'px-1.5 py-0.2 rounded text-[10px] font-black mono bg-rose-500/20 text-rose-300 border border-rose-500/30';
+      }
+      if (gradeEl && data) {
+        gradeEl.textContent = (data.setupGrade || 'A+') + ' ' + (data.probability || 95) + '%';
+      }
+      if (pnlEl && lc) {
+        if (lc.isActivated) {
+          const isProf = lc.floatingDollarsPerOz >= 0;
+          pnlEl.textContent = (isProf ? '+' : '') + '$' + lc.floatingDollarsPerOz.toFixed(2);
+          pnlEl.className = 'font-bold ' + (isProf ? 'text-emerald-400' : 'text-rose-400');
+        } else {
+          pnlEl.textContent = 'Wait FVG';
+          pnlEl.className = 'font-bold text-amber-300';
+        }
+      }
     }
 
     let openedCollapseIds = new Set(['page-conf-15m', 'matrix-conf-15m']);
@@ -2444,7 +2557,7 @@ TELEGRAM_MIN_SCORE=90</pre>
                 '</div>' +
               '</div>' +
 
-              '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">' +
+              '<div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">' +
                 '<div class="p-2.5 rounded-xl bg-slate-950/80 border ' + (stage1Passed ? 'border-emerald-500/30' : 'border-slate-800') + ' space-y-1">' +
                   '<div class="flex items-center justify-between text-[10px] uppercase font-extrabold">' +
                     '<span class="text-slate-400">1. SWEEP & MSS</span>' +
@@ -3080,16 +3193,18 @@ TELEGRAM_MIN_SCORE=90</pre>
 
     function updateAudioButton() {
       const btn = document.getElementById('soundToggleBtn');
-      if (!btn) return;
       const icon = document.getElementById('soundIcon');
+      const iconMob = document.getElementById('soundIconMob');
       const lbl = document.getElementById('soundLabel');
       if (soundEnabled) {
-        btn.className = 'px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400/30 transition flex items-center gap-1';
+        if (btn) btn.className = 'px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400/30 transition flex items-center gap-1';
         if (icon) icon.textContent = '🔊';
+        if (iconMob) iconMob.textContent = '🔊';
         if (lbl) lbl.textContent = 'Sound ON';
       } else {
-        btn.className = 'px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-300 transition flex items-center gap-1';
+        if (btn) btn.className = 'px-2 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-300 transition flex items-center gap-1';
         if (icon) icon.textContent = '🔇';
+        if (iconMob) iconMob.textContent = '🔇';
         if (lbl) lbl.textContent = 'Muted';
       }
     }
