@@ -30,12 +30,16 @@ import {
   ALL_TIMEFRAMES,
   getLatestSpotQuote,
   getMarketCandles,
+  getMt5Status,
+  ingestMt5Feed,
   initRealtimeMarketEngine,
+  isMt5Connected,
   subscribeToTicks,
   SupportedSymbol,
   SupportedTimeframe,
   SYMBOL_CONFIGS,
 } from './marketData.js';
+import { MQL5_EA_SCRIPT, PYTHON_MT5_SCRIPT } from './mt5Scripts.js';
 import { DASHBOARD_HTML } from './dashboardHtml.js';
 import { getAllStoredD1Entries, getD1Status, initD1Database, queryD1TradeHistory } from './d1Database.js';
 import {
@@ -156,6 +160,8 @@ const handleMtf = async (c: any) => {
       scoringMatrix: analysis.scoringMatrix,
       spreadGuard: analysis.spreadGuard,
       journal: analysis.journal,
+      currentCandlePattern: analysis.currentCandlePattern,
+      recentCandlePatterns: analysis.recentCandlePatterns,
     };
 
     for (const sig of analysis.historicalSignals) {
@@ -356,6 +362,8 @@ interface RadarSignal {
   pnlStatusText: string;
   actionRecommendation: string;
   reason: string;
+  candlePattern?: string;
+  candleIcon?: string;
 }
 
 let cachedRadarData: { timestamp: number; signals: RadarSignal[]; summary: any } | null = null;
@@ -466,6 +474,8 @@ const handleRadar = async (c: any) => {
       pnlStatusText: lc?.pnlStatusText || '',
       actionRecommendation,
       reason: analysis.summaryReason || `${tf.toUpperCase()} Confluence Setup`,
+      candlePattern: analysis.currentCandlePattern?.badge || '',
+      candleIcon: analysis.currentCandlePattern?.icon || '',
     });
   }
 
@@ -625,6 +635,43 @@ app.post('/api/telegram/broadcast', async (c: any) => {
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 500);
   }
+});
+
+// MT5 Real-Time Integration & Bridge Endpoints
+app.get('/api/mt5/status', (c: any) => c.json(getMt5Status()));
+app.get('/mt5/status', (c: any) => c.json(getMt5Status()));
+
+app.post('/api/mt5/feed', async (c: any) => {
+  try {
+    const body = await c.req.json();
+    const res = ingestMt5Feed(body);
+    return c.json(res);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+app.post('/mt5/feed', async (c: any) => {
+  try {
+    const body = await c.req.json();
+    const res = ingestMt5Feed(body);
+    return c.json(res);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+app.get('/api/mt5/ea', (c: any) => {
+  return c.text(MQL5_EA_SCRIPT, 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="IndecatorBridge.mq5"',
+  });
+});
+
+app.get('/api/mt5/python', (c: any) => {
+  return c.text(PYTHON_MT5_SCRIPT, 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="mt5_bridge.py"',
+  });
 });
 
 const handleHealth = (c: any) => {

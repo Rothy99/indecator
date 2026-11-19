@@ -86,6 +86,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         <!-- Quick Utility Buttons (Right on Mobile, Part of Controls on Desktop) -->
         <div class="flex items-center gap-1 sm:hidden">
+          <button onclick="openMt5Modal()" class="p-1.5 rounded-lg text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center gap-1" title="MetaTrader 5 Real-Time Live Feed">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-500" id="mt5StatusDotMob"></span>
+            <span>⚡</span>
+          </button>
           <button onclick="openTelegramModal()" class="p-1.5 rounded-lg text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-300" title="Telegram Channel Broadcast">
             <span>📱</span>
           </button>
@@ -149,6 +153,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
           <!-- Desktop Utility Buttons -->
           <div class="hidden sm:flex items-center gap-1.5">
+            <button id="mt5HeaderBtn" onclick="openMt5Modal()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1.5" title="MetaTrader 5 Real-Time Live Feed Status & Bridge">
+              <span class="w-2 h-2 rounded-full bg-slate-500" id="mt5StatusDot"></span>
+              <span>⚡</span>
+              <span class="hidden md:inline" id="mt5HeaderLabel">MT5 Bridge</span>
+            </button>
+
             <button id="telegramHeaderBtn" onclick="openTelegramModal()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex items-center gap-1.5" title="Telegram Channel Broadcast Settings & Status">
               <span class="w-2 h-2 rounded-full bg-slate-500" id="telegramStatusDot"></span>
               <span>📱</span>
@@ -288,6 +298,58 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
           <div id="mtfEasyStripContainer" class="flex overflow-x-auto sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-2 pb-1 sm:pb-0 scrollbar-none snap-x">
             <!-- Populated dynamically with 6 sleek interactive chips -->
+          </div>
+        </div>
+
+        <!-- Real-Time Candle Identification & Smart Money Anatomy -->
+        <div id="liveCandleIdentifierBox" class="panel rounded-2xl p-3 sm:p-3.5 border border-indigo-500/30 bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-950/95 space-y-2.5 shadow-lg">
+          <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800/80 pb-2">
+            <div class="flex items-center gap-2">
+              <span id="candlePatternIcon" class="text-lg sm:text-xl">🕯️</span>
+              <div>
+                <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-indigo-400">Live Candle Identification &amp; Anatomy</span>
+                <div id="candlePatternName" class="text-xs sm:text-sm font-black text-white">Analyzing Real-Time Candle...</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span id="candlePatternBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-amber-300">
+                CALCULATING
+              </span>
+              <span id="candleRangeRatio" class="mono text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                1.0x ATR
+              </span>
+            </div>
+          </div>
+
+          <!-- Anatomy Proportions & Visual Ratio Bar -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center text-xs">
+            <!-- Proportion Breakdown Bar -->
+            <div class="md:col-span-7 space-y-1">
+              <div class="flex items-center justify-between text-[10px] mono">
+                <span id="candleLowerWickPct" class="text-amber-300 font-bold">Lower Wick: --%</span>
+                <span id="candleBodyPct" class="text-emerald-400 font-black">Body: --%</span>
+                <span id="candleUpperWickPct" class="text-rose-400 font-bold">Upper Wick: --%</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden flex border border-slate-800">
+                <div id="candleLowerWickBar" class="h-full bg-amber-400/80 transition-all duration-300" style="width: 20%"></div>
+                <div id="candleBodyBar" class="h-full bg-emerald-400 transition-all duration-300" style="width: 60%"></div>
+                <div id="candleUpperWickBar" class="h-full bg-rose-400/80 transition-all duration-300" style="width: 20%"></div>
+              </div>
+            </div>
+
+            <!-- ICT Smart Money Interpretation -->
+            <div class="md:col-span-5 text-[10px] sm:text-[11px] text-slate-300 border-l border-slate-800 pl-2.5 leading-snug">
+              <span class="font-extrabold text-amber-300">Smart Money: </span>
+              <span id="candleIctMeaning">Scanning real-time candle for displacement, sweep wicks, or engulfing flow...</span>
+            </div>
+          </div>
+
+          <!-- Recent Completed Candles Recognition Flow -->
+          <div class="pt-1.5 border-t border-slate-800/80 flex items-center justify-between overflow-x-auto scrollbar-none gap-2">
+            <span class="text-[9px] font-black uppercase text-slate-500 shrink-0">Recent Flow:</span>
+            <div id="recentCandlesFlowContainer" class="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+              <!-- Rendered dynamically -->
+            </div>
           </div>
         </div>
 
@@ -1003,6 +1065,80 @@ TELEGRAM_MIN_SCORE=90</pre>
       <div class="flex items-center justify-between pt-1">
         <span class="text-[10px] text-slate-500">Only verified 4/4 mandatory A+ setups are broadcasted</span>
         <button onclick="toggleTelegramModal(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MetaTrader 5 Real-Time Live Bridge Modal -->
+  <div id="mt5Modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4" onclick="if(event.target===this) toggleMt5Modal(false)">
+    <div class="panel rounded-2xl max-w-lg w-full p-4 sm:p-5 space-y-3 sm:space-y-4 border-amber-500/40 shadow-2xl shadow-amber-500/10 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">⚡</span>
+          <div>
+            <h3 class="text-sm font-extrabold uppercase text-white tracking-wider">MetaTrader 5 Real-Time Live Bridge</h3>
+            <p class="text-[11px] text-slate-400">Stream live broker ticks &amp; candles directly into Indecator</p>
+          </div>
+        </div>
+        <button onclick="toggleMt5Modal(false)" class="text-slate-400 hover:text-white text-base">✕</button>
+      </div>
+
+      <!-- Live Diagnostics Status Card -->
+      <div id="mt5DiagnosticsBox" class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]">MT5 Bridge Connection</span>
+          <span id="mt5ModalStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-400">
+            AWAITING FEED
+          </span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs pt-1">
+          <div class="p-2 rounded bg-slate-950 border border-slate-800">
+            <span class="text-[9px] text-slate-500 uppercase block">Broker</span>
+            <span id="mt5DiagBroker" class="font-bold text-white truncate block">--</span>
+          </div>
+          <div class="p-2 rounded bg-slate-950 border border-slate-800">
+            <span class="text-[9px] text-slate-500 uppercase block">Account</span>
+            <span id="mt5DiagAccount" class="font-bold text-amber-300 truncate block">--</span>
+          </div>
+          <div class="p-2 rounded bg-slate-950 border border-slate-800">
+            <span class="text-[9px] text-slate-500 uppercase block">Latency</span>
+            <span id="mt5DiagLatency" class="font-bold text-emerald-400 block">-- ms</span>
+          </div>
+          <div class="p-2 rounded bg-slate-950 border border-slate-800">
+            <span class="text-[9px] text-slate-500 uppercase block">Updates</span>
+            <span id="mt5DiagUpdates" class="font-bold text-sky-400 block">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick 3-Step Setup Instructions -->
+      <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs space-y-2">
+        <div class="font-extrabold text-amber-300 flex items-center justify-between">
+          <span>🚀 2-Minute MT5 Setup Instructions</span>
+        </div>
+        <ol class="space-y-1.5 list-decimal list-inside text-slate-300 text-[11px] leading-relaxed">
+          <li>In MT5, click <strong class="text-white">Tools → Options → Expert Advisors</strong>.</li>
+          <li>Check <strong class="text-white">&quot;Allow WebRequest for listed URL&quot;</strong> and add: <code class="bg-slate-900 px-1 py-0.5 rounded text-amber-300">http://localhost:3000</code></li>
+          <li>Click <strong class="text-white">Download EA (.mq5)</strong> below and save to MT5 <code class="bg-slate-900 px-1 py-0.5 rounded text-slate-300">MQL5/Experts/</code>.</li>
+          <li>Compile in MetaEditor and drag onto your Gold or Crypto chart!</li>
+        </ol>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-800">
+        <a href="/api/mt5/ea" download="IndecatorBridge.mq5" class="py-2.5 px-3 rounded-xl font-black text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 transition flex items-center justify-center gap-1.5 shadow-md">
+          <span>📥 Download MQL5 EA (.mq5)</span>
+        </a>
+        <a href="/api/mt5/python" download="mt5_bridge.py" class="py-2.5 px-3 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition flex items-center justify-center gap-1.5">
+          <span>🐍 Python MT5 Bridge (.py)</span>
+        </a>
+      </div>
+
+      <div class="flex items-center justify-between pt-1">
+        <button onclick="testMt5Ping()" class="text-xs text-amber-400 hover:underline flex items-center gap-1">
+          <span>🔄 Send Ingestion Test Ping</span>
+        </button>
+        <button onclick="toggleMt5Modal(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition">Close</button>
       </div>
     </div>
   </div>
@@ -2241,6 +2377,7 @@ TELEGRAM_MIN_SCORE=90</pre>
       updateRiskCalc();
       updateTradeProgressBar(lc, et, data.currentPrice);
       try { updateEntryProximityMeter(data, lc, et); } catch (e) { console.error('proximity err:', e); }
+      try { updateLiveCandleIdentifier(data); } catch (e) { console.error('candle identifier err:', e); }
 
       // Rule 3: Quantitative 100-Point Scoring Matrix
       if (data.scoringMatrix) {
@@ -2518,6 +2655,99 @@ TELEGRAM_MIN_SCORE=90</pre>
         diffEl.textContent = pointsDiff.toFixed(2) + ' pt';
         diffEl.className = 'mono text-xs sm:text-sm font-extrabold text-slate-300';
         pctEl.textContent = pctDiff.toFixed(2) + '% away';
+      }
+    }
+
+    function updateLiveCandleIdentifier(data) {
+      if (!data) return;
+      const cp = data.currentCandlePattern;
+      if (!cp) return;
+
+      const iconEl = document.getElementById('candlePatternIcon');
+      const nameEl = document.getElementById('candlePatternName');
+      const badgeEl = document.getElementById('candlePatternBadge');
+      const ratioEl = document.getElementById('candleRangeRatio');
+      const lowerPctEl = document.getElementById('candleLowerWickPct');
+      const bodyPctEl = document.getElementById('candleBodyPct');
+      const upperPctEl = document.getElementById('candleUpperWickPct');
+      const lowerBar = document.getElementById('candleLowerWickBar');
+      const bodyBar = document.getElementById('candleBodyBar');
+      const upperBar = document.getElementById('candleUpperWickBar');
+      const ictMeaningEl = document.getElementById('candleIctMeaning');
+
+      const isBullish = Boolean(cp.isBullish || cp.direction === 'BULLISH');
+      const isBearish = Boolean(cp.isBearish || cp.direction === 'BEARISH');
+
+      if (iconEl) iconEl.textContent = cp.icon || '🕯️';
+      if (nameEl) {
+        const sentiment = isBullish ? ' (Bullish Flow)' : isBearish ? ' (Bearish Flow)' : ' (Consolidation)';
+        nameEl.textContent = (cp.name || 'Live Candle') + sentiment;
+      }
+
+      if (badgeEl) {
+        badgeEl.textContent = cp.badge || (cp.pattern || cp.classification || 'NEUTRAL').toUpperCase().replace('_', ' ');
+        if (cp.isDisplacement || cp.pattern === 'MARUBOZU_BULL' || cp.pattern === 'MARUBOZU_BEAR' || cp.pattern === 'ENGULFING_BULL' || cp.pattern === 'ENGULFING_BEAR') {
+          badgeEl.className = 'px-2 py-0.5 rounded text-[10px] font-black mono ' + (isBullish ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50' : 'bg-rose-500/30 text-rose-300 border border-rose-500/50');
+        } else if (cp.isSweepWick || cp.pattern === 'PINBAR_BULL_HAMMER' || cp.pattern === 'PINBAR_BEAR_SHOOTING') {
+          badgeEl.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950 shadow-sm font-extrabold';
+        } else {
+          badgeEl.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-300 border border-slate-700';
+        }
+      }
+
+      const ratioVal = cp.atrRatio != null ? cp.atrRatio : (cp.rangeVsAtr != null ? cp.rangeVsAtr : 1.0);
+      if (ratioEl) {
+        ratioEl.textContent = ratioVal.toFixed(1) + 'x ATR';
+        if (ratioVal >= 1.5) {
+          ratioEl.className = 'mono text-[10px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-600/50 animate-pulse';
+        } else {
+          ratioEl.className = 'mono text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800';
+        }
+      }
+
+      const bodyPct = (cp.bodyPct != null ? cp.bodyPct : 50).toFixed(1);
+      const upperPct = (cp.upperWickPct != null ? cp.upperWickPct : 25).toFixed(1);
+      const lowerPct = (cp.lowerWickPct != null ? cp.lowerWickPct : 25).toFixed(1);
+
+      if (lowerPctEl) lowerPctEl.textContent = 'Lower Wick: ' + lowerPct + '%';
+      if (bodyPctEl) bodyPctEl.textContent = 'Body: ' + bodyPct + '%';
+      if (upperPctEl) upperPctEl.textContent = 'Upper Wick: ' + upperPct + '%';
+
+      if (lowerBar) lowerBar.style.width = lowerPct + '%';
+      if (bodyBar) {
+        bodyBar.style.width = bodyPct + '%';
+        bodyBar.className = 'h-full transition-all duration-300 ' + (isBullish ? 'bg-emerald-400' : isBearish ? 'bg-rose-500' : 'bg-amber-400');
+      }
+      if (upperBar) upperBar.style.width = upperPct + '%';
+
+      if (ictMeaningEl) {
+        ictMeaningEl.textContent = cp.ictSignificance || 'Monitoring candle flow for institutional displacement...';
+      }
+
+      const flowBox = document.getElementById('recentCandlesFlowContainer');
+      if (flowBox && Array.isArray(data.recentCandlePatterns) && data.recentCandlePatterns.length > 0) {
+        const chips = [];
+        const recents = data.recentCandlePatterns.slice(-7);
+        for (let i = 0; i < recents.length; i++) {
+          const c = recents[i];
+          const isLast = i === recents.length - 1;
+          const cBull = Boolean(c.isBullish || c.direction === 'BULLISH');
+          const cBear = Boolean(c.isBearish || c.direction === 'BEARISH');
+          const bgCol = cBull
+            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+            : cBear
+            ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+            : 'bg-slate-800/60 border-slate-700 text-slate-400';
+          chips.push(
+            '<div class="flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] mono shrink-0 ' + bgCol + (isLast ? ' ring-1 ring-amber-400' : '') + '">' +
+            '<span>' + (c.icon || '🕯️') + '</span>' +
+            '<span class="font-bold">' + (c.name.split(' ')[0] || 'Bar') + '</span>' +
+            '<span class="text-[8px] opacity-75">(' + c.bodyPct.toFixed(0) + '%)</span>' +
+            (isLast ? '<span class="text-[8px] bg-amber-400 text-slate-950 font-black px-1 rounded ml-0.5">NOW</span>' : '') +
+            '</div>'
+          );
+        }
+        flowBox.innerHTML = chips.join('');
       }
     }
 
@@ -3645,6 +3875,105 @@ TELEGRAM_MIN_SCORE=90</pre>
       }
     }
 
+    async function fetchMt5Status() {
+      try {
+        const res = await fetch('/api/mt5/status');
+        if (!res.ok) return;
+        const st = await res.json();
+
+        const dotDesktop = document.getElementById('mt5StatusDot');
+        const dotMob = document.getElementById('mt5StatusDotMob');
+        const headerLabel = document.getElementById('mt5HeaderLabel');
+        const modalBadge = document.getElementById('mt5ModalStatusBadge');
+        const diagBroker = document.getElementById('mt5DiagBroker');
+        const diagAccount = document.getElementById('mt5DiagAccount');
+        const diagLatency = document.getElementById('mt5DiagLatency');
+        const diagUpdates = document.getElementById('mt5DiagUpdates');
+
+        if (st.connected) {
+          if (dotDesktop) dotDesktop.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          if (dotMob) dotMob.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          if (headerLabel) headerLabel.textContent = (st.broker ? st.broker.slice(0, 10) : 'MT5') + ' (' + (st.latencyMs != null ? st.latencyMs + 'ms' : 'LIVE') + ')';
+          if (modalBadge) {
+            modalBadge.textContent = 'CONNECTED • ' + (st.latencyMs != null ? st.latencyMs + 'ms' : 'REALTIME');
+            modalBadge.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+          }
+          if (diagBroker) diagBroker.textContent = st.broker || 'MT5 Terminal';
+          if (diagAccount) diagAccount.textContent = st.account ? '#' + st.account : 'Live Account';
+          if (diagLatency) diagLatency.textContent = (st.latencyMs != null ? st.latencyMs : '<1') + ' ms';
+          if (diagUpdates) diagUpdates.textContent = String(st.feedCount || 0);
+        } else {
+          if (dotDesktop) dotDesktop.className = 'w-2 h-2 rounded-full bg-slate-600';
+          if (dotMob) dotMob.className = 'w-2 h-2 rounded-full bg-slate-600';
+          if (headerLabel) headerLabel.textContent = 'MT5 Offline';
+          if (modalBadge) {
+            modalBadge.textContent = 'AWAITING FEED';
+            modalBadge.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-slate-400 border border-slate-700';
+          }
+          if (diagBroker) diagBroker.textContent = '--';
+          if (diagAccount) diagAccount.textContent = '--';
+          if (diagLatency) diagLatency.textContent = '-- ms';
+          if (diagUpdates) diagUpdates.textContent = String(st.feedCount || 0);
+        }
+      } catch (e) {
+        console.error('fetchMt5Status err:', e);
+      }
+    }
+
+    function toggleMt5Modal(show) {
+      const modal = document.getElementById('mt5Modal');
+      if (!modal) return;
+      if (show === undefined) {
+        modal.classList.toggle('hidden');
+        if (!modal.classList.contains('hidden')) {
+          modal.classList.add('flex');
+          fetchMt5Status();
+        } else {
+          modal.classList.remove('flex');
+        }
+      } else if (show) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        fetchMt5Status();
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function openMt5Modal() {
+      toggleMt5Modal(true);
+    }
+
+    async function testMt5Ping() {
+      try {
+        const price = (currentAnalysis && currentAnalysis.currentPrice) ? currentAnalysis.currentPrice : 2650.0;
+        const testPayload = {
+          symbol: currentSymbol || 'XAUUSD',
+          broker: 'MetaQuotes-Demo',
+          account: 8829103,
+          bid: price,
+          ask: price + 0.25,
+          timestamp: Date.now()
+        };
+        const res = await fetch('/api/mt5/feed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testPayload)
+        });
+        const out = await res.json();
+        if (out.ok) {
+          showToast('⚡ MT5 Ping Received! Feed status updated.');
+          fetchMt5Status();
+          loadSignalData();
+        } else {
+          showToast('⚠️ Ping rejected: ' + (out.error || 'Unknown'));
+        }
+      } catch (err) {
+        showToast('❌ Failed to ping MT5 feed: ' + err.message);
+      }
+    }
+
     // Keyboard Shortcuts Listener for Pro Traders
     window.addEventListener('keydown', (e) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
@@ -3685,12 +4014,14 @@ TELEGRAM_MIN_SCORE=90</pre>
       } else if (key === 'ESCAPE') {
         toggleHotkeysModal(false);
         toggleTelegramModal(false);
+        toggleMt5Modal(false);
       }
     });
 
     function startApp() {
       try { updateAudioButton(); } catch (e) { console.error('updateAudioButton err:', e); }
       try { fetchTelegramStatus(); } catch (e) { console.error('fetchTelegramStatus err:', e); }
+      try { fetchMt5Status(); } catch (e) { console.error('fetchMt5Status err:', e); }
       try { setMtfView(mtfViewMode); } catch (e) { console.error('setMtfView err:', e); }
       try { setEntryListViewMode(entryListViewMode); } catch (e) { console.error('setEntryListViewMode err:', e); }
       try { updateSymbolButtons(); } catch (e) { console.error('updateSymbolButtons err:', e); }
@@ -3701,6 +4032,7 @@ TELEGRAM_MIN_SCORE=90</pre>
       loadSignalData();
       setInterval(loadSignalData, 2000);
       setInterval(fetchSignalRadar, 5000);
+      setInterval(fetchMt5Status, 3000);
       setInterval(() => {
         if (mtfViewMode === 'journal') fetchD1History();
       }, 10000);

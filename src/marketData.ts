@@ -84,6 +84,156 @@ export interface LiveSpotQuote {
   source: string;
 }
 
+export interface Mt5ConnectionStatus {
+  connected: boolean;
+  broker: string;
+  account: string;
+  terminalName: string;
+  lastSeenMs: number;
+  secondsAgo: number;
+  latencyMs: number;
+  symbolsReceived: string[];
+  totalUpdates: number;
+}
+
+export interface Mt5FeedPayload {
+  broker?: string;
+  account?: string | number;
+  terminalName?: string;
+  symbol: string;
+  timeframe?: string;
+  bid?: number;
+  ask?: number;
+  spread?: number;
+  candles?: Array<{
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+  }>;
+  timestamp?: number;
+}
+
+const mt5Status = {
+  broker: '',
+  account: '',
+  terminalName: 'MetaTrader 5',
+  lastSeenMs: 0,
+  latencyMs: 0,
+  symbolsReceived: new Set<string>(),
+  totalUpdates: 0,
+};
+
+export function isMt5Connected(): boolean {
+  return mt5Status.lastSeenMs > 0 && Date.now() - mt5Status.lastSeenMs < 30000;
+}
+
+export function getMt5Status(): Mt5ConnectionStatus {
+  const connected = isMt5Connected();
+  const secondsAgo = mt5Status.lastSeenMs > 0 ? Math.round((Date.now() - mt5Status.lastSeenMs) / 1000) : -1;
+  return {
+    connected,
+    broker: mt5Status.broker || (connected ? 'MT5 Connected' : 'Disconnected'),
+    account: mt5Status.account || '--',
+    terminalName: mt5Status.terminalName,
+    lastSeenMs: mt5Status.lastSeenMs,
+    secondsAgo,
+    latencyMs: mt5Status.latencyMs,
+    symbolsReceived: Array.from(mt5Status.symbolsReceived),
+    totalUpdates: mt5Status.totalUpdates,
+  };
+}
+
+export function ingestMt5Feed(payload: Mt5FeedPayload): { success: boolean; symbol: SupportedSymbol; message: string } {
+  if (!payload || !payload.symbol) {
+    return { success: false, symbol: 'XAUUSD', message: 'Missing symbol in MT5 payload' };
+  }
+
+  const rawSym = String(payload.symbol).toUpperCase().replace(/[^A-Z]/g, '');
+  let symbol: SupportedSymbol = 'XAUUSD';
+  if (rawSym.includes('BTC')) symbol = 'BTCUSD';
+  else if (rawSym.includes('ETH')) symbol = 'ETHUSD';
+  else if (rawSym.includes('SOL')) symbol = 'SOLUSD';
+
+  const cfg = SYMBOL_CONFIGS[symbol];
+  const now = Date.now();
+  mt5Status.lastSeenMs = now;
+  mt5Status.broker = String(payload.broker || 'MetaTrader 5');
+  mt5Status.account = String(payload.account || 'Direct EA');
+  mt5Status.symbolsReceived.add(symbol);
+  mt5Status.totalUpdates++;
+
+  if (payload.timestamp) {
+    const tsMs = payload.timestamp > 1e11 ? payload.timestamp : payload.timestamp * 1000;
+    mt5Status.latencyMs = Math.max(1, Math.min(2500, now - tsMs));
+  }
+
+  // 1. Process Real-Time Tick (Bid / Ask)
+  if (typeof payload.bid === 'number' && payload.bid > 0) {
+    const bid = round2(payload.bid);
+    const ask = typeof payload.ask === 'number' && payload.ask > 0 ? round2(payload.ask) : round2(bid + (symbol === 'BTCUSD' ? 5 : 0.4));
+    const mid = round2((bid + ask) / 2);
+    const spreadPips = typeof payload.spread === 'number'
+      ? round2(payload.spread)
+      : round2((ask - bid) * (cfg.pipMultiplier || 10));
+
+    const quote: LiveSpotQuote = {
+      symbol,
+      bid,
+      ask,
+      mid,
+      spreadPips,
+      timestamp: now,
+      source: `⚡ MT5 LIVE DIRECT (${mt5Status.broker})`,
+    };
+
+    quotesBySymbol[symbol] = quote;
+    if (symbol === 'XAUUSD') latestSpotQuote = quote;
+
+    tickListeners.forEach((cb) => {
+      try {
+        cb(quote);
+      } catch {}
+    });
+  }
+
+  // 2. Process Candles array if provided
+  if (Array.isArray(payload.candles) && payload.candles.length > 0) {
+    const rawTf = String(payload.timeframe || '15m').toLowerCase().replace('m', '');
+    let tf: SupportedTimeframe = '15m';
+    if (rawTf === '1') tf = '1m';
+    else if (rawTf === '5') tf = '5m';
+    else if (rawTf === '15') tf = '15m';
+    else if (rawTf === '30') tf = '30m';
+    else if (rawTf === '60' || rawTf === '1h' || rawTf === 'h1') tf = '1h';
+    else if (rawTf === '240' || rawTf === '4h' || rawTf === 'h4') tf = '4h';
+
+    const cleanCandles: Candle[] = payload.candles.map((c) => ({
+      time: c.time > 1e11 ? Math.floor(c.time / 1000) : c.time,
+      open: round2(c.open),
+      high: round2(c.high),
+      low: round2(c.low),
+      close: round2(c.close),
+      volume: round2(c.volume || 100),
+    })).sort((a, b) => a.time - b.time);
+
+    rawStore.set(`${symbol}_${tf}`, {
+      rawCandles: cleanCandles.slice(-260),
+      lastRawClose: cleanCandles[cleanCandles.length - 1].close,
+      calibratedBasis: 0,
+      fetchedAt: now,
+    });
+  }
+
+  return {
+    success: true,
+    symbol,
+    message: `MT5 feed received for ${symbol} from ${mt5Status.broker} (${mt5Status.totalUpdates} updates)`,
+  };
+}
+
 interface RawTimeframeStore {
   rawCandles: Candle[];
   lastRawClose: number;
@@ -545,9 +695,14 @@ export async function getMarketCandles(
   });
 
   const cfg = SYMBOL_CONFIGS[symbol];
+  const isMt5 = isMt5Connected();
+  const sourceName = isMt5
+    ? `⚡ MT5 LIVE BRIDGE (${mt5Status.broker}) • Spread: ${currentQuote.spreadPips.toFixed(1)}${cfg.category === 'CRYPTO' ? '$' : 'p'}`
+    : `${currentQuote.source} (Spread: ${currentQuote.spreadPips.toFixed(1)}${cfg.category === 'CRYPTO' ? '$' : 'p'})`;
+
   return {
     candles: calibrated,
-    source: `${currentQuote.source} (Spread: ${currentQuote.spreadPips.toFixed(1)}${cfg.category === 'CRYPTO' ? '$' : 'p'})`,
+    source: sourceName,
     spotQuote: currentQuote,
     symbolConfig: cfg,
   };

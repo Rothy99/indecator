@@ -344,3 +344,33 @@ npx wrangler deploy
   - `⚡ Copy Market Order`: Copies formatted order string (`[Symbol] [DIR] MARKET @ $[Price] | SL: $[SL] | TP1: $[TP1] | Lots: [Lots]`).
   - `🎯 Copy CE Limit Order`: Copies formatted pending limit order string (`[Symbol] [DIR] (CE 50% FVG) @ $[LimitPrice] | SL: $[SL] | TP1: $[TP1] | Lots: [Lots]`).
 
+---
+
+## 12. Real-Time MetaTrader 5 (MT5) Live Bridge & Candle Identification Engine
+
+### Real-Time MT5 Integration & Live Data Feed
+- **Bi-directional MT5 Webhook Stream**:
+  - `POST /api/mt5/feed`: Ingests real-time tick quotes and OHLCV candle streams pushed by MetaTrader 5 terminals.
+  - `GET /api/mt5/status`: Live diagnostic telemetry delivering broker name, account ID, connection state, ping latency, symbols received, and update counter.
+  - `GET /api/mt5/ea`: Instant download endpoint for `IndecatorBridge.mq5` Expert Advisor.
+  - `GET /api/mt5/python`: Instant download endpoint for `mt5_bridge.py` standalone Python socket bridge using `MetaTrader5` API.
+- **Zero-Latency Ingestion Logic**: When an active MT5 feed is connected (heartbeat $< 15$ seconds), the system automatically routes analysis through broker-native spot prices (`⚡ MT5 LIVE BRIDGE`), bypassing synthetic basis offsets.
+- **Header & Modal Diagnostics**:
+  - Interactive status indicator in navigation bar (`⚡ MT5 (LIVE)` with pulse indicator).
+  - Modal diagnostic dialog (`#mt5Modal`) displaying broker name, account ID, latency (ms), update frequency, and a 3-step setup guide with direct download links.
+
+### Smart Money Candlestick Identification Engine
+- **Pattern Classification Algorithms (`identifyCandle()`)**:
+  - `Institutional Displacement` (`MARUBOZU_BULL` / `MARUBOZU_BEAR`): Body $\ge 70\%$ of total range and range $\ge 1.2\times$ ATR(14). Signifies aggressive institutional order flow and initiation of Market Structure Shift (MSS).
+  - `Rejection Pin Bar` (`PINBAR_BULL_HAMMER` / `PINBAR_BEAR_SHOOTING`): Rejection wick $\ge 55\%$ of candle range. Identifies institutional liquidity sweeps and stop runs beyond swing highs/lows.
+  - `Engulfing Bar` (`ENGULFING_BULL` / `ENGULFING_BEAR`): Live candle body completely engulfs prior bar's body with body $\ge 60\%$. Confirms structural momentum reversal.
+  - `Inside Bar` (`INSIDE_BAR`): Range completely contained within preceding candle range. Indicates volatility contraction and pre-breakout liquidity building.
+  - `Doji / Equilibrium` (`DOJI`): Body $\le 12\%$ of range. Represents institutional price neutrality and fair value equilibrium.
+  - `Expansion Bar` (`EXPANSION_BULL` / `EXPANSION_BEAR`): High volatility bar exceeding $1.4\times$ ATR(14) with balanced body and wicks.
+- **Real-Time Visual Anatomy & Flow Strip**:
+  - **Live Anatomy Proportions**: Real-time breakdown of Upper Wick %, Body %, and Lower Wick % with interactive tri-color ratio progress bar.
+  - **ATR Volatility Multiplier**: Displays dynamic candle range relative to ATR(14) (pulsing amber alert when $\ge 1.5\times$ ATR).
+  - **ICT Smart Money Interpretation**: Context-aware tactical commentary explaining institutional intent behind the active candlestick.
+  - **Recent Flow Ribbon**: 7-candle rolling historical strip displaying recent identified patterns with visual badges and `NOW` tag on live bar.
+
+

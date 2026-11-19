@@ -318,6 +318,42 @@ export interface IndicatorSeriesPoint {
   atr14: number | null;
 }
 
+export type CandlePatternType =
+  | 'BULLISH_DISPLACEMENT'
+  | 'BEARISH_DISPLACEMENT'
+  | 'BULLISH_PIN_BAR'
+  | 'BEARISH_PIN_BAR'
+  | 'BULLISH_ENGULFING'
+  | 'BEARISH_ENGULFING'
+  | 'DOJI'
+  | 'INSIDE_BAR'
+  | 'BULLISH_EXPANSION'
+  | 'BEARISH_EXPANSION'
+  | 'NEUTRAL';
+
+export interface IdentifiedCandle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  pattern: CandlePatternType;
+  name: string;
+  badge: string;
+  icon: string;
+  direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  bodyPct: number;
+  upperWickPct: number;
+  lowerWickPct: number;
+  range: number;
+  body: number;
+  atrRatio: number;
+  isDisplacement: boolean;
+  isSweepWick: boolean;
+  ictSignificance: string;
+}
+
 export interface GoldSignalAnalysis {
   symbol: string;
   timeframe: string;
@@ -345,6 +381,8 @@ export interface GoldSignalAnalysis {
   scoringMatrix: QuantitativeScoreMatrix;
   spreadGuard: Mt5SpreadGuard;
   journal: TradeJournalEntry[];
+  currentCandlePattern: IdentifiedCandle;
+  recentCandlePatterns: IdentifiedCandle[];
   indicators: {
     ema50: number;
     ema200: number;
@@ -361,6 +399,150 @@ export interface GoldSignalAnalysis {
 
 function roundPrice(num: number): number {
   return Math.round(num * 100) / 100;
+}
+
+export function identifyCandle(
+  candle: Candle,
+  prevCandle?: Candle,
+  atr = 0
+): IdentifiedCandle {
+  const open = candle.open;
+  const high = candle.high;
+  const low = candle.low;
+  const close = candle.close;
+  const range = Math.max(0.01, roundPrice(high - low));
+  const body = roundPrice(Math.abs(close - open));
+  const upperWick = roundPrice(high - Math.max(open, close));
+  const lowerWick = roundPrice(Math.min(open, close) - low);
+
+  const bodyPct = Math.round((body / range) * 100);
+  const upperWickPct = Math.round((upperWick / range) * 100);
+  const lowerWickPct = Math.round((lowerWick / range) * 100);
+  const atrRatio = atr > 0 ? Number((range / atr).toFixed(2)) : 1.0;
+
+  const isBull = close > open;
+  const isBear = close < open;
+  const isDoji = bodyPct <= 14;
+
+  let pattern: CandlePatternType = 'NEUTRAL';
+  let name = 'Neutral Consolidation';
+  let badge = '⚖️ NEUTRAL';
+  let icon = '⚖️';
+  let direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+  let isDisplacement = false;
+  let isSweepWick = false;
+  let ictSignificance = 'Order flow consolidation and equilibrium.';
+
+  // 1. Institutional Displacement (Marubozu / Long Momentum Bar)
+  if (!isDoji && bodyPct >= 62 && (atr <= 0 || range >= atr * 0.9)) {
+    isDisplacement = true;
+    if (isBull) {
+      pattern = 'BULLISH_DISPLACEMENT';
+      direction = 'BULLISH';
+      name = 'Bullish Institutional Displacement (Marubozu)';
+      badge = '⚡ BULL DISPLACEMENT';
+      icon = '⚡';
+      ictSignificance = 'Aggressive institutional buying pressure; creates bullish Fair Value Gap (FVG) and confirms structure shift.';
+    } else {
+      pattern = 'BEARISH_DISPLACEMENT';
+      direction = 'BEARISH';
+      name = 'Bearish Institutional Displacement (Marubozu)';
+      badge = '⚡ BEAR DISPLACEMENT';
+      icon = '⚡';
+      ictSignificance = 'Aggressive institutional selling pressure; creates bearish Fair Value Gap (FVG) and breaks internal swing lows.';
+    }
+  }
+  // 2. Rejection Pin Bar / Liquidity Sweep Wick (Hammer / Shooting Star)
+  else if (lowerWickPct >= 50 && bodyPct <= 35) {
+    pattern = 'BULLISH_PIN_BAR';
+    direction = 'BULLISH';
+    name = 'Bullish Rejection Pin Bar (Liquidity Low Sweep)';
+    badge = '🔨 BULL PIN / SWEEP';
+    icon = '🔨';
+    isSweepWick = true;
+    ictSignificance = 'Price swept resting sell-side liquidity below key low; buyers aggressively absorbed supply leaving a long rejection wick.';
+  } else if (upperWickPct >= 50 && bodyPct <= 35) {
+    pattern = 'BEARISH_PIN_BAR';
+    direction = 'BEARISH';
+    name = 'Bearish Rejection Pin Bar (Liquidity High Sweep)';
+    badge = '🌠 BEAR PIN / SWEEP';
+    icon = '🌠';
+    isSweepWick = true;
+    ictSignificance = 'Price swept resting buy-side liquidity above key high; smart money trapped breakout buyers leaving a long upper rejection wick.';
+  }
+  // 3. Engulfing Bars
+  else if (prevCandle && isBull && prevCandle.close < prevCandle.open && close >= prevCandle.open && open <= prevCandle.close) {
+    pattern = 'BULLISH_ENGULFING';
+    direction = 'BULLISH';
+    name = 'Bullish Engulfing Reversal';
+    badge = '🟢 BULL ENGULFING';
+    icon = '🟢';
+    ictSignificance = 'Immediate order flow reversal; bullish candle completely engulfs prior bearish body.';
+  } else if (prevCandle && isBear && prevCandle.close > prevCandle.open && close <= prevCandle.open && open >= prevCandle.close) {
+    pattern = 'BEARISH_ENGULFING';
+    direction = 'BEARISH';
+    name = 'Bearish Engulfing Reversal';
+    badge = '🔴 BEAR ENGULFING';
+    icon = '🔴';
+    ictSignificance = 'Immediate order flow reversal; bearish candle completely engulfs prior bullish body.';
+  }
+  // 4. Inside Bar (Volatility Contraction)
+  else if (prevCandle && high <= prevCandle.high && low >= prevCandle.low) {
+    pattern = 'INSIDE_BAR';
+    direction = 'NEUTRAL';
+    name = 'Inside Bar (Volatility Squeeze)';
+    badge = '📦 INSIDE BAR';
+    icon = '📦';
+    ictSignificance = 'Order flow contraction inside previous candle range; liquidity builds on both extremes before explosive breakout.';
+  }
+  // 5. Doji / Indecision
+  else if (isDoji) {
+    pattern = 'DOJI';
+    direction = 'NEUTRAL';
+    name = 'Neutral Doji (Equilibrium)';
+    badge = '⚖️ DOJI';
+    icon = '⚖️';
+    ictSignificance = 'Indecision and balance at current price level; awaits next directional liquidity drive.';
+  }
+  // 6. Standard Expansion
+  else if (isBull) {
+    pattern = 'BULLISH_EXPANSION';
+    direction = 'BULLISH';
+    name = 'Bullish Expansion Candle';
+    badge = '📈 BULL EXPANSION';
+    icon = '📈';
+    ictSignificance = 'Upward continuation favoring buyers with sustained momentum.';
+  } else if (isBear) {
+    pattern = 'BEARISH_EXPANSION';
+    direction = 'BEARISH';
+    name = 'Bearish Expansion Candle';
+    badge = '📉 BEAR EXPANSION';
+    icon = '📉';
+    ictSignificance = 'Downward continuation favoring sellers with sustained momentum.';
+  }
+
+  return {
+    time: candle.time,
+    open,
+    high,
+    low,
+    close,
+    volume: candle.volume,
+    pattern,
+    name,
+    badge,
+    icon,
+    direction,
+    bodyPct,
+    upperWickPct,
+    lowerWickPct,
+    range,
+    body,
+    atrRatio,
+    isDisplacement,
+    isSweepWick,
+    ictSignificance,
+  };
 }
 
 /**
@@ -2422,6 +2604,15 @@ export function analyzeGoldCandles(
     };
   });
 
+  const currentCandlePattern = identifyCandle(candles[lastIdx], lastIdx > 0 ? candles[lastIdx - 1] : undefined, atr);
+  const recentCandlePatterns: IdentifiedCandle[] = [];
+  const startCandleIdx = Math.max(0, candles.length - 12);
+  for (let i = startCandleIdx; i < candles.length; i++) {
+    const prev = i > 0 ? candles[i - 1] : undefined;
+    const cAtr = atr14Arr[i] ?? atr;
+    recentCandlePatterns.push(identifyCandle(candles[i], prev, cAtr));
+  }
+
   return {
     symbol: displaySymbol,
     timeframe,
@@ -2448,6 +2639,8 @@ export function analyzeGoldCandles(
     scoringMatrix: evalRes.quantitativeMatrix,
     spreadGuard,
     journal,
+    currentCandlePattern,
+    recentCandlePatterns,
     tradeSetup: {
       direction: finalDirection,
       isActionable: timingState === 'ENTER_NOW' && evalRes.setupGrade === 'A+' && evalRes.quantitativeMatrix.allMandatoryConfluencesPassed && !session.isNoTradeWindow && isSpreadAcceptable && !backtest.circuitBreakerTripped,
