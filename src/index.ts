@@ -327,6 +327,185 @@ const handleMtf = async (c: any) => {
 app.get('/api/mtf', handleMtf);
 app.get('/mtf', handleMtf);
 
+interface RadarSignal {
+  symbol: SupportedSymbol;
+  symbolName: string;
+  symbolIcon: string;
+  timeframe: SupportedTimeframe;
+  direction: 'BUY' | 'SELL';
+  grade: 'A+' | 'A' | 'B' | 'C';
+  score: number;
+  allMandatoryPassed: boolean;
+  currentPrice: number;
+  entry: number;
+  pullbackEntry: number;
+  stopLoss: number;
+  tp1: number;
+  tp2: number;
+  riskPips: number;
+  rewardTp1Pips: number;
+  rewardTp2Pips: number;
+  pipUnit: string;
+  proximityState: 'IN_ZONE' | 'APPROACHING' | 'ACTIVE' | 'PENDING' | 'LATE';
+  proximityBadge: string;
+  distanceToLimitPoints: number;
+  distanceToLimitPips: number;
+  distanceLabel: string;
+  entryTimingState: string;
+  isActivated: boolean;
+  pnlStatusText: string;
+  actionRecommendation: string;
+  reason: string;
+}
+
+let cachedRadarData: { timestamp: number; signals: RadarSignal[]; summary: any } | null = null;
+
+const handleRadar = async (c: any) => {
+  const now = Date.now();
+  if (cachedRadarData && now - cachedRadarData.timestamp < 3000) {
+    return c.json({ status: 'ok', cached: true, ...cachedRadarData });
+  }
+
+  const allScanResults = await Promise.all(
+    ALL_SYMBOLS.flatMap((sym) =>
+      ALL_TIMEFRAMES.map(async (tf) => {
+        try {
+          const { candles, source } = await getMarketCandles(sym, tf);
+          const analysis = analyzeGoldCandles(candles, tf, source, sym);
+          return { sym, tf, analysis };
+        } catch {
+          return null;
+        }
+      })
+    )
+  );
+
+  const signals: RadarSignal[] = [];
+
+  for (const item of allScanResults) {
+    if (!item) continue;
+    const { sym, tf, analysis } = item;
+    const cfg = SYMBOL_CONFIGS[sym];
+    const ts = analysis.tradeSetup;
+    const qm = analysis.scoringMatrix;
+    const lc = ts?.entryTiming?.lifecycle;
+    const score = qm?.totalScore ?? analysis.score ?? 0;
+    const grade = analysis.setupGrade || 'B';
+    const isActionable = ts?.isActionable || false;
+    const isActivated = lc?.isActivated || false;
+
+    // Filter for actionable signals or active trades with decent quality (>= 70 or A/A+ or activated)
+    if (!isActionable && !isActivated && score < 70) continue;
+    if (ts.direction === 'NONE') continue;
+
+    const currentPrice = analysis.currentPrice;
+    const pullbackEntry = ts.optimalPullbackEntry || ts.entry;
+    const pipMultiplier = cfg.pipMultiplier || 10;
+    const pointsDiff = Math.abs(currentPrice - pullbackEntry);
+    const pipsDiff = Number((pointsDiff * pipMultiplier).toFixed(1));
+    const pctDiff = (pointsDiff / currentPrice) * 100;
+
+    let proximityState: 'IN_ZONE' | 'APPROACHING' | 'ACTIVE' | 'PENDING' | 'LATE' = 'PENDING';
+    let proximityBadge = '📋 PENDING';
+    let distanceLabel = `${pipsDiff} ${cfg.unitLabel}`;
+    let actionRecommendation = `Set CE Limit at ${pullbackEntry}`;
+
+    if (isActivated) {
+      proximityState = 'ACTIVE';
+      proximityBadge = lc.hitTp1 ? '🏆 TP1 HIT' : '⚡ IN FLIGHT';
+      distanceLabel = lc.pnlStatusText || 'Trade in Progress';
+      actionRecommendation = lc.hitTp1 ? 'TP1 hit! Runner to TP2 active' : 'Position live: manage risk';
+    } else if (pctDiff <= 0.08 || pipsDiff <= (sym === 'BTCUSD' ? 20 : 2.5)) {
+      proximityState = 'IN_ZONE';
+      proximityBadge = '🔥 IN ENTRY ZONE';
+      distanceLabel = `${pipsDiff} ${cfg.unitLabel} to CE Limit`;
+      actionRecommendation = `⚡ ENTER NOW at $${currentPrice.toFixed(2)} or CE Limit $${pullbackEntry.toFixed(2)}`;
+    } else if (pctDiff <= 0.35 || pipsDiff <= (sym === 'BTCUSD' ? 100 : 15)) {
+      proximityState = 'APPROACHING';
+      proximityBadge = '⏳ APPROACHING';
+      distanceLabel = `${pipsDiff} ${cfg.unitLabel} to CE Limit`;
+      actionRecommendation = `🎯 Place CE 50% Limit Order at $${pullbackEntry.toFixed(2)}`;
+    } else if (ts.entryTiming?.isLate) {
+      proximityState = 'LATE';
+      proximityBadge = '⚠️ WAIT RETEST';
+      distanceLabel = `Moved +${pipsDiff} ${cfg.unitLabel}`;
+      actionRecommendation = `Price extended: wait for pullback to $${pullbackEntry.toFixed(2)}`;
+    } else {
+      proximityState = 'PENDING';
+      proximityBadge = '📋 PENDING PULLBACK';
+      distanceLabel = `${pipsDiff} ${cfg.unitLabel} to CE Limit`;
+      actionRecommendation = `Watch for pullback to $${pullbackEntry.toFixed(2)}`;
+    }
+
+    signals.push({
+      symbol: sym,
+      symbolName: cfg.displayName,
+      symbolIcon: cfg.icon,
+      timeframe: tf,
+      direction: ts.direction === 'LONG' ? 'BUY' : 'SELL',
+      grade,
+      score,
+      allMandatoryPassed: qm?.allMandatoryConfluencesPassed ?? false,
+      currentPrice,
+      entry: ts.entry,
+      pullbackEntry,
+      stopLoss: ts.stopLoss,
+      tp1: ts.tp1,
+      tp2: ts.tp2,
+      riskPips: ts.riskPips,
+      rewardTp1Pips: ts.rewardTp1Pips,
+      rewardTp2Pips: ts.rewardTp2Pips,
+      pipUnit: cfg.unitLabel || 'pips',
+      proximityState,
+      proximityBadge,
+      distanceToLimitPoints: Number(pointsDiff.toFixed(2)),
+      distanceToLimitPips: pipsDiff,
+      distanceLabel,
+      entryTimingState: ts.entryTiming?.state || 'WAIT_CONFIRMATION',
+      isActivated,
+      pnlStatusText: lc?.pnlStatusText || '',
+      actionRecommendation,
+      reason: analysis.summaryReason || `${tf.toUpperCase()} Confluence Setup`,
+    });
+  }
+
+  // Sort: Priority 1 = IN_ZONE, Priority 2 = ACTIVE, Priority 3 = APPROACHING, Priority 4 = PENDING, Priority 5 = LATE
+  const statePriority: Record<string, number> = {
+    IN_ZONE: 1,
+    ACTIVE: 2,
+    APPROACHING: 3,
+    PENDING: 4,
+    LATE: 5,
+  };
+
+  signals.sort((a, b) => {
+    const pA = statePriority[a.proximityState] || 99;
+    const pB = statePriority[b.proximityState] || 99;
+    if (pA !== pB) return pA - pB;
+    return b.score - a.score;
+  });
+
+  const summary = {
+    totalSignals: signals.length,
+    inZoneCount: signals.filter((s) => s.proximityState === 'IN_ZONE').length,
+    activeCount: signals.filter((s) => s.proximityState === 'ACTIVE').length,
+    approachingCount: signals.filter((s) => s.proximityState === 'APPROACHING').length,
+    aPlusCount: signals.filter((s) => s.grade === 'A+' || s.score >= 90).length,
+    updatedAt: new Date().toISOString(),
+  };
+
+  cachedRadarData = {
+    timestamp: now,
+    signals,
+    summary,
+  };
+
+  return c.json({ status: 'ok', cached: false, signals, summary });
+};
+
+app.get('/api/radar', handleRadar);
+app.get('/radar', handleRadar);
+
 const handleStream = (c: any) => {
   const symbol = parseSymbol(c.req.query('symbol'));
   return streamSSE(c, async (stream) => {

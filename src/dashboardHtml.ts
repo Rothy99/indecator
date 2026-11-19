@@ -213,6 +213,58 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     </section>
 
     <!-- ========================================================================= -->
+    <!-- CROSS-MARKET SIGNAL RADAR & QUICK SCANNER (A+ 90%+ & ACTIVE SIGNALS)      -->
+    <!-- ========================================================================= -->
+    <section id="signalRadarSection" class="panel rounded-2xl p-3 sm:p-4 space-y-3 border border-amber-500/30 bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-950/95 shadow-xl">
+      <div class="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/80 pb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <div>
+            <div class="text-xs sm:text-sm font-black tracking-tight text-white flex items-center gap-2">
+              <span>🎯 Cross-Market Signal Radar</span>
+              <span id="radarCountBadge" class="mono text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
+                Scanning...
+              </span>
+            </div>
+            <p class="text-[10px] sm:text-[11px] text-slate-400 hidden xs:block">
+              Auto-scans Gold &amp; Crypto across 6 Timeframes • One-click switch &amp; trade
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <!-- Filter Tabs -->
+          <div class="flex items-center gap-1 p-0.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[10px] mono">
+            <button id="radarFilterAll" onclick="setRadarFilter('ALL')" class="px-2 py-1 rounded font-black bg-amber-400 text-slate-950 transition">
+              All
+            </button>
+            <button id="radarFilterInZone" onclick="setRadarFilter('IN_ZONE')" class="px-2 py-1 rounded font-bold text-slate-400 hover:text-white transition">
+              🔥 In Zone
+            </button>
+            <button id="radarFilterAPlus" onclick="setRadarFilter('A_PLUS')" class="px-2 py-1 rounded font-bold text-slate-400 hover:text-white transition">
+              ⭐ A+ 90%
+            </button>
+            <button id="radarFilterActive" onclick="setRadarFilter('ACTIVE')" class="px-2 py-1 rounded font-bold text-slate-400 hover:text-white transition">
+              ⚡ In Flight
+            </button>
+          </div>
+
+          <button onclick="fetchSignalRadar()" id="btnRadarRefresh" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1" title="Rescan all symbols and timeframes">
+            <span id="radarRefreshIcon">🔄</span>
+            <span class="hidden sm:inline text-[11px]">Rescan</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Radar Carousel -->
+      <div class="relative group">
+        <div id="radarCardsContainer" class="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none snap-x scroll-smooth">
+          <div class="text-xs text-slate-500 py-3 italic">Scanning cross-market signals...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
     <!-- TIER 2: THE MAIN TRADING DESK (2-COLUMN UNIFIED FLOW)                      -->
     <!-- Left: 6-TF Ribbon + Lightweight Chart + 3-Step Strategy & Scoring Matrix  -->
     <!-- Right: Complete Active Execution Ticket (Hero Banner + Risk Calculator)  -->
@@ -348,6 +400,38 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span id="progStatusText" class="text-amber-300 font-extrabold">Progress: 0%</span>
                 <span id="progDistTp1">-- pt to TP1</span>
               </div>
+            </div>
+          </div>
+
+          <!-- Live Entry Zone Proximity Meter & 1-Click Order Execution -->
+          <div id="entryProximityBox" class="p-3 rounded-xl bg-slate-950/95 border border-slate-800 space-y-2 transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <span id="entryProximityDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span>Optimal Entry Proximity</span>
+              </span>
+              <span id="entryProximityBadge" class="mono text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                CALCULATING...
+              </span>
+            </div>
+            <div class="flex items-baseline justify-between">
+              <div>
+                <span id="entryProximityTitle" class="text-xs sm:text-sm font-black text-white">Monitoring Distance to CE 50%</span>
+                <p id="entryProximitySubtitle" class="text-[10px] text-slate-400 mt-0.5">Optimal limit order positioned at Consequent Encroachment</p>
+              </div>
+              <div class="text-right">
+                <div id="entryProximityDiff" class="mono text-xs sm:text-sm font-extrabold text-amber-300">-- pt</div>
+                <div id="entryProximityPct" class="mono text-[9px] text-slate-400">--% from limit</div>
+              </div>
+            </div>
+            <!-- Quick 1-Click Order Execution Bar -->
+            <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-800/80">
+              <button id="btnExecMarket" onclick="executeMarketCopy()" class="py-1.5 px-2 rounded-lg text-[10px] sm:text-xs font-black bg-slate-800 hover:bg-slate-700 text-white transition flex items-center justify-center gap-1 shadow-sm active:scale-[0.98]">
+                <span>⚡ Copy Market Order</span>
+              </button>
+              <button id="btnExecLimit" onclick="executeLimitCopy()" class="py-1.5 px-2 rounded-lg text-[10px] sm:text-xs font-black bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 transition flex items-center justify-center gap-1 shadow-sm active:scale-[0.98]">
+                <span>🎯 Copy CE Limit Order</span>
+              </button>
             </div>
           </div>
 
@@ -973,6 +1057,11 @@ TELEGRAM_MIN_SCORE=90</pre>
     let priceChart, candleSeries, ema50Series, ema200Series;
     let activePriceLines = [];
 
+    // Cross-Market Signal Radar State
+    let radarSignals = [];
+    let radarFilter = 'ALL';
+    let isRadarScanning = false;
+
     const TF_LABELS = {
       '1m': 'M1 Scalp',
       '5m': 'M5 Scalp',
@@ -1017,6 +1106,188 @@ TELEGRAM_MIN_SCORE=90</pre>
         const map = { XAUUSD: 'XAU/USD MASTER', BTCUSD: 'BTC/USD MASTER', ETHUSD: 'ETH/USD MASTER', SOLUSD: 'SOL/USD MASTER' };
         headerTitle.textContent = map[currentSymbol] || currentSymbol + ' MASTER';
       }
+    }
+
+    function switchSymbolAndTf(sym, tf) {
+      let changed = false;
+      if (currentSymbol !== sym) {
+        currentSymbol = sym;
+        localStorage.setItem('selectedSymbol', sym);
+        updateSymbolButtons();
+        lastKnownBid = null;
+        lastGridSig = '';
+        lastTableSig = '';
+        lastHighConfSig = '';
+        connectRealtimeTickStream();
+        changed = true;
+      }
+      if (currentTf !== tf) {
+        currentTf = tf;
+        ['1m', '5m', '15m', '30m', '1h', '4h'].forEach((id) => {
+          const btn = document.getElementById('tf-' + id);
+          if (!btn) return;
+          btn.className = id === tf
+            ? 'px-2.5 py-1.5 rounded-md text-xs font-bold transition-all bg-amber-400 text-slate-950'
+            : 'px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white';
+        });
+        changed = true;
+      }
+      loadSignalData();
+      renderSignalRadar();
+      const hero = document.getElementById('heroBanner');
+      if (hero) {
+        hero.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function setRadarFilter(filter) {
+      radarFilter = filter;
+      const map = { ALL: 'radarFilterAll', IN_ZONE: 'radarFilterInZone', A_PLUS: 'radarFilterAPlus', ACTIVE: 'radarFilterActive' };
+      ['ALL', 'IN_ZONE', 'A_PLUS', 'ACTIVE'].forEach((f) => {
+        const btn = document.getElementById(map[f]);
+        if (!btn) return;
+        if (f === filter) {
+          btn.className = 'px-2 py-1 rounded font-black bg-amber-400 text-slate-950 transition';
+        } else {
+          btn.className = 'px-2 py-1 rounded font-bold text-slate-400 hover:text-white transition';
+        }
+      });
+      renderSignalRadar();
+    }
+
+    async function fetchSignalRadar() {
+      if (isRadarScanning) return;
+      isRadarScanning = true;
+      const refreshIcon = document.getElementById('radarRefreshIcon');
+      if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+      try {
+        const res = await fetch('/api/radar');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.signals && Array.isArray(data.signals)) {
+          radarSignals = data.signals;
+          renderSignalRadar();
+          const badge = document.getElementById('radarCountBadge');
+          if (badge && data.summary) {
+            badge.textContent = data.summary.totalSignals + ' Signals (' + data.summary.inZoneCount + ' In Zone • ' + data.summary.aPlusCount + ' A+)';
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch radar signals:', err);
+      } finally {
+        isRadarScanning = false;
+        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    function renderSignalRadar() {
+      const container = document.getElementById('radarCardsContainer');
+      if (!container) return;
+
+      let filtered = radarSignals;
+      if (radarFilter === 'IN_ZONE') {
+        filtered = radarSignals.filter((s) => s.proximityState === 'IN_ZONE');
+      } else if (radarFilter === 'A_PLUS') {
+        filtered = radarSignals.filter((s) => s.grade === 'A+' || s.score >= 90);
+      } else if (radarFilter === 'ACTIVE') {
+        filtered = radarSignals.filter((s) => s.isActivated || s.proximityState === 'ACTIVE');
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = [
+          '<div class="w-full py-5 text-center text-xs text-slate-400 panel rounded-xl border border-dashed border-slate-800">',
+          '<span>No setups found matching filter: <strong class="text-amber-300">' + radarFilter + '</strong>. Tap </span>',
+          '<button onclick="setRadarFilter(\\'ALL\\')" class="text-amber-400 font-bold underline">All Setups</button>',
+          '<span> to view all live market signals.</span>',
+          '</div>'
+        ].join('');
+        return;
+      }
+
+      container.innerHTML = filtered.map((s) => {
+        const isSelected = s.symbol === currentSymbol && s.timeframe === currentTf;
+        const isZone = s.proximityState === 'IN_ZONE';
+        const isActive = s.proximityState === 'ACTIVE' || s.isActivated;
+        const isApproaching = s.proximityState === 'APPROACHING';
+        const isBuy = s.direction === 'BUY';
+
+        let cardBorder = 'border-slate-800 hover:border-slate-600';
+        let cardBg = 'bg-slate-900/90';
+        if (isSelected) {
+          cardBorder = 'border-amber-400 ring-1 ring-amber-400/40';
+          cardBg = 'bg-amber-400/5';
+        } else if (isZone) {
+          cardBorder = 'border-emerald-500/60 shadow-lg shadow-emerald-500/10';
+          cardBg = 'bg-emerald-950/20';
+        } else if (isActive) {
+          cardBorder = 'border-sky-500/40';
+          cardBg = 'bg-sky-950/20';
+        }
+
+        let proxBadgeHtml = '';
+        if (isZone) {
+          proxBadgeHtml = '<span class="px-2 py-0.5 rounded text-[9px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>IN ENTRY ZONE</span>';
+        } else if (isActive) {
+          proxBadgeHtml = '<span class="px-2 py-0.5 rounded text-[9px] font-black mono bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>' + s.proximityBadge + '</span>';
+        } else if (isApproaching) {
+          proxBadgeHtml = '<span class="px-2 py-0.5 rounded text-[9px] font-black mono bg-amber-500/20 text-amber-300 border border-amber-500/40">⏳ SET LIMIT</span>';
+        } else {
+          proxBadgeHtml = '<span class="px-2 py-0.5 rounded text-[9px] font-black mono bg-slate-800 text-slate-400">' + s.proximityBadge + '</span>';
+        }
+
+        const dirBadge = isBuy
+          ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 BUY</span>'
+          : '<span class="px-1.5 py-0.5 rounded text-[10px] font-black mono bg-rose-500/20 text-rose-300 border border-rose-500/30">🔴 SELL</span>';
+
+        const gradeBadge = (s.grade === 'A+' || s.score >= 90)
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black mono bg-amber-400 text-slate-950 shadow-sm">⭐ ' + s.grade + ' ' + s.score + 'pts</span>'
+          : '<span class="px-1.5 py-0.5 rounded text-[9px] font-black mono bg-slate-800 text-slate-300">' + s.grade + ' ' + s.score + 'pts</span>';
+
+        return [
+          '<div onclick="switchSymbolAndTf(\\'' + s.symbol + '\\', \\'' + s.timeframe + '\\')" class="min-w-[270px] sm:min-w-[290px] max-w-[310px] shrink-0 p-3 rounded-xl border ' + cardBorder + ' ' + cardBg + ' space-y-2 cursor-pointer transition active:scale-[0.99] snap-start">',
+          '<div class="flex items-center justify-between">',
+          '<div class="flex items-center gap-1.5">',
+          '<span class="text-base">' + s.symbolIcon + '</span>',
+          '<span class="font-extrabold text-xs text-white">' + s.symbolName + '</span>',
+          '<span class="px-1.5 py-0.2 rounded text-[10px] font-black mono bg-slate-800 text-amber-300">' + s.timeframe.toUpperCase() + '</span>',
+          '</div>',
+          '<div class="flex items-center gap-1">',
+          dirBadge,
+          '</div>',
+          '</div>',
+
+          '<div class="flex items-center justify-between text-xs">',
+          gradeBadge,
+          proxBadgeHtml,
+          '</div>',
+
+          '<div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800/80 grid grid-cols-2 gap-1.5 text-[11px] mono">',
+          '<div>',
+          '<span class="text-[9px] text-slate-500 uppercase block">CE 50% Limit</span>',
+          '<span class="font-black text-amber-300">$' + s.pullbackEntry.toFixed(2) + '</span>',
+          '</div>',
+          '<div class="text-right">',
+          '<span class="text-[9px] text-slate-500 uppercase block">Distance</span>',
+          '<span class="font-bold ' + (isZone ? 'text-emerald-400' : 'text-slate-300') + '">' + s.distanceLabel + '</span>',
+          '</div>',
+          '<div class="pt-1 border-t border-slate-800/60">',
+          '<span class="text-[9px] text-slate-500 uppercase block">Hard SL</span>',
+          '<span class="font-bold text-rose-400">$' + s.stopLoss.toFixed(2) + '</span>',
+          '</div>',
+          '<div class="pt-1 border-t border-slate-800/60 text-right">',
+          '<span class="text-[9px] text-slate-500 uppercase block">Target 1</span>',
+          '<span class="font-bold text-emerald-400">$' + s.tp1.toFixed(2) + '</span>',
+          '</div>',
+          '</div>',
+
+          '<button onclick="event.stopPropagation(); switchSymbolAndTf(\\'' + s.symbol + '\\', \\'' + s.timeframe + '\\')" class="w-full py-1.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1 ' + (isZone ? 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-md shadow-emerald-400/20' : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700') + '">',
+          '<span>⚡ Inspect & Trade</span>',
+          '<span>→</span>',
+          '</button>',
+          '</div>'
+        ].join('');
+      }).join('');
     }
 
     // Scroll Persistence & DOM Stabilization State
@@ -1969,6 +2240,7 @@ TELEGRAM_MIN_SCORE=90</pre>
 
       updateRiskCalc();
       updateTradeProgressBar(lc, et, data.currentPrice);
+      try { updateEntryProximityMeter(data, lc, et); } catch (e) { console.error('proximity err:', e); }
 
       // Rule 3: Quantitative 100-Point Scoring Matrix
       if (data.scoringMatrix) {
@@ -2172,6 +2444,119 @@ TELEGRAM_MIN_SCORE=90</pre>
       document.getElementById('progDistSl').textContent = pipsToSl + ' ' + uInfo.unit + ' to SL';
       document.getElementById('progDistTp1').textContent = pipsToTp1 + ' ' + uInfo.unit + ' to TP1';
       document.getElementById('progStatusText').textContent = pct + '% to TP1';
+    }
+
+    function updateEntryProximityMeter(data, lc, et) {
+      const box = document.getElementById('entryProximityBox');
+      const badge = document.getElementById('entryProximityBadge');
+      const dot = document.getElementById('entryProximityDot');
+      const title = document.getElementById('entryProximityTitle');
+      const sub = document.getElementById('entryProximitySubtitle');
+      const diffEl = document.getElementById('entryProximityDiff');
+      const pctEl = document.getElementById('entryProximityPct');
+      if (!box || !badge || !dot || !title || !diffEl) return;
+
+      const currentPrice = data.currentPrice;
+      const pullbackEntry = (data.tradeSetup && data.tradeSetup.optimalPullbackEntry) || (lc && lc.entryPrice) || (et && et.recommendedEntry) || currentPrice;
+      const unitInfo = getAssetUnitInfo();
+      const pointsDiff = Math.abs(currentPrice - pullbackEntry);
+      const pipsDiff = pointsDiff * (unitInfo.mult || 10);
+      const pctDiff = (pointsDiff / (currentPrice || 1)) * 100;
+
+      if (lc && lc.isActivated) {
+        box.className = 'p-3 rounded-xl bg-emerald-950/20 border-2 border-emerald-500/50 space-y-2 transition-all shadow-md';
+        badge.className = 'mono text-[10px] font-black px-2 py-0.5 rounded bg-emerald-500 text-slate-950 flex items-center gap-1';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>ACTIVE IN FLIGHT';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        title.textContent = lc.hitTp1 ? '🏆 Target 1 Hit — SL at Breakeven' : '⚡ Live Position Running';
+        title.className = 'text-xs sm:text-sm font-black text-emerald-300';
+        sub.textContent = lc.pnlStatusText || 'Targeting TP1 & TP2 runners';
+        diffEl.textContent = lc.floatingPips ? (lc.floatingPips >= 0 ? '+' : '') + lc.floatingPips.toFixed(1) + ' ' + unitInfo.unit : '$' + lc.entryPrice.toFixed(2);
+        diffEl.className = 'mono text-xs sm:text-sm font-extrabold ' + ((lc.floatingDollarsPerOz || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400');
+        pctEl.textContent = 'Active Execution';
+      } else if (pctDiff <= 0.08 || (currentSymbol === 'BTCUSD' ? pointsDiff <= 25 : pointsDiff <= 0.35)) {
+        box.className = 'p-3 rounded-xl bg-emerald-950/40 border-2 border-emerald-400 space-y-2 transition-all shadow-lg shadow-emerald-500/10';
+        badge.className = 'mono text-[10px] font-black px-2.5 py-0.5 rounded bg-emerald-400 text-slate-950 flex items-center gap-1 animate-pulse';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-950"></span>READY TO ENTER NOW';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+        title.textContent = '🔥 Price is in Optimal FVG Entry Zone!';
+        title.className = 'text-xs sm:text-sm font-black text-emerald-300';
+        sub.textContent = 'Spot price is at Consequent Encroachment (CE 50%). Execute Market or Limit order immediately!';
+        diffEl.textContent = pointsDiff.toFixed(2) + ' pt (' + pipsDiff.toFixed(0) + ' ' + unitInfo.unit + ')';
+        diffEl.className = 'mono text-xs sm:text-sm font-extrabold text-emerald-400';
+        pctEl.textContent = pctDiff.toFixed(2) + '% from limit';
+      } else if (pctDiff <= 0.35 || (currentSymbol === 'BTCUSD' ? pointsDiff <= 100 : pointsDiff <= 1.8)) {
+        box.className = 'p-3 rounded-xl bg-amber-950/30 border-2 border-amber-400/80 space-y-2 transition-all shadow-md';
+        badge.className = 'mono text-[10px] font-black px-2 py-0.5 rounded bg-amber-400 text-slate-950';
+        badge.textContent = '⏳ PLACE LIMIT ORDER';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        title.textContent = 'Approaching CE 50% Pullback Level';
+        title.className = 'text-xs sm:text-sm font-black text-amber-300';
+        sub.textContent = 'Setup confirmed! Place pending Limit Order at $' + pullbackEntry.toFixed(2) + ' and wait for fill.';
+        diffEl.textContent = pointsDiff.toFixed(2) + ' pt (' + pipsDiff.toFixed(0) + ' ' + unitInfo.unit + ')';
+        diffEl.className = 'mono text-xs sm:text-sm font-extrabold text-amber-300';
+        pctEl.textContent = pctDiff.toFixed(2) + '% to limit';
+      } else if (et && et.isLate) {
+        box.className = 'p-3 rounded-xl bg-slate-900/90 border border-slate-700 space-y-2 transition-all';
+        badge.className = 'mono text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-400';
+        badge.textContent = '⚠️ EXTENDED — WAIT RETEST';
+        dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        title.textContent = 'Price Extended Beyond Origin';
+        title.className = 'text-xs sm:text-sm font-black text-slate-200';
+        sub.textContent = 'Do not chase market price! Wait for retest pullback to CE 50% ($' + pullbackEntry.toFixed(2) + ').';
+        diffEl.textContent = '+' + pointsDiff.toFixed(2) + ' pt extended';
+        diffEl.className = 'mono text-xs sm:text-sm font-extrabold text-slate-400';
+        pctEl.textContent = pctDiff.toFixed(2) + '% beyond';
+      } else {
+        box.className = 'p-3 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2 transition-all';
+        badge.className = 'mono text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-400';
+        badge.textContent = '📋 PENDING PULLBACK';
+        dot.className = 'w-2 h-2 rounded-full bg-slate-600';
+        title.textContent = 'Awaiting Retest to FVG Midpoint';
+        title.className = 'text-xs sm:text-sm font-black text-slate-300';
+        sub.textContent = 'Pending CE 50% Limit level positioned at $' + pullbackEntry.toFixed(2);
+        diffEl.textContent = pointsDiff.toFixed(2) + ' pt';
+        diffEl.className = 'mono text-xs sm:text-sm font-extrabold text-slate-300';
+        pctEl.textContent = pctDiff.toFixed(2) + '% away';
+      }
+    }
+
+    function executeMarketCopy() {
+      if (!currentAnalysis || !currentAnalysis.tradeSetup) {
+        showToast('⚠️ No active setup to execute');
+        return;
+      }
+      const ts = currentAnalysis.tradeSetup;
+      const uInfo = getAssetUnitInfo();
+      const dir = ts.direction === 'LONG' ? 'BUY' : 'SELL';
+      const price = currentAnalysis.currentPrice;
+      const lots = document.getElementById('calcLots')?.textContent || '0.01 Lots';
+      const sl = ts.stopLoss.toFixed(2);
+      const tp1 = ts.tp1.toFixed(2);
+      const tp2 = ts.tp2.toFixed(2);
+      const text = uInfo.label + ' ' + dir + ' MARKET @ $' + price.toFixed(2) + ' | SL: $' + sl + ' | TP1: $' + tp1 + ' | TP2: $' + tp2 + ' | Vol: ' + lots;
+      navigator.clipboard.writeText(text);
+      try { playChime('chime'); } catch {}
+      showToast('⚡ Copied Market Order: ' + dir + ' @ $' + price.toFixed(2));
+    }
+
+    function executeLimitCopy() {
+      if (!currentAnalysis || !currentAnalysis.tradeSetup) {
+        showToast('⚠️ No active setup to execute');
+        return;
+      }
+      const ts = currentAnalysis.tradeSetup;
+      const uInfo = getAssetUnitInfo();
+      const dir = ts.direction === 'LONG' ? 'BUY LIMIT' : 'SELL LIMIT';
+      const limitPrice = (ts.optimalPullbackEntry || ts.entry).toFixed(2);
+      const lots = document.getElementById('calcLots')?.textContent || '0.01 Lots';
+      const sl = ts.stopLoss.toFixed(2);
+      const tp1 = ts.tp1.toFixed(2);
+      const tp2 = ts.tp2.toFixed(2);
+      const text = uInfo.label + ' ' + dir + ' (CE 50% FVG) @ $' + limitPrice + ' | SL: $' + sl + ' | TP1: $' + tp1 + ' | TP2: $' + tp2 + ' | Vol: ' + lots;
+      navigator.clipboard.writeText(text);
+      try { playChime('chime'); } catch {}
+      showToast('🎯 Copied CE Limit Order: ' + dir + ' @ $' + limitPrice);
     }
 
     function getNextTimeframe() {
@@ -3290,6 +3675,10 @@ TELEGRAM_MIN_SCORE=90</pre>
       } else if (key === 'M') {
         e.preventDefault();
         toggleAudio();
+      } else if (key === 'R') {
+        e.preventDefault();
+        fetchSignalRadar();
+        showToast('🎯 Radar Rescanned');
       } else if (key === '?' || (e.shiftKey && key === '/')) {
         e.preventDefault();
         toggleHotkeysModal();
@@ -3308,8 +3697,10 @@ TELEGRAM_MIN_SCORE=90</pre>
       try { initCharts(); } catch (e) { console.error('initCharts err:', e); }
       try { connectRealtimeTickStream(); } catch (e) { console.error('stream err:', e); }
       try { fetchD1History(); } catch (e) { console.error('fetchD1History err:', e); }
+      try { fetchSignalRadar(); } catch (e) { console.error('fetchSignalRadar err:', e); }
       loadSignalData();
       setInterval(loadSignalData, 2000);
+      setInterval(fetchSignalRadar, 5000);
       setInterval(() => {
         if (mtfViewMode === 'journal') fetchD1History();
       }, 10000);

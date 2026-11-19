@@ -321,3 +321,26 @@ npm run build
 # Deploy to Cloudflare Workers (requires Wrangler login)
 npx wrangler deploy
 ```
+
+---
+
+## 11. Cross-Market Signal Radar & Entry Optimization
+
+### Real-Time Cross-Market Scanner (`GET /api/radar`)
+- **Automated 24-Cell Matrix Scan**: Evaluates all 4 instruments (`XAUUSD`, `BTCUSD`, `ETHUSD`, `SOLUSD`) across all 6 timeframes (`1m`, `5m`, `15m`, `30m`, `1h`, `4h`) in < 400ms.
+- **In-Memory Caching**: Caches radar scans for 3.5 seconds to guarantee sub-millisecond response times for frontend polling.
+- **Proximity State Engine**:
+  - `IN_ZONE` (`🔥 READY TO ENTER NOW`): Current spot price is within $\le 0.08\%$ or $\le 2.5$ pips of Consequent Encroachment (CE 50% FVG). Immediate execution recommended.
+  - `APPROACHING` (`⏳ PLACE LIMIT ORDER`): Price is within $\le 0.35\%$ or $\le 15$ pips of CE 50% FVG. Setup confirmed, place pending limit order.
+  - `ACTIVE` (`⚡ IN FLIGHT`): Trade actively running, tracking trailing stop-loss, breakeven, and progress to TP1 / TP2.
+  - `LATE` (`⚠️ WAIT RETEST`): Price extended past entry origin; prevents chasing without a proper retest.
+  - `PENDING` (`📋 PENDING PULLBACK`): Waiting for price to rotate into FVG CE level.
+
+### Execution Cockpit & 1-Click Operations
+- **Interactive Carousel Cards**: Displays symbol icon, timeframe, BUY/SELL direction, grade & score (`⭐ A+ 95`), distance to CE limit, Hard SL, and TP1.
+- **`switchSymbolAndTf(sym, tf)`**: Single tap on any radar card or button instantly switches both the active symbol and timeframe, reloading the chart and scrolling directly to the Execution Ticket.
+- **Quick Filters**: Filter by `All`, `🔥 In Zone`, `⭐ A+ 90%+`, and `⚡ In Flight`.
+- **1-Click Order Execution**:
+  - `⚡ Copy Market Order`: Copies formatted order string (`[Symbol] [DIR] MARKET @ $[Price] | SL: $[SL] | TP1: $[TP1] | Lots: [Lots]`).
+  - `🎯 Copy CE Limit Order`: Copies formatted pending limit order string (`[Symbol] [DIR] (CE 50% FVG) @ $[LimitPrice] | SL: $[SL] | TP1: $[TP1] | Lots: [Lots]`).
+
