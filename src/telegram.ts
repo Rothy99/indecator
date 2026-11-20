@@ -390,14 +390,10 @@ export async function checkAndBroadcastSetup(signal: {
     return null;
   }
 
-  // High-Confidence or Actionable Setup Filter (Grade A+, Grade A, or score >= minScore, or Actionable)
-  const isBroadcastable =
-    signal.grade === 'A+' ||
-    signal.grade === 'A' ||
-    signal.score >= cfg.minScore ||
-    signal.isActionable;
+  // Strict Grade Filter: Push ONLY Grade A+ and Grade A setups to Telegram
+  const isAllowedGrade = signal.grade === 'A+' || signal.grade === 'A';
 
-  if (!isBroadcastable) {
+  if (!isAllowedGrade) {
     return null;
   }
 

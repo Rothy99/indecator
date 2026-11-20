@@ -649,6 +649,16 @@ app.post('/api/telegram/push-now', async (c: any) => {
     const qm = analysis.scoringMatrix;
     const ts = analysis.tradeSetup;
 
+    const isAllowedGrade = analysis.setupGrade === 'A+' || analysis.setupGrade === 'A';
+    if (!isAllowedGrade && !c.req.query('force')) {
+      return c.json({
+        success: false,
+        error: `Current ${tf.toUpperCase()} setup is Grade ${analysis.setupGrade || 'C'} (${analysis.score || 50}/100 PTS). Only Grade A+ and Grade A setups are pushed.`,
+        grade: analysis.setupGrade || 'C',
+        score: analysis.score || 50
+      }, 200);
+    }
+
     const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
     const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
     const orderType = isEnterNow
@@ -816,15 +826,10 @@ async function runAutonomousTelegramScanner() {
       const ts = analysis.tradeSetup;
       const lc = ts?.entryTiming?.lifecycle;
 
-      // Broadcast real-time setup when confirmed on 1h or 15m
-      const isConfirmedSetup = ts && (
-        analysis.setupGrade === 'A+' ||
-        analysis.setupGrade === 'A' ||
-        (qm && qm.totalScore >= cfg.minScore) ||
-        ts.isActionable
-      );
+      // Strictly push ONLY Grade A+ and Grade A setups on 1h and 15m
+      const isAllowedGrade = ts && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
 
-      if (isConfirmedSetup) {
+      if (isAllowedGrade) {
         const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
         const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
         const orderType = isEnterNow
