@@ -1203,6 +1203,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <span>🚀 Send Test</span>
           </button>
         </div>
+        <div class="pt-2 border-t border-slate-800">
+          <button id="tgPushNowBtn" onclick="pushRealtimeEntryAlert()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.98]">
+            <span>⚡ Push Live Entry Analysis to Telegram</span>
+          </button>
+        </div>
         <div id="tgTestResult" class="text-[11px] font-mono hidden p-2 rounded-lg"></div>
       </div>
 
@@ -4371,6 +4376,48 @@ TELEGRAM_MIN_SCORE=90</pre>
         if (btn) {
           btn.disabled = false;
           btn.innerHTML = '<span>🚀 Send Test</span>';
+        }
+      }
+    }
+
+    async function pushRealtimeEntryAlert() {
+      const btn = document.getElementById('tgPushNowBtn');
+      const resDiv = document.getElementById('tgTestResult');
+      const tf = currentTf || '15m';
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳ Analyzing & Pushing...</span>';
+      }
+      if (resDiv) {
+        resDiv.className = 'text-[11px] font-mono hidden p-2 rounded-lg';
+        resDiv.textContent = '';
+      }
+
+      try {
+        const res = await fetch('/api/telegram/push-now?tf=' + tf, { method: 'POST' });
+        const data = await res.json();
+        if (resDiv) {
+          resDiv.classList.remove('hidden');
+          if (data.success) {
+            resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            resDiv.textContent = '✅ Pushed ' + tf.toUpperCase() + ' ' + (data.orderType || 'ENTRY') + ' @ $' + (data.entry ? data.entry.toFixed(2) : '--') + ' to Telegram!';
+            fetchTelegramStatus();
+          } else {
+            resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40';
+            resDiv.textContent = '❌ Failed: ' + (data.error || 'Check bot permissions');
+          }
+        }
+      } catch (err) {
+        if (resDiv) {
+          resDiv.classList.remove('hidden');
+          resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40';
+          resDiv.textContent = '❌ Network Error: ' + err.message;
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>⚡ Push Live Entry Analysis to Telegram</span>';
         }
       }
     }

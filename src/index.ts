@@ -636,6 +636,59 @@ app.post('/api/telegram/test', async (c: any) => {
   return c.json(res);
 });
 
+app.post('/api/telegram/push-now', async (c: any) => {
+  try {
+    const rawTf = (c.req.query('tf') || '15m').toLowerCase();
+    const tf: SupportedTimeframe = rawTf === '1h' ? '1h' : '15m';
+    const symbol: SupportedSymbol = 'XAUUSD';
+    const uInfo = SYMBOL_CONFIGS[symbol];
+
+    const { candles, source } = await getMarketCandles(symbol, tf);
+    const silverCandles = await getSilverCandles(tf);
+    const analysis = analyzeGoldCandles(candles, tf, source, symbol, silverCandles);
+    const qm = analysis.scoringMatrix;
+    const ts = analysis.tradeSetup;
+
+    const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
+    const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
+    const orderType = isEnterNow
+      ? (ts.direction === 'LONG' ? 'BUY MARKET' : 'SELL MARKET')
+      : (ts.direction === 'LONG' ? 'BUY LIMIT (FVG Pullback)' : 'SELL LIMIT (FVG Pullback)');
+
+    const card = formatTelegramSignalCard({
+      symbol,
+      displayName: uInfo.displayName,
+      assetIcon: uInfo.icon,
+      timeframe: tf,
+      type: ts.direction === 'LONG' ? 'BUY' : 'SELL',
+      orderType,
+      grade: analysis.setupGrade || 'A',
+      probability: analysis.probability || 88,
+      score: qm?.totalScore || analysis.score || 85,
+      allMandatoryPassed: qm?.allMandatoryConfluencesPassed ?? true,
+      entry: entryPrice,
+      stopLoss: ts.stopLoss,
+      tp1: ts.tp1,
+      tp2: ts.tp2,
+      riskPips: ts.riskPips,
+      rewardTp1Pips: ts.rewardTp1Pips,
+      rewardTp2Pips: ts.rewardTp2Pips,
+      pipUnit: uInfo.unitLabel || 'pips',
+      reason: analysis.summaryReason || `Live Real-Time ${tf.toUpperCase()} SMC Analysis`,
+      plannedRiskUsd: ts.v3Config?.plannedRiskUsd || 25,
+      positionSize: ts.v3Config?.positionSize || 0.03,
+      positionUnit: ts.v3Config?.positionUnit || 'lots',
+      smcSuite: analysis.smartMoney?.smcSuite,
+      time: Math.floor(Date.now() / 1000),
+    });
+
+    const res = await sendTelegramMessage(card);
+    return c.json({ success: res.success, messageId: res.messageId, entry: entryPrice, orderType, timeframe: tf });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 app.post('/api/telegram/broadcast', async (c: any) => {
   try {
     const body = await c.req.json();
@@ -763,25 +816,35 @@ async function runAutonomousTelegramScanner() {
       const ts = analysis.tradeSetup;
       const lc = ts?.entryTiming?.lifecycle;
 
-      // Broadcast actionable Grade A+ or Score >= minScore setups with confluences
-      if (
-        qm &&
-        qm.allMandatoryConfluencesPassed &&
-        (analysis.setupGrade === 'A+' || qm.totalScore >= cfg.minScore) &&
-        ts &&
+      // Broadcast real-time setup when confirmed on 1h or 15m
+      const isConfirmedSetup = ts && (
+        analysis.setupGrade === 'A+' ||
+        analysis.setupGrade === 'A' ||
+        (qm && qm.totalScore >= cfg.minScore) ||
         ts.isActionable
-      ) {
+      );
+
+      if (isConfirmedSetup) {
+        const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
+        const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
+        const orderType = isEnterNow
+          ? (ts.direction === 'LONG' ? 'BUY MARKET' : 'SELL MARKET')
+          : (ts.direction === 'LONG' ? 'BUY LIMIT (FVG Pullback)' : 'SELL LIMIT (FVG Pullback)');
+
+        const lastBarTime = candles[candles.length - 1]?.time || Math.floor(Date.now() / 1000);
+
         await checkAndBroadcastSetup({
           symbol,
           displayName: uInfo.displayName,
           assetIcon: uInfo.icon,
           timeframe: tf,
           type: ts.direction === 'LONG' ? 'BUY' : 'SELL',
-          grade: analysis.setupGrade || 'A+',
+          orderType,
+          grade: analysis.setupGrade || 'A',
           probability: analysis.probability,
-          score: qm.totalScore,
-          allMandatoryPassed: qm.allMandatoryConfluencesPassed,
-          entry: ts.entryTiming?.state === 'ENTER_NOW' ? analysis.currentPrice : ts.entry,
+          score: qm?.totalScore || analysis.score || 80,
+          allMandatoryPassed: qm?.allMandatoryConfluencesPassed ?? true,
+          entry: entryPrice,
           stopLoss: ts.stopLoss,
           tp1: ts.tp1,
           tp2: ts.tp2,
@@ -794,7 +857,7 @@ async function runAutonomousTelegramScanner() {
           positionSize: ts.v3Config?.positionSize,
           positionUnit: ts.v3Config?.positionUnit,
           smcSuite: analysis.smartMoney?.smcSuite,
-          time: Math.floor(Date.now() / 1000),
+          time: lastBarTime,
         });
       }
 

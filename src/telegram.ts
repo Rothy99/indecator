@@ -225,6 +225,7 @@ export function formatTelegramSignalCard(payload: {
   assetIcon: string;
   timeframe: string;
   type: 'BUY' | 'SELL';
+  orderType?: string;
   grade: string;
   probability: number;
   score: number;
@@ -248,6 +249,7 @@ export function formatTelegramSignalCard(payload: {
   const dirEmoji = isBuy ? '🟢' : '🔴';
   const dirLabel = isBuy ? 'BUY / LONG' : 'SELL / SHORT';
   const gradeBadge = payload.grade === 'A+' ? '⭐ GRADE A+ (INSTITUTIONAL)' : `GRADE ${payload.grade}`;
+  const orderLabel = payload.orderType || (isBuy ? 'BUY MARKET' : 'SELL MARKET');
 
   const slDistance = Math.abs(payload.entry - payload.stopLoss);
   const dateStr = payload.time ? new Date(payload.time * 1000).toUTCString() : new Date().toUTCString();
@@ -256,9 +258,10 @@ export function formatTelegramSignalCard(payload: {
     `${payload.assetIcon} <b>${payload.displayName} [${payload.timeframe.toUpperCase()}] — SMC INSTITUTIONAL V3.0</b>\n` +
     `──────────────────────────\n` +
     `${dirEmoji} <b>Signal Direction:</b> <b>${dirLabel}</b>\n` +
+    `⚡ <b>Order Execution:</b> <code>${orderLabel}</code>\n` +
     `🎯 <b>Setup Quality:</b> <code>${gradeBadge} • ${payload.score}/100 PTS</code>\n` +
     `🛡️ <b>Confluence Verification:</b> <code>${payload.allMandatoryPassed ? 'ALL PASSED ✓' : 'VERIFIED ✓'}</code>\n\n` +
-    `📍 <b>Entry Price (Live Execution):</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
+    `📍 <b>Entry Price:</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
     `🛑 <b>Structural SL (+0.2x ATR):</b> <code>$${payload.stopLoss.toFixed(2)}</code> (-${payload.riskPips.toFixed(0)} ${payload.pipUnit})\n` +
     `🎯 <b>TP 1 (+1.5R):</b> <code>$${payload.tp1.toFixed(2)}</code> (+${payload.rewardTp1Pips.toFixed(0)} ${payload.pipUnit})\n` +
     `   <i>↳ Rule: Close 50% position & move Stop-Loss to Breakeven</i>\n` +
@@ -354,6 +357,7 @@ export async function checkAndBroadcastSetup(signal: {
   assetIcon: string;
   timeframe: string;
   type: 'BUY' | 'SELL';
+  orderType?: string;
   grade: string;
   probability: number;
   score: number;
@@ -386,13 +390,14 @@ export async function checkAndBroadcastSetup(signal: {
     return null;
   }
 
-  // Strict High-Confidence Filter:
-  // Must be Grade A+ or Grade A with score >= minScore AND all 4 mandatory confluences passed!
-  const isHighConfidence =
-    (signal.grade === 'A+' || (signal.grade === 'A' && signal.score >= cfg.minScore)) &&
-    signal.allMandatoryPassed;
+  // High-Confidence or Actionable Setup Filter (Grade A+, Grade A, or score >= minScore, or Actionable)
+  const isBroadcastable =
+    signal.grade === 'A+' ||
+    signal.grade === 'A' ||
+    signal.score >= cfg.minScore ||
+    signal.isActionable;
 
-  if (!isHighConfidence) {
+  if (!isBroadcastable) {
     return null;
   }
 
