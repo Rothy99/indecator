@@ -798,8 +798,8 @@ async function runAutonomousTelegramScanner() {
         });
       }
 
-      // 1. Broadcast trade activation (Entry Tapped & Filled)
-      if (lc && lc.isActivated) {
+      // 1. Broadcast trade activation (Entry Tapped & Filled) - only for fresh activations within 5 minutes
+      if (lc && lc.isActivated && lc.activatedTime && (Date.now() / 1000 - lc.activatedTime) < 300) {
         await checkAndBroadcastMilestone({
           symbol,
           displayName: uInfo.displayName,
