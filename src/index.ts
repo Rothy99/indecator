@@ -639,7 +639,7 @@ app.post('/api/telegram/test', async (c: any) => {
 app.post('/api/telegram/push-now', async (c: any) => {
   try {
     const rawTf = (c.req.query('tf') || '15m').toLowerCase();
-    const tf: SupportedTimeframe = rawTf === '1h' ? '1h' : '15m';
+    const tf: SupportedTimeframe = rawTf === '1h' ? '1h' : rawTf === '5m' ? '5m' : '15m';
     const symbol: SupportedSymbol = 'XAUUSD';
     const uInfo = SYMBOL_CONFIGS[symbol];
 
@@ -829,7 +829,7 @@ async function runAutonomousTelegramScanner() {
   try {
     const symbol: SupportedSymbol = 'XAUUSD';
     const uInfo = SYMBOL_CONFIGS[symbol];
-    const scanTfs: SupportedTimeframe[] = ['1h', '15m'];
+    const scanTfs: SupportedTimeframe[] = ['1h', '15m', '5m'];
 
     for (const tf of scanTfs) {
       const { candles, source } = await getMarketCandles(symbol, tf);

@@ -31,7 +31,7 @@ export function getTelegramConfig(): TelegramConfig {
   const chatId = process.env.TELEGRAM_CHAT_ID?.trim() || null;
   const autoBroadcast = process.env.TELEGRAM_AUTO_BROADCAST !== 'false';
   const minScore = parseInt(process.env.TELEGRAM_MIN_SCORE || '90', 10);
-  const allowedTimeframes = (process.env.TELEGRAM_ALLOWED_TIMEFRAMES || '1h,15m')
+  const allowedTimeframes = (process.env.TELEGRAM_ALLOWED_TIMEFRAMES || '1h,15m,5m')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
@@ -408,9 +408,9 @@ export async function checkAndBroadcastSetup(signal: {
     return null;
   }
 
-  // Strictly filter by allowed timeframes (Push ONLY 1h and 15m)
+  // Strictly filter by allowed timeframes (Push 1h, 15m, and 5m sniper)
   const tf = signal.timeframe.toLowerCase();
-  const allowed = cfg.allowedTimeframes || ['1h', '15m'];
+  const allowed = cfg.allowedTimeframes || ['1h', '15m', '5m'];
   if (!allowed.includes(tf)) {
     return null;
   }
@@ -463,9 +463,9 @@ export async function checkAndBroadcastMilestone(milestone: {
     return null;
   }
 
-  // Strictly filter by allowed timeframes (Push ONLY 1h and 15m)
+  // Strictly filter by allowed timeframes (Push 1h, 15m, and 5m sniper)
   const tf = milestone.timeframe.toLowerCase();
-  const allowed = cfg.allowedTimeframes || ['1h', '15m'];
+  const allowed = cfg.allowedTimeframes || ['1h', '15m', '5m'];
   if (!allowed.includes(tf)) {
     return null;
   }
