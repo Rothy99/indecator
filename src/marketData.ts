@@ -332,6 +332,9 @@ export function getLatestSpotQuote(symbol: SupportedSymbol = 'XAUUSD'): LiveSpot
  * Poll Swissquote Institutional Spot XAU/USD BBO Feed (Exact MT5 Spot Gold Bid/Ask)
  */
 async function pollSwissquoteSpotXau(): Promise<void> {
+  // If user has an active direct MT5 bridge connected (e.g. Exness), MT5 live broker ticks take precedence
+  if (isMt5Connected()) return;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2200);
 
