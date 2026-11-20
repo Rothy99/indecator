@@ -639,7 +639,14 @@ app.post('/api/telegram/test', async (c: any) => {
 app.post('/api/telegram/push-now', async (c: any) => {
   try {
     const rawTf = (c.req.query('tf') || '15m').toLowerCase();
-    const tf: SupportedTimeframe = rawTf === '1h' ? '1h' : rawTf === '5m' ? '5m' : '15m';
+    if (rawTf === '5m' && !c.req.query('force')) {
+      return c.json({
+        success: false,
+        error: 'Standalone 5M broadcast is disabled. 5M is strictly used as entry confirmation for 15M and 1H setups only.',
+      }, 200);
+    }
+
+    const tf: SupportedTimeframe = rawTf === '1h' ? '1h' : '15m';
     const symbol: SupportedSymbol = 'XAUUSD';
     const uInfo = SYMBOL_CONFIGS[symbol];
 
@@ -673,13 +680,26 @@ app.post('/api/telegram/push-now', async (c: any) => {
       }, 200);
     }
 
-    const lc = ts.entryTiming?.lifecycle;
-    if (tf === '5m' && (!lc || !lc.isActivated) && !c.req.query('force')) {
+    // Check 5M entry confirmation (user rule: 5mins push confirm entry for 15mins and 1h, only)
+    const { candles: candles5m, source: source5m } = await getMarketCandles(symbol, '5m');
+    const silverCandles5m = await getSilverCandles('5m');
+    const analysis5m = analyzeGoldCandles(candles5m, '5m', source5m, symbol, silverCandles5m);
+    const ts5m = analysis5m.tradeSetup;
+    const lc5m = ts5m?.entryTiming?.lifecycle;
+
+    const is5mAligned = ts5m && ts5m.direction === ts.direction;
+    const is5mConfirmed = is5mAligned && (
+      ts5m?.entryTiming?.state === 'ENTER_NOW' ||
+      Boolean(lc5m?.isActivated)
+    );
+
+    if (!is5mConfirmed && !c.req.query('force')) {
       return c.json({
         success: false,
-        error: `5M timeframe push is strictly restricted to ACTIVATED trades only. Status: ${lc?.statusBadge || 'WAITING_CONFIRMATION'}. Position must be live/tapped before 5M broadcast.`,
-        isActivated: lc?.isActivated || false,
-        timingState: ts.entryTiming?.state,
+        error: `5M entry confirmation is pending! 5M state: ${ts5m?.entryTiming?.state || 'UNKNOWN'} (${ts5m?.direction}). Waiting for 5M candle to confirm entry for ${tf.toUpperCase()}.`,
+        is5mAligned,
+        tf5mDirection: ts5m?.direction,
+        tf5mTimingState: ts5m?.entryTiming?.state,
         grade: analysis.setupGrade
       }, 200);
     }
@@ -715,10 +735,18 @@ app.post('/api/telegram/push-now', async (c: any) => {
       positionUnit: ts.v3Config?.positionUnit || 'lots',
       smcSuite: analysis.smartMoney?.smcSuite,
       time: Math.floor(Date.now() / 1000),
+      entryConfirmedBy5m: is5mConfirmed,
     });
 
     const res = await sendTelegramMessage(card);
-    return c.json({ success: res.success, messageId: res.messageId, entry: entryPrice, orderType, timeframe: tf });
+    return c.json({
+      success: res.success,
+      messageId: res.messageId,
+      entry: entryPrice,
+      orderType,
+      timeframe: tf,
+      entryConfirmedBy5m: is5mConfirmed
+    });
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 500);
   }
@@ -840,7 +868,7 @@ async function runAutonomousTelegramScanner() {
   try {
     const symbol: SupportedSymbol = 'XAUUSD';
     const uInfo = SYMBOL_CONFIGS[symbol];
-    const scanTfs: SupportedTimeframe[] = ['1h', '15m', '5m'];
+    const scanTfs: SupportedTimeframe[] = ['1h', '15m'];
 
     for (const tf of scanTfs) {
       const { candles, source } = await getMarketCandles(symbol, tf);
@@ -857,11 +885,21 @@ async function runAutonomousTelegramScanner() {
       const is95Plus = ts && (score >= 95 || prob >= 95) && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
       const isConfirmed = ts?.entryTiming?.state === 'ENTER_NOW';
 
-      // 5M Sniper Filter: 5-minute timeframe ONLY pushes when actively ACTIVATED (in-market position)
-      const is5mActivatedOk = tf !== '5m' || Boolean(lc?.isActivated);
+      // 5M Entry Confirmation Gate: 5-minute candle confirms the entry for 15M and 1H
+      const { candles: candles5m, source: source5m } = await getMarketCandles(symbol, '5m');
+      const silverCandles5m = await getSilverCandles('5m');
+      const analysis5m = analyzeGoldCandles(candles5m, '5m', source5m, symbol, silverCandles5m);
+      const ts5m = analysis5m.tradeSetup;
+      const lc5m = ts5m?.entryTiming?.lifecycle;
 
-      // Patiently wait: do NOT broadcast while in WAIT_CONFIRMATION or LATE_WAIT_PULLBACK
-      if (is95Plus && isConfirmed && is5mActivatedOk) {
+      const is5mAligned = ts5m && ts5m.direction === ts.direction;
+      const is5mEntryConfirmed = is5mAligned && (
+        ts5m?.entryTiming?.state === 'ENTER_NOW' ||
+        Boolean(lc5m?.isActivated)
+      );
+
+      // Patiently wait: do NOT broadcast unless 15M/1H is 95%+ Grade A+ AND 5M confirms the entry
+      if (is95Plus && isConfirmed && is5mEntryConfirmed) {
         const entryPrice = lc?.isActivated && lc?.entryPrice ? lc.entryPrice : analysis.currentPrice;
         const orderType = ts.direction === 'LONG' ? 'BUY MARKET' : 'SELL MARKET';
         const lastBarTime = lc?.isActivated && lc?.activatedTime
@@ -894,12 +932,12 @@ async function runAutonomousTelegramScanner() {
           smcSuite: analysis.smartMoney?.smcSuite,
           time: lastBarTime,
           isActivated: Boolean(lc?.isActivated),
+          entryConfirmedBy5m: true,
         });
       }
 
       // 1. Broadcast trade activation (Entry Tapped & Filled) - only for fresh activations within 5 minutes
-      // (For 5M, the main setup card itself is pushed on activation, avoiding duplicate notifications)
-      if (tf !== '5m' && lc && lc.isActivated && lc.activatedTime && (Date.now() / 1000 - lc.activatedTime) < 300) {
+      if (lc && lc.isActivated && lc.activatedTime && (Date.now() / 1000 - lc.activatedTime) < 300) {
         await checkAndBroadcastMilestone({
           symbol,
           displayName: uInfo.displayName,

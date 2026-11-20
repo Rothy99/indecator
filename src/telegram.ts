@@ -50,7 +50,7 @@ export function getTelegramConfig(): TelegramConfig {
   const chatId = process.env.TELEGRAM_CHAT_ID?.trim() || null;
   const autoBroadcast = process.env.TELEGRAM_AUTO_BROADCAST !== 'false';
   const minScore = parseInt(process.env.TELEGRAM_MIN_SCORE || '90', 10);
-  const allowedTimeframes = (process.env.TELEGRAM_ALLOWED_TIMEFRAMES || '1h,15m,5m')
+  const allowedTimeframes = (process.env.TELEGRAM_ALLOWED_TIMEFRAMES || '1h,15m')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
@@ -263,6 +263,7 @@ export function formatTelegramSignalCard(payload: {
   positionUnit?: string;
   smcSuite?: any;
   time?: number;
+  entryConfirmedBy5m?: boolean;
 }): string {
   const isBuy = payload.type === 'BUY';
   const dirEmoji = isBuy ? '🟢' : '🔴';
@@ -290,10 +291,14 @@ export function formatTelegramSignalCard(payload: {
     ? (payload.smcSuite.smt.statusText || 'XAU/XAG Intermarket Confirmed ✓')
     : 'XAU & XAG Intermarket Confirmed ✓';
 
+  const tfBadge = payload.entryConfirmedBy5m
+    ? `<code>${payload.timeframe.toUpperCase()}</code> • ⚡ <b>5M CONFIRMED ENTRY ✓</b>`
+    : `<code>${payload.timeframe.toUpperCase()}</code>`;
+
   return (
     `🏆 <b>INSTITUTIONAL SMC ALERT</b> 🏆\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} (${payload.symbol})</b> • <code>${payload.timeframe.toUpperCase()}</code>\n` +
+    `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} (${payload.symbol})</b> • ${tfBadge}\n` +
     `${dirEmoji} <b>ACTION: ${actionLabel.toUpperCase()}</b>\n` +
     `🎯 <b>SETUP QUALITY:</b> <code>${gradeBadge} • ${payload.score}/100 PTS</code>\n` +
     `🛡️ <b>CONFLUENCE STATUS:</b> <code>${payload.allMandatoryPassed ? 'ALL 6 MANDATORY PASSED ✓' : 'VERIFIED INSTITUTIONAL ✓'}</code>\n` +
@@ -304,6 +309,7 @@ export function formatTelegramSignalCard(payload: {
     `🏆 <b>TAKE PROFIT 2:</b> <code>${payload.tp2.toFixed(2)}</code> <i>(+${payload.rewardTp2Pips.toFixed(0)} ${payload.pipUnit} Runner)</i>\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `💎 <b>ICT 6-ELEMENT CONFLUENCES:</b>\n` +
+    (payload.entryConfirmedBy5m ? `├ ⚡ <b>5M Execution Trigger:</b> <code>Confirmed Live LTF Shift & Timing ✓</code>\n` : '') +
     `├ ⚡ <b>Liquidity Sweep:</b> <code>${sweepText}</code>\n` +
     `├ 🔄 <b>MSS (Shift):</b> <code>${mssText}</code>\n` +
     `├ 📈 <b>BOS (Break):</b> <code>${bosText}</code>\n` +
@@ -422,21 +428,17 @@ export async function checkAndBroadcastSetup(signal: {
   time: number;
   isActionable?: boolean;
   isActivated?: boolean;
+  entryConfirmedBy5m?: boolean;
 }): Promise<TelegramBroadcastResult | null> {
   const cfg = getTelegramConfig();
   if (!cfg.botToken || !cfg.chatId || !cfg.autoBroadcast) {
     return null;
   }
 
-  // Strictly filter by allowed timeframes (Push 1h, 15m, and 5m sniper)
+  // Strictly filter by allowed timeframes (Push 15m and 1h only — 5m is strictly entry confirmation)
   const tf = signal.timeframe.toLowerCase();
-  const allowed = cfg.allowedTimeframes || ['1h', '15m', '5m'];
+  const allowed = cfg.allowedTimeframes || ['1h', '15m'];
   if (!allowed.includes(tf)) {
-    return null;
-  }
-
-  // 5M Sniper Filter: 5-minute timeframe ONLY pushes when actively ACTIVATED
-  if (tf === '5m' && signal.isActivated === false) {
     return null;
   }
 
@@ -491,9 +493,9 @@ export async function checkAndBroadcastMilestone(milestone: {
     return null;
   }
 
-  // Strictly filter by allowed timeframes (Push 1h, 15m, and 5m sniper)
+  // Strictly filter by allowed timeframes (Push 15m and 1h only — 5m is strictly entry confirmation)
   const tf = milestone.timeframe.toLowerCase();
-  const allowed = cfg.allowedTimeframes || ['1h', '15m', '5m'];
+  const allowed = cfg.allowedTimeframes || ['1h', '15m'];
   if (!allowed.includes(tf)) {
     return null;
   }
