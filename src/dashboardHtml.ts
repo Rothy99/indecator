@@ -422,6 +422,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span class="hidden sm:inline" id="btnChartFocusLabel">Focus</span>
               </button>
 
+              <button onclick="toggleRRBox()" id="toggleRRBoxBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition hover:bg-emerald-500/30" title="Toggle TradingView-Style Long/Short Risk:Reward Position Tool">
+                📐 R:R Tool: ON
+              </button>
+
               <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/20">
                 Lines: ON
               </button>
@@ -462,7 +466,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- Big Pro Chart Canvas -->
-          <div id="priceChart" class="w-full h-[380px] sm:h-[580px] lg:h-[650px] rounded-lg overflow-hidden bg-slate-950/80 border border-slate-900 transition-all"></div>
+          <div id="priceChart" class="w-full h-[380px] sm:h-[580px] lg:h-[650px] rounded-lg overflow-hidden bg-slate-950/80 border border-slate-900 transition-all relative"></div>
         </div>
 
         <!-- Strategy Confluence & 100-Point Quantitative Matrix (Collapsible Clean Bar) -->
@@ -1641,6 +1645,7 @@ TELEGRAM_MIN_SCORE=90</pre>
       if (priceChart && priceEl) {
         priceChart.applyOptions({ height: h, width: priceEl.clientWidth });
         priceChart.timeScale().fitContent();
+        if (typeof scheduleRRBoxOverlay === 'function') scheduleRRBoxOverlay();
       }
       const b560 = document.getElementById('btnSize560');
       const b680 = document.getElementById('btnSize680');
@@ -1880,6 +1885,28 @@ TELEGRAM_MIN_SCORE=90</pre>
         ema50Series = priceChart.addLineSeries({ color: '#a855f7', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
         ema200Series = priceChart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
 
+        priceEl.style.position = 'relative';
+        let rrCanvas = document.getElementById('rrBoxOverlay');
+        if (!rrCanvas && priceEl) {
+          rrCanvas = document.createElement('canvas');
+          rrCanvas.id = 'rrBoxOverlay';
+          rrCanvas.style.position = 'absolute';
+          rrCanvas.style.top = '0';
+          rrCanvas.style.left = '0';
+          rrCanvas.style.width = '100%';
+          rrCanvas.style.height = '100%';
+          rrCanvas.style.pointerEvents = 'none';
+          rrCanvas.style.zIndex = '5';
+          priceEl.appendChild(rrCanvas);
+        }
+
+        priceChart.timeScale().subscribeVisibleTimeRangeChange(() => {
+          if (typeof scheduleRRBoxOverlay === 'function') scheduleRRBoxOverlay();
+        });
+        priceChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+          if (typeof scheduleRRBoxOverlay === 'function') scheduleRRBoxOverlay();
+        });
+
         priceChart.subscribeCrosshairMove((param) => {
           const inspectPill = document.getElementById('chartInspectText');
           if (!inspectPill) return;
@@ -1905,12 +1932,14 @@ TELEGRAM_MIN_SCORE=90</pre>
             width: priceEl.clientWidth,
             height: isMob ? 380 : currentChartHeight,
           });
+          if (typeof scheduleRRBoxOverlay === 'function') scheduleRRBoxOverlay();
         });
 
         if (window.ResizeObserver && priceEl) {
           const ro = new ResizeObserver(() => {
             if (priceChart && priceEl.clientWidth > 0) {
               priceChart.applyOptions({ width: priceEl.clientWidth });
+              if (typeof scheduleRRBoxOverlay === 'function') scheduleRRBoxOverlay();
             }
           });
           ro.observe(priceEl);
@@ -2144,6 +2173,8 @@ TELEGRAM_MIN_SCORE=90</pre>
           });
         });
       }
+
+      if (typeof scheduleRRBoxOverlay === 'function') scheduleRRBoxOverlay();
     }
 
     function clearSetupPriceLines() {
@@ -2220,6 +2251,313 @@ TELEGRAM_MIN_SCORE=90</pre>
           );
         }
       }
+    }
+
+    let showRRBox = true;
+    let selectedRRSetup = null;
+    let rrAnimFrame = null;
+
+    function scheduleRRBoxOverlay() {
+      if (rrAnimFrame) return;
+      rrAnimFrame = requestAnimationFrame(() => {
+        rrAnimFrame = null;
+        renderRRBoxOverlay();
+      });
+    }
+
+    function toggleRRBox() {
+      showRRBox = !showRRBox;
+      const btn = document.getElementById('toggleRRBoxBtn');
+      if (btn) {
+        btn.textContent = '📐 R:R Tool: ' + (showRRBox ? 'ON' : 'OFF');
+        btn.className = showRRBox
+          ? 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition hover:bg-emerald-500/30'
+          : 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 transition hover:bg-slate-700';
+      }
+      scheduleRRBoxOverlay();
+      showToast('📐 TradingView R:R Tool: ' + (showRRBox ? 'ON' : 'OFF'));
+    }
+
+    function selectSignalForRR(sig) {
+      if (!sig) return;
+      selectedRRSetup = sig;
+      scheduleRRBoxOverlay();
+      showToast('📐 Focused: ' + (sig.type || sig.direction) + ' @ $' + Number(sig.entry).toFixed(2));
+    }
+
+    function renderRRBoxOverlay() {
+      const priceEl = document.getElementById('priceChart');
+      const canvas = document.getElementById('rrBoxOverlay');
+      if (!priceEl || !canvas || !candleSeries || !priceChart) return;
+
+      const rect = priceEl.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const targetW = Math.round(rect.width * dpr);
+      const targetH = Math.round(rect.height * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      if (!showRRBox) {
+        ctx.restore();
+        return;
+      }
+
+      const setup = selectedRRSetup || (currentAnalysis && currentAnalysis.tradeSetup);
+      if (!setup) {
+        ctx.restore();
+        return;
+      }
+
+      const et = setup.entryTiming;
+      const lc = et ? et.lifecycle : null;
+      const entryPrice = Number((setup.entryPrice != null ? setup.entryPrice : (lc ? lc.entryPrice : setup.entry)) || 0);
+      const stopLoss = Number((setup.stopLoss != null ? setup.stopLoss : (lc ? lc.stopLoss : setup.stopLoss)) || 0);
+      const tp = Number((setup.tp2 != null ? setup.tp2 : (lc ? lc.tp2 : (setup.tp1 || 0))) || 0);
+      const tp1 = Number((setup.tp1 != null ? setup.tp1 : (lc ? lc.tp1 : 0)) || 0);
+
+      if (!entryPrice || !stopLoss || !tp) {
+        ctx.restore();
+        return;
+      }
+
+      const rawDir = String(setup.direction || setup.type || (lc && lc.direction) || 'BUY').toUpperCase();
+      const isLong = rawDir === 'LONG' || rawDir === 'BUY';
+
+      // Helper to convert price to Y coordinate
+      const yEntry = candleSeries.priceToCoordinate(entryPrice);
+      if (yEntry === null || typeof yEntry !== 'number' || isNaN(yEntry)) {
+        ctx.restore();
+        return;
+      }
+
+      function resolveY(price) {
+        if (price == null || price === 0) return null;
+        const y = candleSeries.priceToCoordinate(price);
+        if (typeof y === 'number' && !isNaN(y)) return y;
+        if (typeof lastKnownBid === 'number' && Math.abs(lastKnownBid - entryPrice) > 0.05) {
+          const yBid = candleSeries.priceToCoordinate(lastKnownBid);
+          if (typeof yBid === 'number' && !isNaN(yBid)) {
+            const pxPerUnit = (yEntry - yBid) / (lastKnownBid - entryPrice);
+            return yEntry - (price - entryPrice) * pxPerUnit;
+          }
+        }
+        return null;
+      }
+
+      let yStop = resolveY(stopLoss);
+      let yTarget = resolveY(tp);
+      const yTp1 = tp1 ? resolveY(tp1) : null;
+
+      if (yStop === null) yStop = isLong ? Math.min(rect.height - 15, yEntry + 100) : Math.max(15, yEntry - 100);
+      if (yTarget === null) yTarget = isLong ? Math.max(15, yEntry - 180) : Math.min(rect.height - 15, yEntry + 180);
+
+      const clampedYEntry = Math.max(8, Math.min(rect.height - 8, yEntry));
+      const clampedYStop = Math.max(8, Math.min(rect.height - 8, yStop));
+      const clampedYTarget = Math.max(8, Math.min(rect.height - 8, yTarget));
+
+      // Calculate horizontal boundaries (X1 and X2)
+      const plotWidth = priceChart.timeScale().width() || (rect.width - 65);
+      const maxX = Math.max(80, plotWidth - 10);
+
+      const candles = (currentAnalysis && currentAnalysis.series) || [];
+      const lastBar = candles[candles.length - 1];
+      const setupTime = (lc && lc.time) || (et && et.signalTime) || setup.time;
+
+      let x1 = null;
+      if (setupTime) {
+        x1 = priceChart.timeScale().timeToCoordinate(setupTime);
+      }
+      if (x1 === null || x1 === undefined || x1 < 10) {
+        const barsAgo = (et && et.barsSinceCross) ? Math.max(5, Math.min(45, et.barsSinceCross)) : 14;
+        const targetIdx = Math.max(0, candles.length - 1 - barsAgo);
+        if (candles[targetIdx]) {
+          x1 = priceChart.timeScale().timeToCoordinate(candles[targetIdx].time);
+        }
+      }
+      if (x1 === null || x1 === undefined || x1 < 10) {
+        x1 = Math.max(15, maxX - 260);
+      }
+
+      const xLatest = lastBar ? (priceChart.timeScale().timeToCoordinate(lastBar.time) || (maxX - 80)) : (maxX - 80);
+      let x2 = Math.min(maxX, Math.max(x1 + 140, xLatest + 110));
+      if (x1 > xLatest) {
+        x1 = Math.max(10, xLatest - 120);
+      }
+      if (x2 - x1 < 90) {
+        x1 = Math.max(10, x2 - 90);
+      }
+
+      const boxW = x2 - x1;
+
+      // Calculate vertical boxes
+      const targetTop = isLong ? Math.min(clampedYTarget, clampedYEntry) : Math.min(clampedYEntry, clampedYTarget);
+      const targetBottom = isLong ? Math.max(clampedYTarget, clampedYEntry) : Math.max(clampedYEntry, clampedYTarget);
+      const targetH = Math.max(2, targetBottom - targetTop);
+
+      const stopTop = isLong ? Math.min(clampedYEntry, clampedYStop) : Math.min(clampedYStop, clampedYEntry);
+      const stopBottom = isLong ? Math.max(clampedYEntry, clampedYStop) : Math.max(clampedYStop, clampedYEntry);
+      const stopH = Math.max(2, stopBottom - stopTop);
+
+      function drawRoundRect(rx, ry, rw, rh, rad) {
+        ctx.beginPath();
+        ctx.moveTo(rx + rad, ry);
+        ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, rad);
+        ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, rad);
+        ctx.arcTo(rx, ry + rh, rx, ry, rad);
+        ctx.arcTo(rx, ry, rx + rw, ry, rad);
+        ctx.closePath();
+      }
+
+      // 1. Draw Green Target Box (Profit Zone)
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+      ctx.fillRect(x1, targetTop, boxW, targetH);
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x1, targetTop, boxW, targetH);
+
+      // 2. Draw Red Stop Box (Risk Zone)
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.24)';
+      ctx.fillRect(x1, stopTop, boxW, stopH);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x1, stopTop, boxW, stopH);
+
+      // 3. Draw Entry Divider Line
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x1, clampedYEntry);
+      ctx.lineTo(x2, clampedYEntry);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 4. Subtle TP1 intermediate target line if within target box
+      if (yTp1 !== null && yTp1 >= targetTop && yTp1 <= targetBottom && Math.abs(yTp1 - clampedYEntry) > 10) {
+        ctx.strokeStyle = 'rgba(52, 211, 153, 0.65)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x1, yTp1);
+        ctx.lineTo(x2, yTp1);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = 'bold 9px JetBrains Mono, monospace';
+        ctx.fillStyle = '#34d399';
+        ctx.textAlign = 'left';
+        ctx.fillText('TP1 (1:1.5) $' + tp1.toFixed(2), x1 + 6, yTp1 - 3);
+      }
+
+      // 5. Draw 6 TradingView Corner Handle Anchors [ ]
+      function drawHandle(hx, hy) {
+        const s = 6;
+        ctx.fillStyle = '#2563eb';
+        ctx.fillRect(hx - s / 2, hy - s / 2, s, s);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(hx - s / 2, hy - s / 2, s, s);
+      }
+
+      drawHandle(x1, isLong ? targetTop : stopTop);
+      drawHandle(x2, isLong ? targetTop : stopTop);
+      drawHandle(x1, clampedYEntry);
+      drawHandle(x2, clampedYEntry);
+      drawHandle(x1, isLong ? stopBottom : targetBottom);
+      drawHandle(x2, isLong ? stopBottom : targetBottom);
+
+      // 6. Metrics Calculations
+      const centerX = (x1 + x2) / 2;
+      const curPrice = (typeof lastKnownBid === 'number' && lastKnownBid > 0) ? lastKnownBid : entryPrice;
+      const diff = isLong ? (curPrice - entryPrice) : (entryPrice - curPrice);
+      const isProf = diff >= 0;
+      const sign = isProf ? '+' : '';
+      const uInfo = getAssetUnitInfo();
+      const pips = (diff * uInfo.mult).toFixed(1);
+      const diffDollars = Math.abs(diff).toFixed(2);
+      const riskDist = Math.abs(entryPrice - stopLoss);
+      const rewardDist = Math.abs(tp - entryPrice);
+      const rrRatio = (rewardDist / Math.max(0.01, riskDist)).toFixed(2);
+      const qty = (setup.v3Config && setup.v3Config.positionSize ? setup.v3Config.positionSize : 1.0).toFixed(3);
+
+      // 7. Center Floating Info Badge (TradingView Style)
+      const badgeW = Math.min(220, boxW - 16);
+      const badgeH = 44;
+      const badgeX = centerX - badgeW / 2;
+      let badgeY = isLong ? (clampedYEntry - badgeH - 12) : (clampedYEntry + 12);
+      badgeY = Math.max(8, Math.min(rect.height - badgeH - 8, badgeY));
+
+      ctx.fillStyle = 'rgba(8, 28, 32, 0.94)';
+      ctx.strokeStyle = '#14b8a6';
+      ctx.lineWidth = 1.5;
+      drawRoundRect(badgeX, badgeY, badgeW, badgeH, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      ctx.fillStyle = isProf ? '#34d399' : '#f87171';
+      ctx.textAlign = 'center';
+      const pnlLine = (lc && lc.isActivated)
+        ? ('Open P&L: ' + sign + diffDollars + ' (' + sign + pips + uInfo.unit[0] + '), Qty: ' + qty)
+        : ('Pending: $' + entryPrice.toFixed(2) + ' (' + (isProf ? '+' : '') + pips + uInfo.unit[0] + '), Qty: ' + qty);
+      ctx.fillText(pnlLine, centerX, badgeY + 17);
+
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillText('Risk/Reward Ratio: ' + rrRatio, centerX, badgeY + 33);
+
+      // 8. Stop Loss Badge at Stop Level
+      const slDist = Math.abs(entryPrice - stopLoss);
+      const slPct = ((slDist / entryPrice) * 100).toFixed(2);
+      const slPips = (slDist * uInfo.mult).toFixed(0);
+      const slText = 'Stop: $' + stopLoss.toFixed(2) + ' (' + slPct + '%) -' + slPips + ' ' + uInfo.unit;
+
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      const slMetrics = ctx.measureText(slText);
+      const slPillW = slMetrics.width + 16;
+      const slPillH = 20;
+      const slPillX = centerX - slPillW / 2;
+      const slPillY = isLong ? Math.min(rect.height - 24, clampedYStop + 4) : Math.max(4, clampedYStop - 24);
+
+      ctx.fillStyle = '#ef4444';
+      drawRoundRect(slPillX, slPillY, slPillW, slPillH, 4);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(slText, centerX, slPillY + 14);
+
+      // 9. Target Badge at Target Level
+      const tpDist = Math.abs(tp - entryPrice);
+      const tpPct = ((tpDist / entryPrice) * 100).toFixed(2);
+      const tpPips = (tpDist * uInfo.mult).toFixed(0);
+      const tpText = 'Target: $' + tp.toFixed(2) + ' (' + tpPct + '%) +' + tpPips + ' ' + uInfo.unit;
+
+      const tpMetrics = ctx.measureText(tpText);
+      const tpPillW = tpMetrics.width + 16;
+      const tpPillH = 20;
+      const tpPillX = centerX - tpPillW / 2;
+      const tpPillY = isLong ? Math.max(4, clampedYTarget - 24) : Math.min(rect.height - 24, clampedYTarget + 4);
+
+      ctx.fillStyle = '#10b981';
+      drawRoundRect(tpPillX, tpPillY, tpPillW, tpPillH, 4);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(tpText, centerX, tpPillY + 14);
+
+      ctx.restore();
     }
 
     function activationBadgeStyle(state) {
@@ -2760,6 +3098,7 @@ TELEGRAM_MIN_SCORE=90</pre>
 
           updateChartSmartMoneyMarkers(data);
           drawSetupPriceLines(ts, data.liquidityLevels);
+          if (typeof scheduleRRBoxOverlay === 'function') scheduleRRBoxOverlay();
         } catch (chartErr) {
           console.warn('Chart render error:', chartErr);
         }
@@ -4021,6 +4360,7 @@ TELEGRAM_MIN_SCORE=90</pre>
 
     function switchTimeframe(tf) {
       currentTf = tf;
+      selectedRRSetup = null;
       ['1m', '5m', '15m', '30m', '1h', '4h'].forEach((id) => {
         const btn = document.getElementById('tf-' + id);
         if (!btn) return;
