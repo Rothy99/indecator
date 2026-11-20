@@ -31,7 +31,7 @@ export const SYMBOL_CONFIGS: Record<SupportedSymbol, SymbolConfig> = {
     pipMultiplier: 10,
     unitLabel: 'oz',
     priceDecimals: 2,
-    defaultPrice: 4051.0,
+    defaultPrice: 3587.0,
   },
   BTCUSD: {
     symbol: 'BTCUSD',
@@ -244,9 +244,9 @@ interface RawTimeframeStore {
 const quotesBySymbol: Record<SupportedSymbol, LiveSpotQuote> = {
   XAUUSD: {
     symbol: 'XAUUSD',
-    bid: 4051.0,
-    ask: 4051.6,
-    mid: 4051.3,
+    bid: 3587.0,
+    ask: 3587.6,
+    mid: 3587.3,
     spreadPips: 6.0,
     timestamp: Date.now(),
     source: 'MT5 Spot XAU/USD (Swissquote Institutional Feed)',
