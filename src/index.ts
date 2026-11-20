@@ -283,8 +283,23 @@ const handleMtf = async (c: any) => {
       });
     }
 
-    // Check & broadcast milestone updates (TP1 hit / TP2 hit)
+    // Check & broadcast trade activation and milestones (Strictly 1H & 15M)
     if (lc && lc.isActivated) {
+      // 1. Broadcast Trade Activated (Entry Tapped & Filled)
+      void checkAndBroadcastMilestone({
+        symbol,
+        displayName: uInfo.displayName,
+        assetIcon: uInfo.icon,
+        timeframe: tf,
+        type: lc.direction,
+        stage: 'ACTIVATED',
+        entry: lc.entryPrice,
+        targetPrice: lc.tp1,
+        signalTime: lc.activatedTime || 0,
+        pips: 0,
+        pipUnit: uInfo.unitLabel || 'pips',
+      });
+
       if (lc.hitTp2) {
         void checkAndBroadcastMilestone({
           symbol,
@@ -777,7 +792,24 @@ async function runAutonomousTelegramScanner() {
         });
       }
 
-      // Broadcast milestone notifications (TP1 hit, TP2 hit)
+      // 1. Broadcast trade activation (Entry Tapped & Filled)
+      if (lc && lc.isActivated) {
+        await checkAndBroadcastMilestone({
+          symbol,
+          displayName: uInfo.displayName,
+          assetIcon: uInfo.icon,
+          timeframe: tf,
+          type: lc.direction as 'BUY' | 'SELL',
+          stage: 'ACTIVATED',
+          entry: lc.entryPrice,
+          targetPrice: lc.tp1,
+          signalTime: lc.activatedTime || Math.floor(Date.now() / 1000),
+          pips: 0,
+          pipUnit: uInfo.unitLabel || 'pips',
+        });
+      }
+
+      // 2. Broadcast milestone notifications (TP1 hit, TP2 hit)
       if (lc && (lc.activationState === 'TP1_HIT_RUNNING' || lc.activationState === 'TP2_HIT_PROFIT')) {
         await checkAndBroadcastMilestone({
           symbol,

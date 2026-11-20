@@ -282,7 +282,7 @@ export function formatTelegramMilestone(payload: {
   assetIcon: string;
   timeframe: string;
   type: 'BUY' | 'SELL';
-  stage: 'TP1' | 'TP2' | 'BE_EXIT';
+  stage: 'ACTIVATED' | 'TP1' | 'TP2' | 'BE_EXIT';
   entry: number;
   targetPrice: number;
   pnlDollars?: number;
@@ -291,6 +291,20 @@ export function formatTelegramMilestone(payload: {
 }): string {
   const isBuy = payload.type === 'BUY';
   const dirLabel = isBuy ? 'BUY' : 'SELL';
+  const dirEmoji = isBuy ? '🟢' : '🔴';
+
+  if (payload.stage === 'ACTIVATED') {
+    return (
+      `⚡ <b>TRADE ACTIVATED & FILLED!</b>\n` +
+      `──────────────────────────\n` +
+      `${payload.assetIcon} <b>${payload.displayName} [${payload.timeframe.toUpperCase()}] — ${dirEmoji} ${dirLabel}</b>\n` +
+      `📍 <b>Entry Price Filled:</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
+      `🎯 <b>Target 1 (+1.5R):</b> <code>$${payload.targetPrice.toFixed(2)}</code>\n` +
+      `📊 <b>Status:</b> Position is now <b>LIVE RUNNING</b>.\n\n` +
+      `<i>↳ Stop Loss is active. Tracking price action towards TP1!</i>\n\n` +
+      `🕒 <i>${new Date().toUTCString()} • Indecator Terminal</i>`
+    );
+  }
 
   if (payload.stage === 'TP1') {
     return (
@@ -399,7 +413,7 @@ export async function checkAndBroadcastMilestone(milestone: {
   assetIcon: string;
   timeframe: string;
   type: 'BUY' | 'SELL';
-  stage: 'TP1' | 'TP2' | 'BE_EXIT';
+  stage: 'ACTIVATED' | 'TP1' | 'TP2' | 'BE_EXIT';
   entry: number;
   targetPrice: number;
   signalTime: number;
