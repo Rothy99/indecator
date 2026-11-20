@@ -1121,12 +1121,58 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- Live Configuration Form -->
+      <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-300">⚙️ Channel Configuration</span>
+          <span id="tgConfigFeedback" class="text-[10px] mono text-slate-400"></span>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-slate-400 uppercase">Bot API Token (from @BotFather)</label>
+          <div class="flex gap-1.5">
+            <input type="password" id="tgInputBotToken" placeholder="123456789:ABCdefGhIJKlmNo..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-400 mono">
+            <button onclick="togglePasswordVisibility('tgInputBotToken', this)" type="button" class="px-2 py-1 bg-slate-800 rounded-lg text-slate-300 hover:text-white text-xs">👁️</button>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-slate-400 uppercase">Telegram Channel Username / ID</label>
+          <input type="text" id="tgInputChatId" placeholder="@your_channel_name or -1001234567890" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-400 mono">
+          <span class="text-[9px] text-slate-500">For public channels use <code>@channel_username</code>. Make sure bot is added as Admin!</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Confidence Filter</label>
+            <select id="tgInputMinScore" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400 mono">
+              <option value="90">Grade A+ (Score ≥ 90 • Recommended)</option>
+              <option value="95">Grade A+ Strict (Score ≥ 95)</option>
+              <option value="85">Grade A &amp; B+ (Score ≥ 85)</option>
+            </select>
+          </div>
+
+          <div class="space-y-1 flex flex-col justify-end">
+            <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer">
+              <input type="checkbox" id="tgInputAutoBroadcast" checked class="w-3.5 h-3.5 accent-sky-400 rounded">
+              <span class="text-xs font-bold text-sky-300">Auto-Broadcast 24/7</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="pt-1">
+          <button id="tgSaveConfigBtn" onclick="saveTelegramConfiguration()" class="w-full py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
+            <span>💾 Save &amp; Connect Channel</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Test Broadcast Action -->
       <div class="space-y-2">
         <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Send Test Alert</label>
         <div class="flex gap-2">
-          <input type="text" id="tgCustomChatInput" placeholder="Optional Chat ID / Channel (leave blank for .env default)" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-400 mono">
-          <button id="tgSendTestBtn" onclick="sendTelegramTestAlert()" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 whitespace-nowrap">
+          <input type="text" id="tgCustomChatInput" placeholder="Optional Chat ID / Channel (leave blank for default)" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-400 mono">
+          <button id="tgSendTestBtn" onclick="sendTelegramTestAlert()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 font-bold text-xs transition flex items-center gap-1.5 whitespace-nowrap">
             <span>🚀 Send Test</span>
           </button>
         </div>
@@ -3954,6 +4000,18 @@ TELEGRAM_MIN_SCORE=90</pre>
       minScore: 90
     };
 
+    function togglePasswordVisibility(id, btn) {
+      const input = document.getElementById(id);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🔒';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
+
     async function fetchTelegramStatus() {
       try {
         const res = await fetch('/api/telegram/status');
@@ -3970,25 +4028,113 @@ TELEGRAM_MIN_SCORE=90</pre>
       const dot = document.getElementById('telegramStatusDot');
       const pill = document.getElementById('tgStatusPill');
       const target = document.getElementById('tgTargetChannel');
-      if (telegramConfig.isConfigured) {
+      const chatInput = document.getElementById('tgInputChatId');
+      const scoreSelect = document.getElementById('tgInputMinScore');
+      const autoBox = document.getElementById('tgInputAutoBroadcast');
+
+      if (chatInput && telegramConfig.chatId && !chatInput.value) {
+        chatInput.value = telegramConfig.chatId;
+      }
+      if (scoreSelect && telegramConfig.minScore) {
+        scoreSelect.value = String(telegramConfig.minScore);
+      }
+      if (autoBox && telegramConfig.autoBroadcast !== undefined) {
+        autoBox.checked = Boolean(telegramConfig.autoBroadcast);
+      }
+
+      if (telegramConfig.isConfigured || telegramConfig.enabled) {
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
         if (pill) {
           pill.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
           pill.textContent = 'ONLINE (Ready)';
         }
         if (target) {
-          target.textContent = telegramConfig.chatId || 'Configured via .env';
+          target.textContent = telegramConfig.chatIdMasked || telegramConfig.chatId || 'Configured';
           target.className = 'text-emerald-300 font-bold';
         }
       } else {
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-400';
         if (pill) {
           pill.className = 'px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-500/20 text-amber-300 border border-amber-500/40';
-          pill.textContent = 'NEEDS BOT TOKEN / CHAT ID';
+          pill.textContent = 'NOT CONFIGURED';
         }
         if (target) {
-          target.textContent = 'Not configured in .env';
+          target.textContent = 'Not configured yet';
           target.className = 'text-amber-300 font-bold';
+        }
+      }
+    }
+
+    async function saveTelegramConfiguration() {
+      const tokenInput = document.getElementById('tgInputBotToken');
+      const chatInput = document.getElementById('tgInputChatId');
+      const scoreSelect = document.getElementById('tgInputMinScore');
+      const autoBox = document.getElementById('tgInputAutoBroadcast');
+      const feedback = document.getElementById('tgConfigFeedback');
+      const saveBtn = document.getElementById('tgSaveConfigBtn');
+
+      const botToken = tokenInput ? tokenInput.value.trim() : '';
+      const chatId = chatInput ? chatInput.value.trim() : '';
+      const minScore = scoreSelect ? parseInt(scoreSelect.value, 10) : 90;
+      const autoBroadcast = autoBox ? autoBox.checked : true;
+
+      if (!botToken && !telegramConfig.isConfigured) {
+        if (feedback) {
+          feedback.className = 'text-[10px] mono text-rose-400';
+          feedback.textContent = 'Bot Token is required';
+        }
+        return;
+      }
+      if (!chatId) {
+        if (feedback) {
+          feedback.className = 'text-[10px] mono text-rose-400';
+          feedback.textContent = 'Channel ID is required';
+        }
+        return;
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span>⏳ Connecting to Telegram...</span>';
+      }
+      if (feedback) {
+        feedback.className = 'text-[10px] mono text-amber-300';
+        feedback.textContent = 'Validating credentials with Telegram...';
+      }
+
+      try {
+        const payload = { chatId: chatId, minScore: minScore, autoBroadcast: autoBroadcast };
+        if (botToken) payload.botToken = botToken;
+
+        const res = await fetch('/api/telegram/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (feedback) {
+            feedback.className = 'text-[10px] mono text-emerald-400 font-bold';
+            feedback.textContent = 'Connected: @' + (data.botUsername || 'bot');
+          }
+          showToast('✅ Telegram Connected: ' + chatId);
+          fetchTelegramStatus();
+        } else {
+          if (feedback) {
+            feedback.className = 'text-[10px] mono text-rose-400';
+            feedback.textContent = data.error || 'Failed to connect';
+          }
+          showToast('❌ Telegram: ' + (data.error || 'Error'));
+        }
+      } catch (err) {
+        if (feedback) {
+          feedback.className = 'text-[10px] mono text-rose-400';
+          feedback.textContent = 'Network error: ' + err.message;
+        }
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<span>💾 Save &amp; Connect Channel</span>';
         }
       }
     }
@@ -4034,9 +4180,9 @@ TELEGRAM_MIN_SCORE=90</pre>
         const data = await res.json();
         if (resDiv) {
           resDiv.classList.remove('hidden');
-          if (data.ok) {
+          if (data.ok || data.success) {
             resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
-            resDiv.textContent = '✅ ' + (data.message || 'Test broadcast sent successfully!');
+            resDiv.textContent = '✅ ' + (data.message || 'Test broadcast sent successfully to your channel!');
             fetchTelegramStatus();
           } else {
             resDiv.className = 'text-[11px] font-mono p-2.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40';
@@ -4058,42 +4204,64 @@ TELEGRAM_MIN_SCORE=90</pre>
     }
 
     async function broadcastTfToTelegram(tf) {
-      if (!currentMtfData || !currentMtfData.timeframes) {
-        showCopyToast('⚠️ No active data loaded yet');
+      const mtf = latestMtfData || currentMtfData;
+      if (!mtf || !mtf.timeframes) {
+        showToast('⚠️ No active data loaded yet');
         return;
       }
-      const tfData = currentMtfData.timeframes[tf];
+      const tfData = mtf.timeframes[tf];
       if (!tfData) {
-        showCopyToast('⚠️ Timeframe ' + tf + ' not found');
+        showToast('⚠️ Timeframe ' + tf + ' not found');
         return;
       }
-      const signal = tfData.signal;
-      if (!signal || signal.type === 'WAIT') {
-        showCopyToast('⚠️ Timeframe ' + tf + ' currently has no active signal');
+      const ts = tfData.tradeSetup || (currentAnalysis && currentAnalysis.tradeSetup);
+      const lc = ts ? (ts.entryTiming ? ts.entryTiming.lifecycle : null) : null;
+      const rawDir = lc ? lc.direction : (ts ? ts.direction : tfData.signal);
+      if (!rawDir || rawDir === 'WAIT' || rawDir === 'NONE') {
+        showToast('⚠️ Timeframe ' + tf + ' currently has no active signal');
         return;
       }
+      const isBuy = rawDir === 'BUY' || rawDir === 'LONG';
+      const entryPrice = lc ? lc.entryPrice : (ts ? ts.entry : 0);
+      const stopLoss = lc ? lc.stopLoss : (ts ? ts.stopLoss : 0);
+      const tp1 = lc ? lc.tp1 : (ts ? ts.tp1 : 0);
+      const tp2 = lc ? lc.tp2 : (ts ? ts.tp2 : 0);
 
-      showCopyToast('📡 Broadcasting to Telegram...');
+      showToast('📡 Broadcasting to Telegram...');
       try {
         const res = await fetch('/api/telegram/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            signal: signal,
             symbol: currentSymbol || 'XAUUSD',
             timeframe: tf,
-            bypassScoreFilter: true
+            type: isBuy ? 'BUY' : 'SELL',
+            grade: tfData.grade || 'A+',
+            score: tfData.probability || 95,
+            probability: tfData.probability || 95,
+            entry: entryPrice,
+            stopLoss: stopLoss,
+            tp1: tp1,
+            tp2: tp2,
+            riskPips: (ts && ts.riskPips) || 20,
+            rewardTp1Pips: (ts && ts.rewardTp1Pips) || 30,
+            rewardTp2Pips: (ts && ts.rewardTp2Pips) || 50,
+            reason: tfData.summaryReason || (tf.toUpperCase() + ' 4-Confluence A+ Confirmed'),
+            plannedRiskUsd: (ts && ts.v3Config && ts.v3Config.plannedRiskUsd) || 25,
+            positionSize: (ts && ts.v3Config && ts.v3Config.positionSize) || 0.1,
+            positionUnit: (ts && ts.v3Config && ts.v3Config.positionUnit) || 'lots',
+            time: Math.floor(Date.now() / 1000)
           })
         });
         const data = await res.json();
-        if (data.ok) {
-          showCopyToast('📢 Broadcasted to Telegram!');
+        if (data.success || data.ok) {
+          showToast('📢 Broadcasted to Telegram Channel!');
         } else {
-          showCopyToast('❌ ' + (data.error || 'Failed to send to Telegram'));
+          showToast('❌ ' + (data.error || 'Failed to send to Telegram'));
           openTelegramModal();
         }
       } catch (e) {
-        showCopyToast('❌ Error: ' + e.message);
+        showToast('❌ Error: ' + e.message);
       }
     }
 

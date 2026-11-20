@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 /**
  * Telegram Channel Integration for High-Confidence Setups (4-Confluence V3.0)
  * Sends automated and on-demand signal alerts to Telegram channels/chats.
@@ -64,10 +67,78 @@ export function getTelegramStatus() {
   return {
     enabled: isTelegramReady(),
     configured: isTelegramReady(),
+    isConfigured: isTelegramReady(),
     chatIdMasked: cfg.chatId ? maskChatId(cfg.chatId) : null,
+    chatId: cfg.chatId || '',
     autoBroadcast: cfg.autoBroadcast,
     minScore: cfg.minScore,
   };
+}
+
+/**
+ * Save and persist Telegram credentials to runtime and .env
+ */
+export async function saveTelegramConfig(newConfig: {
+  botToken?: string;
+  chatId?: string;
+  autoBroadcast?: boolean;
+  minScore?: number;
+}): Promise<{ success: boolean; botUsername?: string; error?: string }> {
+  const token = (newConfig.botToken !== undefined ? newConfig.botToken : (process.env.TELEGRAM_BOT_TOKEN ?? '')).trim();
+  const chat = (newConfig.chatId !== undefined ? newConfig.chatId : (process.env.TELEGRAM_CHAT_ID ?? '')).trim();
+  const auto = newConfig.autoBroadcast !== undefined ? newConfig.autoBroadcast : (process.env.TELEGRAM_AUTO_BROADCAST !== 'false');
+  const score = newConfig.minScore || parseInt(process.env.TELEGRAM_MIN_SCORE || '90', 10);
+
+  let botUsername = '';
+  if (token) {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      const data = await res.json() as any;
+      if (!data.ok) {
+        return { success: false, error: `Invalid Bot Token: ${data.description || 'Unauthorized'}` };
+      }
+      botUsername = data.result?.username || '';
+    } catch (e: any) {
+      return { success: false, error: `Could not connect to Telegram API: ${e.message}` };
+    }
+  }
+
+  // Update in-memory process.env
+  process.env.TELEGRAM_BOT_TOKEN = token;
+  process.env.TELEGRAM_CHAT_ID = chat;
+  process.env.TELEGRAM_AUTO_BROADCAST = auto ? 'true' : 'false';
+  process.env.TELEGRAM_MIN_SCORE = String(score);
+
+  // Persist into .env file
+  try {
+    const envPath = path.resolve(process.cwd(), '.env');
+    let envContent = '';
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf8');
+    }
+
+    const updates: Record<string, string> = {
+      TELEGRAM_BOT_TOKEN: token,
+      TELEGRAM_CHAT_ID: chat,
+      TELEGRAM_AUTO_BROADCAST: auto ? 'true' : 'false',
+      TELEGRAM_MIN_SCORE: String(score),
+    };
+
+    for (const [key, val] of Object.entries(updates)) {
+      const reg = new RegExp(`^${key}=.*$`, 'm');
+      if (reg.test(envContent)) {
+        envContent = envContent.replace(reg, `${key}=${val}`);
+      } else {
+        envContent += `\n${key}=${val}`;
+      }
+    }
+
+    fs.writeFileSync(envPath, envContent.trim() + '\n', 'utf8');
+  } catch (err: any) {
+    console.warn('[Telegram] Could not write to .env:', err.message);
+  }
+
+  return { success: true, botUsername };
 }
 
 /**

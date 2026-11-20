@@ -47,6 +47,7 @@ import {
   checkAndBroadcastSetup,
   formatTelegramSignalCard,
   getTelegramStatus,
+  saveTelegramConfig,
   sendTelegramMessage,
   sendTelegramTestPing,
 } from './telegram.js';
@@ -588,6 +589,23 @@ app.post('/api/d1/init', async (c: any) => {
 // Telegram Channel Integration Endpoints
 app.get('/api/telegram/status', (c: any) => c.json(getTelegramStatus()));
 
+app.post('/api/telegram/configure', async (c: any) => {
+  try {
+    const body = await c.req.json();
+    const res = await saveTelegramConfig(body);
+    if (!res.success) {
+      return c.json({ success: false, error: res.error }, 400);
+    }
+    return c.json({
+      success: true,
+      botUsername: res.botUsername,
+      status: getTelegramStatus(),
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 app.post('/api/telegram/test', async (c: any) => {
   let customChatId: string | undefined;
   try {
@@ -702,5 +720,87 @@ if (!process.env.VERCEL) {
     }
   );
 }
+
+// Autonomous 24/7 High-Confidence Scanner for Telegram Channel Alerts
+let isScanningTelegram = false;
+async function runAutonomousTelegramScanner() {
+  if (isScanningTelegram) return;
+  const cfg = getTelegramStatus();
+  if (!cfg.enabled || !cfg.autoBroadcast) return;
+
+  isScanningTelegram = true;
+  try {
+    const symbol: SupportedSymbol = 'XAUUSD';
+    const uInfo = SYMBOL_CONFIGS[symbol];
+    const scanTfs: SupportedTimeframe[] = ['15m', '5m', '1h', '30m', '4h'];
+
+    for (const tf of scanTfs) {
+      const { candles, source } = await getMarketCandles(symbol, tf);
+      if (!candles || candles.length === 0) continue;
+      const analysis = analyzeGoldCandles(candles, tf, source, symbol);
+      const qm = analysis.scoringMatrix;
+      const ts = analysis.tradeSetup;
+      const lc = ts?.entryTiming?.lifecycle;
+
+      // Broadcast actionable Grade A+ or Score >= minScore setups with 4/4 confluences
+      if (
+        qm &&
+        qm.allMandatoryConfluencesPassed &&
+        (analysis.setupGrade === 'A+' || qm.totalScore >= cfg.minScore) &&
+        ts &&
+        ts.isActionable
+      ) {
+        await checkAndBroadcastSetup({
+          symbol,
+          displayName: uInfo.displayName,
+          assetIcon: uInfo.icon,
+          timeframe: tf,
+          type: ts.direction === 'LONG' ? 'BUY' : 'SELL',
+          grade: analysis.setupGrade || 'A+',
+          probability: analysis.probability,
+          score: qm.totalScore,
+          allMandatoryPassed: qm.allMandatoryConfluencesPassed,
+          entry: ts.entry,
+          stopLoss: ts.stopLoss,
+          tp1: ts.tp1,
+          tp2: ts.tp2,
+          riskPips: ts.riskPips,
+          rewardTp1Pips: ts.rewardTp1Pips,
+          rewardTp2Pips: ts.rewardTp2Pips,
+          pipUnit: uInfo.unitLabel || 'pips',
+          reason: analysis.summaryReason || `${tf.toUpperCase()} 4-Confluence A+ Confirmed`,
+          plannedRiskUsd: ts.v3Config?.plannedRiskUsd,
+          positionSize: ts.v3Config?.positionSize,
+          positionUnit: ts.v3Config?.positionUnit,
+          time: Math.floor(Date.now() / 1000),
+        });
+      }
+
+      // Broadcast milestone notifications (TP1 hit, TP2 hit)
+      if (lc && (lc.activationState === 'TP1_HIT_RUNNING' || lc.activationState === 'TP2_HIT_PROFIT')) {
+        await checkAndBroadcastMilestone({
+          symbol,
+          displayName: uInfo.displayName,
+          assetIcon: uInfo.icon,
+          timeframe: tf,
+          type: lc.direction as 'BUY' | 'SELL',
+          stage: lc.activationState === 'TP2_HIT_PROFIT' ? 'TP2' : 'TP1',
+          entry: lc.entryPrice,
+          targetPrice: lc.activationState === 'TP2_HIT_PROFIT' ? lc.tp2 : lc.tp1,
+          signalTime: lc.activatedTime || Math.floor(Date.now() / 1000),
+          pips: Math.abs(lc.currentPrice - lc.entryPrice) * (uInfo.pipMultiplier || 10),
+          pipUnit: uInfo.unitLabel || 'pips',
+        });
+      }
+    }
+  } catch (err: any) {
+    // Non-blocking background catch
+  } finally {
+    isScanningTelegram = false;
+  }
+}
+
+// Run autonomous scanner every 15 seconds
+setInterval(runAutonomousTelegramScanner, 15000);
 
 export default app;
