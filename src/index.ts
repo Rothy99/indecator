@@ -649,13 +649,17 @@ app.post('/api/telegram/push-now', async (c: any) => {
     const qm = analysis.scoringMatrix;
     const ts = analysis.tradeSetup;
 
-    const isAllowedGrade = analysis.setupGrade === 'A+' || analysis.setupGrade === 'A';
-    if (!isAllowedGrade && !c.req.query('force')) {
+    const score = qm?.totalScore ?? analysis.score;
+    const prob = analysis.probability;
+    const is95Plus = (score >= 95 || prob >= 95) && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
+
+    if (!is95Plus && !c.req.query('force')) {
       return c.json({
         success: false,
-        error: `Current ${tf.toUpperCase()} setup is Grade ${analysis.setupGrade || 'C'} (${analysis.score || 50}/100 PTS). Only Grade A+ and Grade A setups are pushed.`,
+        error: `Current ${tf.toUpperCase()} setup is Grade ${analysis.setupGrade || 'C'} (${score}/100 PTS, ${prob}% prob). Telegram push is strictly restricted to 95%+ setups.`,
         grade: analysis.setupGrade || 'C',
-        score: analysis.score || 50
+        score,
+        probability: prob
       }, 200);
     }
 
@@ -826,10 +830,12 @@ async function runAutonomousTelegramScanner() {
       const ts = analysis.tradeSetup;
       const lc = ts?.entryTiming?.lifecycle;
 
-      // Strictly push ONLY Grade A+ and Grade A setups on 1h and 15m
-      const isAllowedGrade = ts && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
+      // Strictly push ONLY 95%+ High-Confidence setups on 1h and 15m
+      const score = qm?.totalScore ?? analysis.score;
+      const prob = analysis.probability;
+      const is95Plus = ts && (score >= 95 || prob >= 95) && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
 
-      if (isAllowedGrade) {
+      if (is95Plus) {
         const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
         const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
         const orderType = isEnterNow

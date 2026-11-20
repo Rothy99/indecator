@@ -415,10 +415,13 @@ export async function checkAndBroadcastSetup(signal: {
     return null;
   }
 
-  // Strict Grade Filter: Push ONLY Grade A+ and Grade A setups to Telegram
-  const isAllowedGrade = signal.grade === 'A+' || signal.grade === 'A';
+  // Strict Quality Filter: Push ONLY 95%+ High-Confidence setups to Telegram
+  const minRequiredScore = Math.max(95, cfg.minScore || 95);
+  const isHighConfidence95Plus =
+    (signal.score >= minRequiredScore || signal.probability >= minRequiredScore) &&
+    (signal.grade === 'A+' || signal.grade === 'A');
 
-  if (!isAllowedGrade) {
+  if (!isHighConfidence95Plus) {
     return null;
   }
 
