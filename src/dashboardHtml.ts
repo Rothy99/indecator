@@ -16,42 +16,60 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #060911;
-      color: #f8fafc;
-      -webkit-tap-highlight-color: transparent;
+    :root {
+      --bg-main: #07090e;
+      --bg-panel: #0d121f;
+      --bg-panel-elevated: #111728;
+      --border-subtle: rgba(255, 255, 255, 0.07);
     }
-    .mono { font-family: 'JetBrains Mono', monospace; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-main);
+      color: #f1f5f9;
+      -webkit-tap-highlight-color: transparent;
+      letter-spacing: -0.01em;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-feature-settings: "tnum" on, "zero" on;
+    }
     .panel {
-      background: #0c1220;
-      border: 1px solid #1e293b;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+    }
+    .panel-clean {
+      background: rgba(13, 18, 31, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
     }
     @keyframes flashUp {
-      0% { background-color: rgba(16, 185, 129, 0.4); }
+      0% { background-color: rgba(16, 185, 129, 0.3); }
       100% { background-color: transparent; }
     }
     @keyframes flashDown {
-      0% { background-color: rgba(244, 63, 94, 0.4); }
+      0% { background-color: rgba(244, 63, 94, 0.3); }
       100% { background-color: transparent; }
     }
     .tick-up { animation: flashUp 0.45s ease-out; }
     .tick-down { animation: flashDown 0.45s ease-out; }
     .banner-buy {
-      background: linear-gradient(135deg, rgba(6, 78, 59, 0.5) 0%, #0c1220 65%);
-      border: 1.5px solid rgba(16, 185, 129, 0.65);
+      background: linear-gradient(135deg, rgba(6, 78, 59, 0.3) 0%, #0d121f 70%);
+      border: 1px solid rgba(16, 185, 129, 0.45);
     }
     .banner-sell {
-      background: linear-gradient(135deg, rgba(136, 19, 55, 0.5) 0%, #0c1220 65%);
-      border: 1.5px solid rgba(244, 63, 94, 0.65);
+      background: linear-gradient(135deg, rgba(136, 19, 55, 0.3) 0%, #0d121f 70%);
+      border: 1px solid rgba(244, 63, 94, 0.45);
     }
     .banner-wait {
-      background: linear-gradient(135deg, rgba(120, 53, 15, 0.38) 0%, #0c1220 65%);
-      border: 1.5px solid rgba(245, 158, 11, 0.55);
+      background: linear-gradient(135deg, rgba(120, 53, 15, 0.22) 0%, #0d121f 70%);
+      border: 1px solid rgba(245, 158, 11, 0.35);
     }
-    .overflow-x-auto {
-      -webkit-overflow-scrolling: touch;
-    }
+    /* Minimal sleek scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
     .scrollbar-none::-webkit-scrollbar { display: none; }
     .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
     .safe-pb { padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)); }
@@ -63,37 +81,53 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- Top Bar: MT5 Spot XAU/USD + Live Session Killzone Clock (GMT+7 Phnom Penh / UTC) -->
-  <header class="border-b border-slate-800 bg-[#060911]/95 sticky top-0 z-40 backdrop-blur-md">
-    <div class="max-w-[1600px] mx-auto px-2.5 sm:px-4 py-2 sm:py-2.5 flex flex-col lg:flex-row items-center justify-between gap-2 sm:gap-2.5">
-      <!-- Top / Left Line: Logo, Title, Live Pulse & Mobile Utilities -->
-      <div class="flex items-center justify-between w-full lg:w-auto gap-2">
-        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-xs mono shrink-0">
-            4-CONF
+  <!-- Institutional Sticky Header -->
+  <header class="border-b border-slate-800/80 bg-[#07090e]/95 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-[1600px] mx-auto px-3 sm:px-4 py-2 flex flex-col md:flex-row items-center justify-between gap-2">
+      <!-- Left: Brand + Symbol Switcher Segmented Control -->
+      <div class="flex items-center justify-between w-full md:w-auto gap-3">
+        <div class="flex items-center gap-2.5 shrink-0">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center font-black text-slate-950 text-xs mono shrink-0 shadow-sm shadow-amber-400/20">
+            4C
           </div>
-          <div class="min-w-0">
+          <div>
             <div class="flex items-center gap-1.5 sm:gap-2">
-              <span id="headerSymbolTitle" class="font-extrabold text-sm sm:text-base tracking-tight text-white truncate">XAU/USD MASTER</span>
-              <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+              <span id="headerSymbolTitle" class="font-extrabold text-sm sm:text-base tracking-tight text-white">XAU/USD</span>
+              <span class="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                 LIVE
               </span>
             </div>
-            <span id="sourceBadge" class="text-[10px] sm:text-[11px] text-slate-400 block truncate max-w-[190px] xs:max-w-[280px] sm:max-w-none">⚡ 4-Confluence V3.0 (Sweep + MSS + FVG CE 50%)</span>
+            <span id="sourceBadge" class="text-[10px] text-slate-400 block truncate max-w-[200px] sm:max-w-none">4-Confluence V3.0 (Sweep + MSS + FVG CE 50%)</span>
           </div>
         </div>
 
-        <!-- Quick Utility Buttons (Right on Mobile, Part of Controls on Desktop) -->
-        <div class="flex items-center gap-1 sm:hidden">
+        <!-- Segmented Symbol Selector Pills -->
+        <div class="inline-flex rounded-lg bg-slate-900/90 p-0.5 border border-slate-800/90 gap-0.5">
+          <button onclick="switchSymbol('XAUUSD')" id="sym-XAUUSD" class="px-2.5 py-1 rounded-md text-xs font-black transition-all bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm">
+            <span>🪙</span><span class="hidden xs:inline">Gold</span>
+          </button>
+          <button onclick="switchSymbol('BTCUSD')" id="sym-BTCUSD" class="px-2.5 py-1 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+            <span>₿</span><span class="hidden xs:inline">BTC</span>
+          </button>
+          <button onclick="switchSymbol('ETHUSD')" id="sym-ETHUSD" class="px-2.5 py-1 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+            <span>Ξ</span><span class="hidden xs:inline">ETH</span>
+          </button>
+          <button onclick="switchSymbol('SOLUSD')" id="sym-SOLUSD" class="px-2.5 py-1 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
+            <span>◎</span><span class="hidden xs:inline">SOL</span>
+          </button>
+        </div>
+
+        <!-- Mobile utility shortcuts -->
+        <div class="flex items-center gap-1 md:hidden">
           <button onclick="openMt5Modal()" class="p-1.5 rounded-lg text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center gap-1" title="MetaTrader 5 Real-Time Live Feed">
             <span class="w-1.5 h-1.5 rounded-full bg-slate-500" id="mt5StatusDotMob"></span>
             <span>⚡</span>
           </button>
-          <button onclick="openTelegramModal()" class="p-1.5 rounded-lg text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-300" title="Telegram Channel Broadcast">
+          <button onclick="openTelegramModal()" class="p-1.5 rounded-lg text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-300" title="Telegram">
             <span>📱</span>
           </button>
-          <button onclick="toggleAudio()" class="p-1.5 rounded-lg text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300" title="Toggle Sound">
+          <button onclick="toggleAudio()" class="p-1.5 rounded-lg text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300" title="Sound">
             <span id="soundIconMob">🔊</span>
           </button>
           <button onclick="toggleHotkeysModal(true)" class="p-1.5 rounded-lg text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300" title="Shortcuts">
@@ -102,80 +136,55 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Mid / Sub Line: Live Bid/Ask/Spread & Asset Switcher -->
-      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2 w-full lg:w-auto">
-        <!-- Live Bid / Ask / Spread Box (Mobile Optimized) -->
-        <div id="priceBox" class="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 transition-colors justify-between sm:justify-start">
+      <!-- Right: Live Price Ticker + Desktop Utility Badges -->
+      <div class="flex items-center justify-between md:justify-end gap-2.5 w-full md:w-auto">
+        <!-- Live Bid / Ask / Spread Combined Ticker Box -->
+        <div id="priceBox" class="flex items-center gap-2 sm:gap-3 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-slate-800/90 transition-colors">
           <div>
-            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 BID</span>
-            <span id="livePrice" class="mono text-base sm:text-2xl font-black text-white tracking-tight">$----.--</span>
+            <span class="text-[8px] uppercase font-bold text-slate-400 block leading-none">BID</span>
+            <span id="livePrice" class="mono text-base sm:text-xl font-black text-white tracking-tight">$----.--</span>
           </div>
-          <div class="border-l border-slate-800 pl-2 sm:pl-3">
-            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">MT5 ASK</span>
-            <span id="liveAsk" class="mono text-xs sm:text-base font-bold text-amber-300">$----.--</span>
+          <div class="border-l border-slate-800 pl-2">
+            <span class="text-[8px] uppercase font-bold text-slate-400 block leading-none">ASK</span>
+            <span id="liveAsk" class="mono text-xs sm:text-sm font-bold text-amber-300">$----.--</span>
           </div>
-          <div class="border-l border-slate-800 pl-2 sm:pl-3">
-            <span class="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 block">SPREAD</span>
+          <div class="border-l border-slate-800 pl-2">
+            <span class="text-[8px] uppercase font-bold text-slate-400 block leading-none">SPREAD</span>
             <span id="liveSpread" class="mono text-[10px] sm:text-xs font-bold text-emerald-400">-- pt</span>
           </div>
-          <span id="spreadGuardBadge" class="px-1.5 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">OK</span>
-          <span id="priceDirArrow" class="text-xs sm:text-base font-bold text-amber-400">●</span>
+          <span id="spreadGuardBadge" class="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">OK</span>
+          <span id="priceDirArrow" class="text-xs sm:text-sm font-bold text-amber-400">●</span>
         </div>
 
-        <!-- Multi-Asset Switcher + Status Badges -->
-        <div class="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 flex-wrap">
-          <!-- Multi-Asset Switcher: Gold & Major Crypto -->
-          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 sm:p-1 border border-slate-800 overflow-x-auto scrollbar-none gap-0.5">
-            <button onclick="switchSymbol('XAUUSD')" id="sym-XAUUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-black transition-all bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm">
-              <span>🪙</span><span>Gold</span>
-            </button>
-            <button onclick="switchSymbol('BTCUSD')" id="sym-BTCUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
-              <span>₿</span><span>BTC</span>
-            </button>
-            <button onclick="switchSymbol('ETHUSD')" id="sym-ETHUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
-              <span>Ξ</span><span>ETH</span>
-            </button>
-            <button onclick="switchSymbol('SOLUSD')" id="sym-SOLUSD" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1">
-              <span>◎</span><span>SOL</span>
-            </button>
+        <!-- Desktop Status & Utility Badges -->
+        <div class="hidden md:flex items-center gap-1.5">
+          <button id="mt5HeaderBtn" onclick="openMt5Modal()" class="px-2.5 py-1.5 rounded-lg text-xs font-bold mono bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1.5" title="MetaTrader 5 Real-Time Live Feed Status & Bridge">
+            <span class="w-2 h-2 rounded-full bg-slate-500" id="mt5StatusDot"></span>
+            <span>⚡</span>
+            <span class="hidden lg:inline" id="mt5HeaderLabel">MT5 Bridge</span>
+          </button>
+
+          <div id="d1DbPill" title="Cloudflare D1 Local SQLite Database" class="px-2 py-1.5 rounded-lg text-xs font-bold mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="hidden lg:inline">D1 Active</span>
           </div>
 
-          <div id="d1DbPill" title="Cloudflare D1 Local SQLite Database" class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="hidden sm:inline">🗄️ D1 Local: Active</span>
-            <span class="sm:hidden">D1</span>
+          <div id="circuitBreakerPill" class="px-2 py-1.5 rounded-lg text-xs font-bold mono bg-slate-900 text-slate-300 border border-slate-800">
+            <span>🛡️ 0/2</span>
           </div>
 
-          <div id="circuitBreakerPill" class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-            <span class="hidden sm:inline">🛡️ Breaker: 0/2</span>
-            <span class="sm:hidden">🛡️ 0/2</span>
-          </div>
+          <button id="telegramHeaderBtn" onclick="openTelegramModal()" class="px-2 py-1.5 rounded-lg text-xs font-bold mono bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex items-center gap-1" title="Telegram">
+            <span class="w-2 h-2 rounded-full bg-slate-500" id="telegramStatusDot"></span>
+            <span>📱</span>
+          </button>
 
-          <!-- Desktop Utility Buttons -->
-          <div class="hidden sm:flex items-center gap-1.5">
-            <button id="mt5HeaderBtn" onclick="openMt5Modal()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1.5" title="MetaTrader 5 Real-Time Live Feed Status & Bridge">
-              <span class="w-2 h-2 rounded-full bg-slate-500" id="mt5StatusDot"></span>
-              <span>⚡</span>
-              <span class="hidden md:inline" id="mt5HeaderLabel">MT5 Bridge</span>
-            </button>
+          <button id="soundToggleBtn" onclick="toggleAudio()" class="px-2 py-1.5 rounded-lg text-xs font-bold mono bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-white transition flex items-center gap-1" title="Sound (M)">
+            <span id="soundIcon">🔊</span>
+          </button>
 
-            <button id="telegramHeaderBtn" onclick="openTelegramModal()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex items-center gap-1.5" title="Telegram Channel Broadcast Settings & Status">
-              <span class="w-2 h-2 rounded-full bg-slate-500" id="telegramStatusDot"></span>
-              <span>📱</span>
-              <span class="hidden md:inline" id="telegramHeaderLabel">Telegram</span>
-            </button>
-
-            <button id="soundToggleBtn" onclick="toggleAudio()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1" title="Toggle audio chime alerts (Hotkey: M)">
-              <span id="soundIcon">🔊</span>
-              <span class="hidden md:inline" id="soundLabel">Sound ON</span>
-            </button>
-
-            <button onclick="toggleHotkeysModal(true)" class="px-2 py-1.5 rounded-lg text-xs font-extrabold mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-amber-300 transition flex items-center gap-1" title="Trading hotkeys cheatsheet (Hotkey: ?)">
-              <span>⌨️</span>
-              <span class="hidden md:inline">Shortcuts</span>
-            </button>
-          </div>
-
+          <button onclick="toggleHotkeysModal(true)" class="px-2 py-1.5 rounded-lg text-xs font-bold mono bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-amber-300 transition flex items-center gap-1" title="Shortcuts (?)">
+            <span>⌨️</span>
+          </button>
         </div>
       </div>
     </div>
@@ -186,38 +195,38 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     <!-- ========================================================================= -->
     <!-- TIER 1: INSTITUTIONAL MARKET CONTEXT & KILLZONE (PANORAMIC STRIP)          -->
     <!-- ========================================================================= -->
-    <section class="panel rounded-xl px-2.5 sm:px-4 py-2 border-slate-800 bg-slate-950/80 shadow-sm flex flex-wrap items-center justify-between gap-2 sm:gap-2.5 text-xs">
+    <section class="panel-clean rounded-xl px-3 py-2 border border-slate-800/70 shadow-sm flex flex-wrap items-center justify-between gap-2 text-xs">
       <!-- Session Killzone Window (GMT+7 Phnom Penh & UTC) -->
-      <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-        <span id="sessionBadge" class="px-2 sm:px-2.5 py-0.5 rounded text-[10px] sm:text-[11px] font-black mono bg-amber-400 text-slate-950">SESSION</span>
-        <span id="sessionClock" class="mono text-[11px] sm:text-xs font-bold text-white">--:-- GMT+7 | --:-- UTC</span>
-        <span id="sessionActionText" class="text-[11px] text-slate-400 hidden xl:inline border-l border-slate-800 pl-2">Loading session killzone rules...</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span id="sessionBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950">SESSION</span>
+        <span id="sessionClock" class="mono text-xs font-bold text-white">--:-- GMT+7 | --:-- UTC</span>
+        <span id="sessionActionText" class="text-[11px] text-slate-400 hidden xl:inline border-l border-slate-800/80 pl-2">Loading session killzone rules...</span>
       </div>
 
       <!-- Institutional Liquidity Levels (PDH, PDL, Asian High, Asian Low) -->
-      <div class="flex items-center gap-1 sm:gap-2 mono overflow-x-auto scrollbar-none max-w-full pb-0.5 sm:pb-0">
-        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <span class="text-[8px] sm:text-[9px] text-slate-400 uppercase font-bold">PDH</span>
-          <span id="lvlPdh" class="text-[11px] sm:text-xs font-black text-rose-300">$----</span>
+      <div class="flex items-center gap-1.5 sm:gap-2 mono overflow-x-auto scrollbar-none pb-0.5 sm:pb-0">
+        <div class="bg-slate-900/80 px-2 py-0.5 rounded-md border border-slate-800 flex items-center gap-1.5 shrink-0">
+          <span class="text-[9px] text-slate-400 uppercase font-semibold">PDH</span>
+          <span id="lvlPdh" class="text-xs font-black text-rose-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <span class="text-[8px] sm:text-[9px] text-slate-400 uppercase font-bold">PDL</span>
-          <span id="lvlPdl" class="text-[11px] sm:text-xs font-black text-emerald-300">$----</span>
+        <div class="bg-slate-900/80 px-2 py-0.5 rounded-md border border-slate-800 flex items-center gap-1.5 shrink-0">
+          <span class="text-[9px] text-slate-400 uppercase font-semibold">PDL</span>
+          <span id="lvlPdl" class="text-xs font-black text-emerald-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <span class="text-[8px] sm:text-[9px] text-amber-400/80 uppercase font-bold">Asian H</span>
-          <span id="lvlAsianHigh" class="text-[11px] sm:text-xs font-black text-amber-300">$----</span>
+        <div class="bg-slate-900/80 px-2 py-0.5 rounded-md border border-slate-800 flex items-center gap-1.5 shrink-0">
+          <span class="text-[9px] text-amber-400/80 uppercase font-semibold">Asian H</span>
+          <span id="lvlAsianHigh" class="text-xs font-black text-amber-300">$----</span>
         </div>
-        <div class="bg-slate-900/90 px-1.5 sm:px-2 py-0.5 rounded-lg border border-slate-800 flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <span class="text-[8px] sm:text-[9px] text-amber-400/80 uppercase font-bold">Asian L</span>
-          <span id="lvlAsianLow" class="text-[11px] sm:text-xs font-black text-amber-300">$----</span>
+        <div class="bg-slate-900/80 px-2 py-0.5 rounded-md border border-slate-800 flex items-center gap-1.5 shrink-0">
+          <span class="text-[9px] text-amber-400/80 uppercase font-semibold">Asian L</span>
+          <span id="lvlAsianLow" class="text-xs font-black text-amber-300">$----</span>
         </div>
       </div>
 
       <!-- Macro News Guard & MT5 Spread Buffer -->
-      <div class="flex items-center gap-1.5 sm:gap-2">
-        <span id="newsStatusBadge" class="px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">NEWS CLEAR</span>
-        <span id="spreadNoticeBox" class="text-[10px] sm:text-[11px] mono text-emerald-400 font-bold hidden sm:inline">Spread: -- pt</span>
+      <div class="flex items-center gap-2">
+        <span id="newsStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">NEWS CLEAR</span>
+        <span id="spreadNoticeBox" class="text-[11px] mono text-emerald-400 font-bold hidden sm:inline">Spread: -- pt</span>
         <span id="newsStatusNote" class="hidden"></span>
       </div>
     </section>
@@ -225,10 +234,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     <!-- ========================================================================= -->
     <!-- CROSS-MARKET SIGNAL RADAR & QUICK SCANNER (A+ 90%+ & ACTIVE SIGNALS)      -->
     <!-- ========================================================================= -->
-    <section id="signalRadarSection" class="panel rounded-2xl p-3 sm:p-4 space-y-3 border border-amber-500/30 bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-950/95 shadow-xl">
-      <div class="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/80 pb-2.5">
+    <section id="signalRadarSection" class="panel rounded-xl p-3 sm:p-3.5 space-y-2.5 border border-slate-800/80 shadow-md">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/70 pb-2">
         <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <div>
             <div class="text-xs sm:text-sm font-black tracking-tight text-white flex items-center gap-2">
               <span>🎯 Cross-Market Signal Radar</span>
@@ -236,7 +245,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 Scanning...
               </span>
             </div>
-            <p class="text-[10px] sm:text-[11px] text-slate-400 hidden xs:block">
+            <p class="text-[10px] text-slate-400 hidden xs:block">
               Auto-scans Gold &amp; Crypto across 6 Timeframes • One-click switch &amp; trade
             </p>
           </div>
@@ -244,7 +253,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         <div class="flex items-center gap-1.5 flex-wrap">
           <!-- Filter Tabs -->
-          <div class="flex items-center gap-1 p-0.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[10px] mono">
+          <div class="flex items-center gap-0.5 p-0.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[10px] mono">
             <button id="radarFilterAll" onclick="setRadarFilter('ALL')" class="px-2 py-1 rounded font-black bg-amber-400 text-slate-950 transition">
               All
             </button>
@@ -259,7 +268,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </button>
           </div>
 
-          <button onclick="fetchSignalRadar()" id="btnRadarRefresh" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1" title="Rescan all symbols and timeframes">
+          <button onclick="fetchSignalRadar()" id="btnRadarRefresh" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1" title="Rescan all symbols and timeframes">
             <span id="radarRefreshIcon">🔄</span>
             <span class="hidden sm:inline text-[11px]">Rescan</span>
           </button>
@@ -282,17 +291,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
 
       <!-- LEFT COLUMN: CHART & CONFLUENCE ANALYSIS (~65% WIDTH) -->
-      <div class="xl:col-span-7 2xl:col-span-8 space-y-4">
+      <div class="xl:col-span-7 2xl:col-span-8 space-y-3.5">
 
         <!-- 6-Timeframe Interactive Ribbon (Top of Chart) -->
-        <div id="mtfEasyContainer" class="panel rounded-2xl p-2.5 sm:p-3.5 space-y-2 sm:space-y-2.5">
-          <div class="flex items-center justify-between text-xs border-b border-slate-800/80 pb-1.5 sm:pb-2">
+        <div id="mtfEasyContainer" class="panel-clean rounded-xl p-2.5 sm:p-3 space-y-2 border border-slate-800/80">
+          <div class="flex items-center justify-between text-xs border-b border-slate-800/60 pb-1.5">
             <span class="font-extrabold uppercase tracking-wider text-[11px] text-amber-300 flex items-center gap-2">
               <span>⚡ Multi-Timeframe Status Strip</span>
               <span class="text-[10px] text-slate-400 font-normal hidden sm:inline">(Click any chip to switch active chart & setup)</span>
             </span>
             <span class="mono text-[10px] text-slate-400 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Live Real-Time P&L
             </span>
           </div>
@@ -302,17 +311,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
 
         <!-- Real-Time Candle Identification & Smart Money Anatomy -->
-        <div id="liveCandleIdentifierBox" class="panel rounded-2xl p-3 sm:p-3.5 border border-indigo-500/30 bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-950/95 space-y-2.5 shadow-lg">
-          <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800/80 pb-2">
+        <div id="liveCandleIdentifierBox" class="panel-clean rounded-xl p-3 border border-slate-800/80 space-y-2.5 shadow-sm">
+          <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800/60 pb-2">
             <div class="flex items-center gap-2">
-              <span id="candlePatternIcon" class="text-lg sm:text-xl">🕯️</span>
+              <span id="candlePatternIcon" class="text-base sm:text-lg">🕯️</span>
               <div>
-                <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-indigo-400">Live Candle Identification &amp; Anatomy</span>
+                <span class="text-[9px] font-black uppercase tracking-wider text-slate-400">Live Candle Identification &amp; Anatomy</span>
                 <div id="candlePatternName" class="text-xs sm:text-sm font-black text-white">Analyzing Real-Time Candle...</div>
               </div>
             </div>
             <div class="flex items-center gap-1.5">
-              <span id="candlePatternBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-amber-300">
+              <span id="candlePatternBadge" class="px-2 py-0.5 rounded text-[10px] font-black mono bg-slate-800 text-amber-300 border border-slate-700/80">
                 CALCULATING
               </span>
               <span id="candleRangeRatio" class="mono text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
@@ -330,7 +339,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span id="candleBodyPct" class="text-emerald-400 font-black">Body: --%</span>
                 <span id="candleUpperWickPct" class="text-rose-400 font-bold">Upper Wick: --%</span>
               </div>
-              <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden flex border border-slate-800">
+              <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden flex border border-slate-800">
                 <div id="candleLowerWickBar" class="h-full bg-amber-400/80 transition-all duration-300" style="width: 20%"></div>
                 <div id="candleBodyBar" class="h-full bg-emerald-400 transition-all duration-300" style="width: 60%"></div>
                 <div id="candleUpperWickBar" class="h-full bg-rose-400/80 transition-all duration-300" style="width: 20%"></div>
@@ -338,14 +347,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
 
             <!-- ICT Smart Money Interpretation -->
-            <div class="md:col-span-5 text-[10px] sm:text-[11px] text-slate-300 border-l border-slate-800 pl-2.5 leading-snug">
+            <div class="md:col-span-5 text-[10px] sm:text-[11px] text-slate-300 border-l border-slate-800/80 pl-2.5 leading-snug">
               <span class="font-extrabold text-amber-300">Smart Money: </span>
               <span id="candleIctMeaning">Scanning real-time candle for displacement, sweep wicks, or engulfing flow...</span>
             </div>
           </div>
 
           <!-- Recent Completed Candles Recognition Flow -->
-          <div class="pt-1.5 border-t border-slate-800/80 flex items-center justify-between overflow-x-auto scrollbar-none gap-2">
+          <div class="pt-1.5 border-t border-slate-800/60 flex items-center justify-between overflow-x-auto scrollbar-none gap-2">
             <span class="text-[9px] font-black uppercase text-slate-500 shrink-0">Recent Flow:</span>
             <div id="recentCandlesFlowContainer" class="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
               <!-- Rendered dynamically -->
@@ -354,8 +363,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
 
         <!-- Interactive Lightweight Chart -->
-        <div class="panel rounded-2xl p-2.5 sm:p-4 flex flex-col gap-2.5 sm:gap-3">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+        <div class="panel rounded-xl p-2.5 sm:p-3.5 flex flex-col gap-2.5 border border-slate-800/80">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
             <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
               <span class="font-extrabold text-white flex items-center gap-1.5 sm:gap-2">
                 <span id="chartTfLabel" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono text-xs">15M</span>
@@ -368,20 +377,20 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span class="w-2.5 sm:w-3 h-0.5 bg-sky-400 inline-block"></span>200 EMA
               </span>
             </div>
-            <div class="flex items-center gap-1.5 sm:gap-2">
-              <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/25">
+            <div class="flex items-center gap-1.5">
+              <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/20">
                 Lines: ON
               </button>
-              <button onclick="resetChartZoom()" class="px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+              <button onclick="resetChartZoom()" class="px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800/90 text-slate-300 hover:bg-slate-700 transition">
                 Fit Chart
               </button>
             </div>
           </div>
-          <div id="priceChart" class="w-full h-[280px] sm:h-[450px] rounded-xl overflow-hidden bg-slate-950/70 border border-slate-900"></div>
+          <div id="priceChart" class="w-full h-[280px] sm:h-[450px] rounded-lg overflow-hidden bg-slate-950/70 border border-slate-900"></div>
         </div>
 
         <!-- Strategy Confluence & 100-Point Quantitative Matrix (Collapsible Clean Bar) -->
-        <details id="confluenceDetails" class="panel rounded-xl p-3 sm:p-3.5 border-slate-800 space-y-2.5 group transition-all">
+        <details id="confluenceDetails" class="panel rounded-xl p-3 border border-slate-800/80 space-y-2 group transition-all">
           <summary class="flex items-center justify-between cursor-pointer list-none select-none">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="px-2 py-0.5 rounded text-[10px] font-black mono bg-amber-400 text-slate-950 uppercase">V3.0 STRATEGY</span>
@@ -389,12 +398,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <span class="text-[10px] text-slate-400 hidden sm:inline">(A+ 90/100 · 7 Pillars · 0.25% Max Risk)</span>
             </div>
             <div class="flex items-center gap-2">
-              <span id="quantScoreBadge" class="mono text-xs font-black px-2.5 py-0.5 rounded bg-amber-400 text-slate-950">--/100 PTS</span>
+              <span id="quantScoreBadge" class="mono text-xs font-black px-2 py-0.5 rounded bg-amber-400 text-slate-950">--/100 PTS</span>
               <span class="text-xs text-slate-400 group-open:rotate-180 transition-transform">▼</span>
             </div>
           </summary>
           <div class="pt-2.5 border-t border-slate-800/80 space-y-3">
-            <div id="quantVerdictBanner" class="p-2 rounded-xl border text-center font-black mono text-xs bg-slate-900 border-slate-700 text-slate-300">
+            <div id="quantVerdictBanner" class="p-2 rounded-lg border text-center font-black mono text-xs bg-slate-900 border-slate-700 text-slate-300">
               EVALUATING 100-POINT MATRIX...
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -423,14 +432,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <!-- RIGHT COLUMN: THE HERO EXECUTION TICKET (~35% WIDTH) -->
-      <div class="xl:col-span-5 2xl:col-span-4 space-y-4">
+      <div class="xl:col-span-5 2xl:col-span-4 space-y-3.5">
 
-        <section id="heroBanner" class="panel rounded-2xl p-4 sm:p-5 banner-wait transition-all space-y-4 border-2 border-amber-500/40 shadow-xl shadow-amber-500/5">
+        <section id="heroBanner" class="panel rounded-xl p-3.5 sm:p-4 banner-wait transition-all space-y-3.5 border border-slate-800/90 shadow-lg">
           <!-- Execution Ticket Header -->
-          <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800/80 pb-3">
+          <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800/70 pb-2.5">
             <div class="flex items-center gap-2">
-              <span id="gradeBadge" class="px-2.5 py-1 rounded-md text-xs font-black mono bg-amber-400 text-slate-950 shadow-sm">GRADE --</span>
-              <span id="activationBadge" class="px-2.5 py-1 rounded-md text-xs font-black mono bg-slate-900 text-amber-300 border border-amber-500/40">
+              <span id="gradeBadge" class="px-2 py-0.5 rounded text-xs font-black mono bg-amber-400 text-slate-950 shadow-sm">GRADE --</span>
+              <span id="activationBadge" class="px-2 py-0.5 rounded text-xs font-black mono bg-slate-900 text-amber-300 border border-amber-500/40">
                 STATUS
               </span>
             </div>
@@ -438,7 +447,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- Big Live Position Status / Floating P&L -->
-          <div id="liveLifecycleBox" class="p-3.5 rounded-xl bg-slate-950/95 border-2 border-slate-700 space-y-2 shadow-inner">
+          <div id="liveLifecycleBox" class="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1.5">
             <div class="flex items-center justify-between">
               <span id="lifecycleTitle" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">ENTRY EXECUTION STATE</span>
               <span id="lifecycleEntryTag" class="mono text-xs font-bold text-white">Entry: $----.--</span>
@@ -466,10 +475,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- Live Entry Zone Proximity Meter & 1-Click Order Execution -->
-          <div id="entryProximityBox" class="p-3 rounded-xl bg-slate-950/95 border border-slate-800 space-y-2 transition-all">
+          <div id="entryProximityBox" class="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-2 transition-all">
             <div class="flex items-center justify-between">
               <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <span id="entryProximityDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span id="entryProximityDot" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
                 <span>Optimal Entry Proximity</span>
               </span>
               <span id="entryProximityBadge" class="mono text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-400">
@@ -478,7 +487,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
             <div class="flex items-baseline justify-between">
               <div>
-                <span id="entryProximityTitle" class="text-xs sm:text-sm font-black text-white">Monitoring Distance to CE 50%</span>
+                <span id="entryProximityTitle" class="text-xs sm:text-sm font-black text-white">Distance to CE 50%</span>
                 <p id="entryProximitySubtitle" class="text-[10px] text-slate-400 mt-0.5">Optimal limit order positioned at Consequent Encroachment</p>
               </div>
               <div class="text-right">
@@ -487,68 +496,68 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </div>
             </div>
             <!-- Quick 1-Click Order Execution Bar -->
-            <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-800/80">
-              <button id="btnExecMarket" onclick="executeMarketCopy()" class="py-1.5 px-2 rounded-lg text-[10px] sm:text-xs font-black bg-slate-800 hover:bg-slate-700 text-white transition flex items-center justify-center gap-1 shadow-sm active:scale-[0.98]">
-                <span>⚡ Copy Market Order</span>
+            <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/80">
+              <button id="btnExecMarket" onclick="executeMarketCopy()" class="py-2 px-2.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center justify-center gap-1 shadow-sm active:scale-[0.98]">
+                <span>⚡ Copy Market</span>
               </button>
-              <button id="btnExecLimit" onclick="executeLimitCopy()" class="py-1.5 px-2 rounded-lg text-[10px] sm:text-xs font-black bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 transition flex items-center justify-center gap-1 shadow-sm active:scale-[0.98]">
-                <span>🎯 Copy CE Limit Order</span>
+              <button id="btnExecLimit" onclick="executeLimitCopy()" class="py-2 px-2.5 rounded-lg text-xs font-black bg-amber-400 hover:bg-amber-300 text-slate-950 transition flex items-center justify-center gap-1 shadow-md shadow-amber-400/20 active:scale-[0.98]">
+                <span>🎯 Copy CE Limit</span>
               </button>
             </div>
           </div>
 
           <!-- Dual Entry Options (Option A: Market Price vs Option B: FVG PRO Retest) -->
-          <div class="grid grid-cols-2 gap-2 sm:gap-2.5">
-            <div id="marketEntryCard" onclick="copyValue('marketEntryVal')" class="cursor-pointer p-2.5 sm:p-3 rounded-xl bg-slate-900/90 border border-slate-700 hover:border-slate-500 transition">
+          <div class="grid grid-cols-2 gap-2">
+            <div id="marketEntryCard" onclick="copyValue('marketEntryVal')" class="cursor-pointer p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition">
               <div class="flex items-center justify-between">
-                <span id="marketCardTitle" class="text-[9px] sm:text-[10px] font-extrabold uppercase text-slate-300">Option A: Market</span>
-                <span id="marketEntryStatusTag" class="px-1 py-0.2 rounded text-[8px] sm:text-[9px] font-black mono bg-slate-800 text-slate-300">--</span>
+                <span id="marketCardTitle" class="text-[9px] font-extrabold uppercase text-slate-400">Option A: Market</span>
+                <span id="marketEntryStatusTag" class="px-1 py-0.2 rounded text-[8px] font-black mono bg-slate-800 text-slate-300">--</span>
               </div>
-              <div id="marketEntryVal" class="mono text-lg sm:text-2xl font-black text-white mt-1">$----.--</div>
-              <div id="marketEntryNote" class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 truncate">Live MT5 Spot Price</div>
+              <div id="marketEntryVal" class="mono text-base sm:text-xl font-black text-white mt-1">$----.--</div>
+              <div id="marketEntryNote" class="text-[9px] text-slate-400 mt-0.5 truncate">Live MT5 Spot Price</div>
             </div>
 
-            <div id="waitEntryCard" onclick="copyValue('waitEntryVal')" class="cursor-pointer p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border-2 border-amber-400/70 hover:border-amber-300 transition">
+            <div id="waitEntryCard" onclick="copyValue('waitEntryVal')" class="cursor-pointer p-2.5 rounded-lg bg-amber-400/10 border border-amber-400/50 hover:border-amber-400 transition">
               <div class="flex items-center justify-between">
-                <span id="waitCardTitle" class="text-[9px] sm:text-[10px] font-extrabold uppercase text-amber-300">Option B: FVG Limit</span>
-                <span id="waitOrderTypeTag" class="px-1 py-0.2 rounded text-[8px] sm:text-[9px] font-black mono bg-amber-400 text-slate-950">LIMIT / RETEST</span>
+                <span id="waitCardTitle" class="text-[9px] font-extrabold uppercase text-amber-300">Option B: FVG Limit</span>
+                <span id="waitOrderTypeTag" class="px-1 py-0.2 rounded text-[8px] font-black mono bg-amber-400 text-slate-950">CE 50%</span>
               </div>
-              <div id="waitEntryVal" class="mono text-lg sm:text-2xl font-black text-amber-300 mt-1">$----.--</div>
-              <div id="waitEntryNote" class="text-[9px] sm:text-[10px] text-amber-200/80 mt-0.5 truncate">Retest to CE 50%</div>
+              <div id="waitEntryVal" class="mono text-base sm:text-xl font-black text-amber-300 mt-1">$----.--</div>
+              <div id="waitEntryNote" class="text-[9px] text-amber-200/80 mt-0.5 truncate">Retest to CE 50%</div>
             </div>
           </div>
 
           <!-- Precision Coordinates: Hard SL, TP1 (1:2 R:R), TP2 (1:3 R:R) -->
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
               <span>Execution Coordinates</span>
               <span class="text-[9px] text-slate-500 font-normal">Click any value to copy</span>
             </div>
-            <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
-              <div onclick="copyValue('setupSl')" class="cursor-pointer p-2 sm:p-2.5 rounded-xl bg-rose-950/35 border border-rose-500/45 hover:border-rose-400 transition">
-                <span class="text-[8px] sm:text-[9px] font-bold uppercase text-rose-300 block truncate">🛑 Hard SL</span>
-                <div id="setupSl" class="mono text-sm sm:text-lg font-black text-rose-400 mt-0.5">$----.--</div>
-                <span id="setupSlPips" class="mono text-[9px] sm:text-[10px] text-rose-300/80 block leading-tight truncate">Risk: -- pt</span>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div onclick="copyValue('setupSl')" class="cursor-pointer p-2 rounded-lg bg-rose-950/20 border border-rose-500/30 hover:border-rose-400/60 transition">
+                <span class="text-[8px] font-bold uppercase text-rose-300 block truncate">🛑 Hard SL</span>
+                <div id="setupSl" class="mono text-xs sm:text-base font-black text-rose-400 mt-0.5">$----.--</div>
+                <span id="setupSlPips" class="mono text-[9px] text-rose-300/80 block leading-tight truncate">Risk: -- pt</span>
               </div>
 
-              <div onclick="copyValue('setupTp1')" class="cursor-pointer p-2 sm:p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/45 hover:border-emerald-400 transition">
-                <span class="text-[8px] sm:text-[9px] font-bold uppercase text-emerald-300 block truncate">🎯 TP 1 (1:1.5)</span>
-                <div id="setupTp1" class="mono text-sm sm:text-lg font-black text-emerald-400 mt-0.5">$----.--</div>
-                <span id="setupTp1Pips" class="mono text-[9px] sm:text-[10px] text-emerald-300/80 block leading-tight truncate">+-- pt (BE)</span>
+              <div onclick="copyValue('setupTp1')" class="cursor-pointer p-2 rounded-lg bg-emerald-950/20 border border-emerald-500/30 hover:border-emerald-400/60 transition">
+                <span class="text-[8px] font-bold uppercase text-emerald-300 block truncate">🎯 TP 1 (1:1.5)</span>
+                <div id="setupTp1" class="mono text-xs sm:text-base font-black text-emerald-400 mt-0.5">$----.--</div>
+                <span id="setupTp1Pips" class="mono text-[9px] text-emerald-300/80 block leading-tight truncate">+-- pt (BE)</span>
               </div>
 
-              <div onclick="copyValue('setupTp2')" class="cursor-pointer p-2 sm:p-2.5 rounded-xl bg-emerald-950/55 border border-emerald-400/60 hover:border-emerald-300 transition">
-                <span class="text-[8px] sm:text-[9px] font-bold uppercase text-emerald-200 block truncate">🏆 TP 2 (1:2.5)</span>
-                <div id="setupTp2" class="mono text-sm sm:text-lg font-black text-emerald-300 mt-0.5">$----.--</div>
-                <span id="setupTp2Pips" class="mono text-[9px] sm:text-[10px] text-emerald-200/90 block leading-tight truncate">+-- pt (Runner)</span>
+              <div onclick="copyValue('setupTp2')" class="cursor-pointer p-2 rounded-lg bg-emerald-950/30 border border-emerald-400/40 hover:border-emerald-300/60 transition">
+                <span class="text-[8px] font-bold uppercase text-emerald-200 block truncate">🏆 TP 2 (1:2.5)</span>
+                <div id="setupTp2" class="mono text-xs sm:text-base font-black text-emerald-300 mt-0.5">$----.--</div>
+                <span id="setupTp2Pips" class="mono text-[9px] text-emerald-200/90 block leading-tight truncate">+-- pt (Runner)</span>
               </div>
             </div>
           </div>
 
           <!-- Strict 1% Risk Calculator (MT5 Lot Size Sizer) -->
-          <div class="bg-slate-950/90 p-2.5 sm:p-3 rounded-xl border border-slate-800 space-y-2">
+          <div class="bg-slate-950/80 p-2.5 sm:p-3 rounded-lg border border-slate-800 space-y-2">
             <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span>⚖️ Strict 1% Risk Calculator</span>
+              <span>⚖️ Strict Risk Calculator</span>
               <span class="text-[9px] text-amber-400 mono font-bold">Rule 4: Never >2%</span>
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs">
@@ -563,7 +572,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
 
             <!-- Quick Equity & Risk Presets -->
-            <div class="flex items-center gap-1 pt-1 overflow-x-auto scrollbar-none pb-0.5 text-[10px]">
+            <div class="flex items-center gap-1 pt-0.5 overflow-x-auto scrollbar-none pb-0.5 text-[10px]">
               <span class="text-[9px] text-slate-500 uppercase font-bold mr-0.5 shrink-0">Preset:</span>
               <button type="button" onclick="setEquityPreset(500)" id="preset-eq-500" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold mono border border-slate-800 shrink-0">$500</button>
               <button type="button" onclick="setEquityPreset(1000)" id="preset-eq-1000" class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-black mono border border-amber-400/40 shrink-0">$1K</button>
@@ -586,21 +595,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span id="calcLots" class="mono text-[11px] font-black text-amber-300">0.01 Lots</span>
               </div>
               <div class="p-1 rounded bg-slate-900 border border-slate-800">
-                <span class="text-[8px] text-slate-400 uppercase block">1:1.5 / 1:2.5 Profit</span>
+                <span class="text-[8px] text-slate-400 uppercase block">1:1.5 / 1:2.5</span>
                 <span id="calcRewardUsd" class="mono text-[10px] sm:text-[11px] font-bold text-emerald-400">+$3.75 / +$6.25</span>
               </div>
             </div>
           </div>
 
           <!-- 1-Click Copy & Push to Telegram Actions -->
-          <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
-            <button onclick="copyTradeSignal()" class="py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 text-slate-950 transition shadow-lg shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-1">
+          <div class="grid grid-cols-3 gap-1.5">
+            <button onclick="copyTradeSignal()" class="py-2.5 px-2.5 rounded-lg font-black text-xs sm:text-sm bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-md shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-1">
               <span>📋</span><span class="hidden xs:inline">Copy</span><span> Setup</span>
             </button>
-            <button onclick="copyFastOrder()" class="py-2.5 px-2 sm:px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-400/50 transition active:scale-[0.99] flex items-center justify-center gap-1" title="Copy compact MT5 order syntax (Hotkey: C)">
+            <button onclick="copyFastOrder()" class="py-2.5 px-2.5 rounded-lg font-bold text-xs sm:text-sm bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 transition active:scale-[0.99] flex items-center justify-center gap-1" title="Copy compact MT5 order syntax (Hotkey: C)">
               <span>⚡</span><span class="hidden xs:inline">Fast </span><span>MT5</span>
             </button>
-            <button onclick="broadcastCurrentToTelegram()" class="py-2.5 px-2 sm:px-3 rounded-xl font-extrabold text-xs sm:text-sm bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 hover:border-sky-400 transition active:scale-[0.99] flex items-center justify-center gap-1" title="Push this setup to your Telegram Channel">
+            <button onclick="broadcastCurrentToTelegram()" class="py-2.5 px-2.5 rounded-lg font-bold text-xs sm:text-sm bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 transition active:scale-[0.99] flex items-center justify-center gap-1" title="Push this setup to your Telegram Channel">
               <span>📢</span><span class="hidden xs:inline">Telegram</span>
             </button>
           </div>
@@ -614,35 +623,35 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     <!-- TIER 3: UNIFIED MULTI-TIMEFRAME & TRADE HISTORY HUB (CLEAN TABBED DRAWER)  -->
     <!-- All-TF Matrix Grid • MTF Table • 85%+ Setups • Signals Log • 20-Trd Journal-->
     <!-- ========================================================================= -->
-    <section class="panel rounded-2xl p-4 sm:p-5 space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <section class="panel rounded-xl p-3.5 sm:p-4 space-y-3.5 border border-slate-800/80">
+      <div class="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/70 pb-2.5">
         <div>
-          <h2 class="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-            <span>Historical & Multi-Timeframe Analysis Hub</span>
+          <h2 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
+            <span>Historical &amp; Multi-Timeframe Analysis Hub</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">
+          <p class="text-[11px] text-slate-400 mt-0.5">
             Access the 6-TF Matrix, 85%+ high-confidence setups, activated signals log, and 20-trade discipline journal.
           </p>
         </div>
 
         <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          <div class="flex items-center overflow-x-auto flex-nowrap scrollbar-none gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 w-full sm:w-auto">
-            <button id="btnViewTable" onclick="setMtfView('table')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
+          <div class="flex items-center overflow-x-auto flex-nowrap scrollbar-none gap-0.5 p-0.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs w-full sm:w-auto">
+            <button id="btnViewTable" onclick="setMtfView('table')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-md text-xs font-black bg-amber-400 text-slate-950 transition shadow-sm">
               📊 Multi-TF Table
             </button>
-            <button id="btnViewGrid" onclick="setMtfView('grid')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewGrid" onclick="setMtfView('grid')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">
               🔲 6-TF Grid
             </button>
-            <button id="btnViewConfident" onclick="setMtfView('confident')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewConfident" onclick="setMtfView('confident')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">
               ⭐ 85%+ Setups
             </button>
-            <button id="btnViewSignals" onclick="setMtfView('signals')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewSignals" onclick="setMtfView('signals')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">
               🌊 Trade Entry Flow
             </button>
-            <button id="btnViewJournal" onclick="setMtfView('journal')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewJournal" onclick="setMtfView('journal')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">
               📘 D1 Trade History
             </button>
-            <button id="btnViewFeed" onclick="setMtfView('feed')" class="whitespace-nowrap shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            <button id="btnViewFeed" onclick="setMtfView('feed')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">
               ⚡ Blotter Feed
             </button>
             <!-- Hidden easy button preserved for backward compatibility -->
@@ -1348,16 +1357,16 @@ TELEGRAM_MIN_SCORE=90</pre>
         const isApproaching = s.proximityState === 'APPROACHING';
         const isBuy = s.direction === 'BUY';
 
-        let cardBorder = 'border-slate-800 hover:border-slate-600';
-        let cardBg = 'bg-slate-900/90';
+        let cardBorder = 'border-slate-800/80 hover:border-slate-700';
+        let cardBg = 'bg-slate-900/60 hover:bg-slate-900/80';
         if (isSelected) {
-          cardBorder = 'border-amber-400 ring-1 ring-amber-400/40';
-          cardBg = 'bg-amber-400/5';
+          cardBorder = 'border-amber-400/80 shadow-md shadow-amber-400/10';
+          cardBg = 'bg-amber-400/10';
         } else if (isZone) {
-          cardBorder = 'border-emerald-500/60 shadow-lg shadow-emerald-500/10';
+          cardBorder = 'border-emerald-500/50 shadow-md shadow-emerald-500/10';
           cardBg = 'bg-emerald-950/20';
         } else if (isActive) {
-          cardBorder = 'border-sky-500/40';
+          cardBorder = 'border-sky-500/40 shadow-md shadow-sky-500/10';
           cardBg = 'bg-sky-950/20';
         }
 
@@ -2012,8 +2021,8 @@ TELEGRAM_MIN_SCORE=90</pre>
             const lc = r.entryTiming.lifecycle;
             const isSelected = tf === currentTf;
             const cardBorder = isSelected
-              ? 'border-2 border-amber-400 bg-amber-400/[0.14] shadow-md shadow-amber-400/25 ring-2 ring-amber-400/50 scale-[1.02]'
-              : 'border border-slate-800 bg-slate-900/90 hover:border-slate-700 hover:bg-slate-900/95';
+              ? 'border border-amber-400 bg-amber-400/10 shadow-sm shadow-amber-400/20'
+              : 'border border-slate-800/80 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/80';
             const dirBg = lc.direction === 'BUY'
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
               : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
