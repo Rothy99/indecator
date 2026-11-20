@@ -373,4 +373,39 @@ npx wrangler deploy
   - **ICT Smart Money Interpretation**: Context-aware tactical commentary explaining institutional intent behind the active candlestick.
   - **Recent Flow Ribbon**: 7-candle rolling historical strip displaying recent identified patterns with visual badges and `NOW` tag on live bar.
 
+---
+
+## 13. Pro Expanded Chart Experience & Smart Money Candle Identification (FVGs, OBs, Sweeps)
+
+### Expanded Institutional Chart Canvas
+- **Spacious Default Height**: Increased chart canvas default height to $650\text{px}$ on desktop ($380\text{px}$ on mobile) with dynamic responsive scaling.
+- **Quick Height Sizer**: 1-click height adjustment presets:
+  - `560px`: Compact view
+  - `680px`: Standard Pro view
+  - `820px`: Ultra-tall analytical view
+- **1-Click Full-Width Focus Mode (`🖥️ Focus`)**: Toggles the chart into full 12-column panoramic width with expanded $720\text{px}$ canvas, giving complete focus on price action and moving the execution ticket below.
+- **Live Crosshair Inspection Telemetry**: Live cursor tracking displaying precise candle data: `O`, `H`, `L`, `C`, and price delta `(+/-)` directly in the header telemetry pill.
+
+### Comprehensive Smart Money Candle Identification (`extractAllSmartMoneyStructures()`)
+- **Fair Value Gaps (FVGs)**:
+  - `+FVG` (Bullish): Identified when $c_{i-2}.\text{high} < c_i.\text{low}$ with gap $\ge 0.08\times$ ATR. Computes exact Consequent Encroachment (CE 50%) midpoint and mitigation state.
+  - `-FVG` (Bearish): Identified when $c_{i-2}.\text{low} > c_i.\text{high}$. Computes CE 50% and mitigation state.
+  - Rendered with circular markers directly on impulse candles (`🟢 +FVG` / `🔴 -FVG`) with `🔥` unmitigated indicator.
+- **Order Blocks (OBs)**:
+  - `BULL OB`: The last down-close candle before a strong bullish displacement move (body $\ge 0.65\times$ ATR). Computes high, low, and 50% Mean Threshold.
+  - `BEAR OB`: The last up-close candle before a strong bearish displacement move. Computes 50% Mean Threshold.
+  - Rendered with square markers (`🧱 BULL OB` / `🧱 BEAR OB`).
+- **Liquidity Sweeps & MSS**:
+  - Detects sweeps of Asian High, Asian Low, PDH, and PDL with arrow markers (`⚡ SWEEP`).
+- **Interactive Chart Overlay Filter**:
+  - `⚡ ALL`: Renders all FVGs, Order Blocks, Sweeps, and A+ Strategy Signals.
+  - `📦 FVG`: Highlights Fair Value Gaps only.
+  - `🧱 OB`: Highlights Order Blocks only.
+  - `🎯 SIGNALS`: Highlights A+ Strategy Entries only.
+- **Active Smart Money Telemetry Cards**:
+  - Live cards positioned above the chart displaying active unfilled FVG range & CE 50%, active Order Block defense range, and recent liquidity sweep details.
+- **Dynamic Price Lines**:
+  - Automatically draws dotted price lines on the chart for the active unmitigated FVG CE 50% (`🟢 +FVG CE 50%`) and Order Block Mean (`🧱 OB MEAN`).
+
+
 

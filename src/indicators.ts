@@ -395,6 +395,29 @@ export interface GoldSignalAnalysis {
   historicalSignals: HistoricalSignal[];
   backtest: BacktestSummary;
   series: IndicatorSeriesPoint[];
+  smartMoney?: SmartMoneyStructure;
+}
+
+export interface SmartMoneyMarker {
+  time: number;
+  type: 'FVG' | 'OB' | 'SWEEP' | 'MSS' | 'DISPLACEMENT' | 'PINBAR';
+  direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  label: string;
+  subText: string;
+  price: number;
+  high: number;
+  low: number;
+  cePrice: number;
+  isMitigated: boolean;
+}
+
+export interface SmartMoneyStructure {
+  fvgs: SmartMoneyMarker[];
+  orderBlocks: SmartMoneyMarker[];
+  sweeps: SmartMoneyMarker[];
+  mssList: SmartMoneyMarker[];
+  activeFvg?: SmartMoneyMarker;
+  activeOrderBlock?: SmartMoneyMarker;
 }
 
 function roundPrice(num: number): number {
@@ -2170,6 +2193,227 @@ function scanMasterStrategySignals(
 }
 
 /**
+ * Detects all Fair Value Gaps (FVG), Order Blocks (OB), Liquidity Sweeps, and MSS
+ * across the candle history for institutional charting and identification.
+ */
+export function extractAllSmartMoneyStructures(
+  series: IndicatorSeriesPoint[],
+  liquidity: KeyLiquidityLevels,
+  atr: number
+): SmartMoneyStructure {
+  const fvgs: SmartMoneyMarker[] = [];
+  const orderBlocks: SmartMoneyMarker[] = [];
+  const sweeps: SmartMoneyMarker[] = [];
+  const mssList: SmartMoneyMarker[] = [];
+
+  const len = series.length;
+  if (len < 5) {
+    return { fvgs, orderBlocks, sweeps, mssList };
+  }
+
+  const startIdx = Math.max(2, len - 120);
+
+  // 1. Fair Value Gaps (FVGs)
+  for (let i = startIdx; i < len; i++) {
+    const c1 = series[i - 2];
+    const c2 = series[i - 1]; // impulse candle
+    const c3 = series[i];
+
+    // Bullish FVG: c1.high < c3.low
+    if (c1.high < c3.low) {
+      const top = roundPrice(c3.low);
+      const bottom = roundPrice(c1.high);
+      const gap = roundPrice(top - bottom);
+      if (gap >= atr * 0.08) {
+        const ce = roundPrice((top + bottom) / 2);
+        let isMitigated = false;
+        for (let k = i + 1; k < len; k++) {
+          if (series[k].low <= ce) {
+            isMitigated = true;
+            break;
+          }
+        }
+        fvgs.push({
+          time: c2.time,
+          type: 'FVG',
+          direction: 'BULLISH',
+          label: '+FVG',
+          subText: `Bullish FVG $${bottom} - $${top} (CE 50%: $${ce})`,
+          price: ce,
+          high: top,
+          low: bottom,
+          cePrice: ce,
+          isMitigated,
+        });
+      }
+    }
+
+    // Bearish FVG: c1.low > c3.high
+    if (c1.low > c3.high) {
+      const top = roundPrice(c1.low);
+      const bottom = roundPrice(c3.high);
+      const gap = roundPrice(top - bottom);
+      if (gap >= atr * 0.08) {
+        const ce = roundPrice((top + bottom) / 2);
+        let isMitigated = false;
+        for (let k = i + 1; k < len; k++) {
+          if (series[k].high >= ce) {
+            isMitigated = true;
+            break;
+          }
+        }
+        fvgs.push({
+          time: c2.time,
+          type: 'FVG',
+          direction: 'BEARISH',
+          label: '-FVG',
+          subText: `Bearish FVG $${bottom} - $${top} (CE 50%: $${ce})`,
+          price: ce,
+          high: top,
+          low: bottom,
+          cePrice: ce,
+          isMitigated,
+        });
+      }
+    }
+  }
+
+  // 2. Order Blocks (OBs)
+  for (let i = startIdx; i < len - 1; i++) {
+    const c = series[i];
+    const next = series[i + 1];
+    const nextBody = Math.abs(next.close - next.open);
+    const nextRange = next.high - next.low;
+    const isNextDisplacement = (nextBody >= atr * 0.65) && (nextBody / Math.max(0.01, nextRange) >= 0.55);
+
+    // Bullish OB: down candle followed by bullish displacement
+    if (c.close < c.open && next.close > next.open && isNextDisplacement) {
+      const top = roundPrice(c.high);
+      const bottom = roundPrice(c.low);
+      const ce = roundPrice((top + bottom) / 2);
+      let isMitigated = false;
+      for (let k = i + 2; k < len; k++) {
+        if (series[k].low <= bottom) {
+          isMitigated = true;
+          break;
+        }
+      }
+      orderBlocks.push({
+        time: c.time,
+        type: 'OB',
+        direction: 'BULLISH',
+        label: 'BULL OB',
+        subText: `Bullish Order Block $${bottom} - $${top} (Mean: $${ce})`,
+        price: top,
+        high: top,
+        low: bottom,
+        cePrice: ce,
+        isMitigated,
+      });
+    }
+
+    // Bearish OB: up candle followed by bearish displacement
+    if (c.close > c.open && next.close < next.open && isNextDisplacement) {
+      const top = roundPrice(c.high);
+      const bottom = roundPrice(c.low);
+      const ce = roundPrice((top + bottom) / 2);
+      let isMitigated = false;
+      for (let k = i + 2; k < len; k++) {
+        if (series[k].high >= top) {
+          isMitigated = true;
+          break;
+        }
+      }
+      orderBlocks.push({
+        time: c.time,
+        type: 'OB',
+        direction: 'BEARISH',
+        label: 'BEAR OB',
+        subText: `Bearish Order Block $${bottom} - $${top} (Mean: $${ce})`,
+        price: bottom,
+        high: top,
+        low: bottom,
+        cePrice: ce,
+        isMitigated,
+      });
+    }
+  }
+
+  // 3. Liquidity Sweeps of Asian Range, PDH/PDL
+  for (let i = startIdx; i < len; i++) {
+    const b = series[i];
+    if (liquidity.asianHigh > 0 && b.high >= liquidity.asianHigh && b.close < liquidity.asianHigh) {
+      sweeps.push({
+        time: b.time,
+        type: 'SWEEP',
+        direction: 'BEARISH',
+        label: '⚡ SWEEP',
+        subText: `Asian High Liquidity Purged ($${liquidity.asianHigh})`,
+        price: b.high,
+        high: b.high,
+        low: b.low,
+        cePrice: b.high,
+        isMitigated: true,
+      });
+    } else if (liquidity.asianLow > 0 && b.low <= liquidity.asianLow && b.close > liquidity.asianLow) {
+      sweeps.push({
+        time: b.time,
+        type: 'SWEEP',
+        direction: 'BULLISH',
+        label: '⚡ SWEEP',
+        subText: `Asian Low Liquidity Purged ($${liquidity.asianLow})`,
+        price: b.low,
+        high: b.high,
+        low: b.low,
+        cePrice: b.low,
+        isMitigated: true,
+      });
+    } else if (liquidity.pdh > 0 && b.high >= liquidity.pdh && b.close < liquidity.pdh) {
+      sweeps.push({
+        time: b.time,
+        type: 'SWEEP',
+        direction: 'BEARISH',
+        label: '⚡ SWEEP',
+        subText: `PDH Liquidity Purged ($${liquidity.pdh})`,
+        price: b.high,
+        high: b.high,
+        low: b.low,
+        cePrice: b.high,
+        isMitigated: true,
+      });
+    } else if (liquidity.pdl > 0 && b.low <= liquidity.pdl && b.close > liquidity.pdl) {
+      sweeps.push({
+        time: b.time,
+        type: 'SWEEP',
+        direction: 'BULLISH',
+        label: '⚡ SWEEP',
+        subText: `PDL Liquidity Purged ($${liquidity.pdl})`,
+        price: b.low,
+        high: b.high,
+        low: b.low,
+        cePrice: b.low,
+        isMitigated: true,
+      });
+    }
+  }
+
+  const unmitigatedFvgs = fvgs.filter((f) => !f.isMitigated);
+  const activeFvg = unmitigatedFvgs.length > 0 ? unmitigatedFvgs[unmitigatedFvgs.length - 1] : undefined;
+
+  const unmitigatedObs = orderBlocks.filter((o) => !o.isMitigated);
+  const activeOrderBlock = unmitigatedObs.length > 0 ? unmitigatedObs[unmitigatedObs.length - 1] : undefined;
+
+  return {
+    fvgs,
+    orderBlocks,
+    sweeps,
+    mssList,
+    activeFvg,
+    activeOrderBlock,
+  };
+}
+
+/**
  * Full 4-Confluence Master Strategy Analyzer for Gold & Crypto (BTC, ETH, SOL)
  */
 export function analyzeGoldCandles(
@@ -2227,6 +2471,8 @@ export function analyzeGoldCandles(
     timeframe,
     cleanSymbol
   );
+
+  const smartMoney = extractAllSmartMoneyStructures(series, liquidityLevels, atr);
 
   let isLongBias = evalRes.isLongBias;
   const direction: TradeSetup['direction'] = isLongBias ? 'LONG' : 'SHORT';
@@ -2685,6 +2931,7 @@ export function analyzeGoldCandles(
     historicalSignals,
     backtest,
     series: series.slice(-160),
+    smartMoney,
   };
 }
 

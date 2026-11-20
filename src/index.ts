@@ -162,6 +162,7 @@ const handleMtf = async (c: any) => {
       journal: analysis.journal,
       currentCandlePattern: analysis.currentCandlePattern,
       recentCandlePatterns: analysis.recentCandlePatterns,
+      smartMoney: analysis.smartMoney,
     };
 
     for (const sig of analysis.historicalSignals) {

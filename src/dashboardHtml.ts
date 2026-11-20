@@ -291,7 +291,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
 
       <!-- LEFT COLUMN: CHART & CONFLUENCE ANALYSIS (~65% WIDTH) -->
-      <div class="xl:col-span-7 2xl:col-span-8 space-y-3.5">
+      <div id="mainLeftColumn" class="xl:col-span-7 2xl:col-span-8 space-y-3.5 transition-all">
 
         <!-- 6-Timeframe Interactive Ribbon (Top of Chart) -->
         <div id="mtfEasyContainer" class="panel-clean rounded-xl p-2.5 sm:p-3 space-y-2 border border-slate-800/80">
@@ -362,31 +362,107 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Interactive Lightweight Chart -->
-        <div class="panel rounded-xl p-2.5 sm:p-3.5 flex flex-col gap-2.5 border border-slate-800/80">
+        <!-- Interactive Big Pro Chart Container -->
+        <div id="chartPanelWrapper" class="panel rounded-xl p-2.5 sm:p-3.5 flex flex-col gap-2.5 border border-slate-800/80 shadow-md">
+          <!-- Top Row: Timeframe, EMA legends, Crosshair Inspection Pill & Controls -->
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
-            <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
-              <span class="font-extrabold text-white flex items-center gap-1.5 sm:gap-2">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+              <span class="font-extrabold text-white flex items-center gap-1.5">
                 <span id="chartTfLabel" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono text-xs">15M</span>
-                <span class="text-[11px] sm:text-xs">50/200 EMA & Key Levels</span>
+                <span class="text-[11px] sm:text-xs">PRO CHART</span>
               </span>
               <span class="flex items-center gap-1 text-purple-400 font-bold mono text-[10px] sm:text-[11px]">
-                <span class="w-2.5 sm:w-3 h-0.5 bg-purple-400 inline-block"></span>50 EMA
+                <span class="w-2 sm:w-2.5 h-0.5 bg-purple-400 inline-block"></span>50 EMA
               </span>
               <span class="flex items-center gap-1 text-sky-400 font-bold mono text-[10px] sm:text-[11px]">
-                <span class="w-2.5 sm:w-3 h-0.5 bg-sky-400 inline-block"></span>200 EMA
+                <span class="w-2 sm:w-2.5 h-0.5 bg-sky-400 inline-block"></span>200 EMA
               </span>
             </div>
-            <div class="flex items-center gap-1.5">
-              <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/20">
+
+            <!-- Live Crosshair Telemetry Pill -->
+            <div id="chartCandleInspectPill" class="mono text-[10px] sm:text-[11px] text-slate-300 bg-slate-950/80 px-2.5 py-0.5 rounded border border-slate-800 hidden sm:flex items-center gap-2">
+              <span class="text-amber-400 font-bold">INSPECT:</span>
+              <span id="chartInspectText">Move cursor over candles to inspect FVG, OB &amp; levels</span>
+            </div>
+
+            <!-- Toolbar Controls: Smart Money Filter, Height, Lines, Focus, Fit -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <!-- Smart Money Overlay Filter Pills -->
+              <div class="inline-flex rounded-lg bg-slate-950/90 p-0.5 border border-slate-800 text-[10px] mono">
+                <button id="smFilterAll" onclick="setSmartMoneyOverlayFilter('ALL')" class="px-2 py-0.5 rounded font-black bg-amber-400 text-slate-950 transition" title="Show all FVG, Order Blocks, Sweeps and Signals">
+                  ⚡ ALL
+                </button>
+                <button id="smFilterFvg" onclick="setSmartMoneyOverlayFilter('FVG')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show Fair Value Gaps only">
+                  📦 FVG
+                </button>
+                <button id="smFilterOb" onclick="setSmartMoneyOverlayFilter('OB')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show Order Blocks only">
+                  🧱 OB
+                </button>
+                <button id="smFilterSig" onclick="setSmartMoneyOverlayFilter('SIGNALS')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show A+ Signals only">
+                  🎯 SIGNALS
+                </button>
+              </div>
+
+              <!-- Chart Height Sizer -->
+              <div class="inline-flex rounded-lg bg-slate-950/90 p-0.5 border border-slate-800 text-[10px] mono hidden md:inline-flex">
+                <button id="btnSize560" onclick="setChartHeight(560)" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">
+                  560px
+                </button>
+                <button id="btnSize680" onclick="setChartHeight(680)" class="px-1.5 py-0.5 rounded font-black bg-slate-800 text-amber-300 transition">
+                  680px
+                </button>
+                <button id="btnSize820" onclick="setChartHeight(820)" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">
+                  820px
+                </button>
+              </div>
+
+              <!-- Focus / Full-Width Mode -->
+              <button onclick="toggleChartFocusMode()" id="btnChartFocus" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-900 border border-slate-700/80 text-amber-300 hover:bg-slate-800 transition flex items-center gap-1" title="Toggle Full-Width Focused Chart View">
+                <span>🖥️</span>
+                <span class="hidden sm:inline" id="btnChartFocusLabel">Focus</span>
+              </button>
+
+              <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/20">
                 Lines: ON
               </button>
-              <button onclick="resetChartZoom()" class="px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800/90 text-slate-300 hover:bg-slate-700 transition">
-                Fit Chart
+              <button onclick="resetChartZoom()" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800/90 text-slate-300 hover:bg-slate-700 transition">
+                Fit
               </button>
             </div>
           </div>
-          <div id="priceChart" class="w-full h-[280px] sm:h-[450px] rounded-lg overflow-hidden bg-slate-950/70 border border-slate-900"></div>
+
+          <!-- Active Smart Money Telemetry Strip (FVG & Order Block Live Status) -->
+          <div id="chartSmartMoneyStrip" class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+            <!-- Active FVG Telemetry -->
+            <div id="chartActiveFvgCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="text-emerald-400 font-extrabold text-xs">📦 FVG:</span>
+                <span id="chartActiveFvgText" class="mono text-[11px] text-slate-300 truncate">Scanning Fair Value Gaps...</span>
+              </div>
+              <span id="chartActiveFvgBadge" class="mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+
+            <!-- Active Order Block (OB) Telemetry -->
+            <div id="chartActiveObCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="text-purple-400 font-extrabold text-xs">🧱 OB:</span>
+                <span id="chartActiveObText" class="mono text-[11px] text-slate-300 truncate">Scanning Order Blocks...</span>
+              </div>
+              <span id="chartActiveObBadge" class="mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+
+            <!-- Sweeps & MSS Telemetry -->
+            <div id="chartActiveSweepCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="text-amber-400 font-extrabold text-xs">⚡ SWEEP:</span>
+                <span id="chartActiveSweepText" class="mono text-[11px] text-slate-300 truncate">Scanning Liquidity Sweeps...</span>
+              </div>
+              <span id="chartActiveSweepBadge" class="mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+          </div>
+
+          <!-- Big Pro Chart Canvas -->
+          <div id="priceChart" class="w-full h-[380px] sm:h-[580px] lg:h-[650px] rounded-lg overflow-hidden bg-slate-950/80 border border-slate-900 transition-all"></div>
         </div>
 
         <!-- Strategy Confluence & 100-Point Quantitative Matrix (Collapsible Clean Bar) -->
@@ -432,7 +508,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
 
       <!-- RIGHT COLUMN: THE HERO EXECUTION TICKET (~35% WIDTH) -->
-      <div class="xl:col-span-5 2xl:col-span-4 space-y-3.5">
+      <div id="mainRightColumn" class="xl:col-span-5 2xl:col-span-4 space-y-3.5 transition-all">
 
         <section id="heroBanner" class="panel rounded-xl p-3.5 sm:p-4 banner-wait transition-all space-y-3.5 border border-slate-800/90 shadow-lg">
           <!-- Execution Ticket Header -->
@@ -1552,6 +1628,208 @@ TELEGRAM_MIN_SCORE=90</pre>
       }
     }
 
+    let currentChartHeight = window.innerWidth < 640 ? 380 : 620;
+    let isChartFocusMode = false;
+    let smartMoneyOverlayFilter = 'ALL';
+
+    function setChartHeight(h) {
+      currentChartHeight = h;
+      const priceEl = document.getElementById('priceChart');
+      if (priceEl) {
+        priceEl.style.height = h + 'px';
+      }
+      if (priceChart && priceEl) {
+        priceChart.applyOptions({ height: h, width: priceEl.clientWidth });
+        priceChart.timeScale().fitContent();
+      }
+      const b560 = document.getElementById('btnSize560');
+      const b680 = document.getElementById('btnSize680');
+      const b820 = document.getElementById('btnSize820');
+      if (b560) b560.className = h === 560 ? 'px-1.5 py-0.5 rounded font-black bg-slate-800 text-amber-300 transition' : 'px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition';
+      if (b680) b680.className = h === 680 ? 'px-1.5 py-0.5 rounded font-black bg-slate-800 text-amber-300 transition' : 'px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition';
+      if (b820) b820.className = h === 820 ? 'px-1.5 py-0.5 rounded font-black bg-slate-800 text-amber-300 transition' : 'px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition';
+      showToast('📐 Chart Height: ' + h + 'px');
+    }
+
+    function toggleChartFocusMode() {
+      isChartFocusMode = !isChartFocusMode;
+      const colLeft = document.getElementById('mainLeftColumn');
+      const colRight = document.getElementById('mainRightColumn');
+      const btn = document.getElementById('btnChartFocus');
+      const label = document.getElementById('btnChartFocusLabel');
+
+      if (isChartFocusMode) {
+        if (colLeft) colLeft.className = 'xl:col-span-12 space-y-3.5 transition-all';
+        if (colRight) colRight.className = 'xl:col-span-12 space-y-3.5 transition-all pt-3 border-t border-slate-800';
+        if (btn) btn.className = 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-black bg-amber-400 text-slate-950 transition flex items-center gap-1 shadow-sm';
+        if (label) label.textContent = 'Exit Focus';
+        setChartHeight(720);
+        showToast('🖥️ Full-Width Focus Mode ON');
+      } else {
+        if (colLeft) colLeft.className = 'xl:col-span-7 2xl:col-span-8 space-y-3.5 transition-all';
+        if (colRight) colRight.className = 'xl:col-span-5 2xl:col-span-4 space-y-3.5 transition-all';
+        if (btn) btn.className = 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-900 border border-slate-700/80 text-amber-300 hover:bg-slate-800 transition flex items-center gap-1';
+        if (label) label.textContent = 'Focus';
+        setChartHeight(window.innerWidth < 640 ? 380 : 620);
+        showToast('Standard 2-Column Mode');
+      }
+    }
+
+    function setSmartMoneyOverlayFilter(filter) {
+      smartMoneyOverlayFilter = filter;
+      const btnAll = document.getElementById('smFilterAll');
+      const btnFvg = document.getElementById('smFilterFvg');
+      const btnOb = document.getElementById('smFilterOb');
+      const btnSig = document.getElementById('smFilterSig');
+
+      const activeCls = 'px-2 py-0.5 rounded font-black bg-amber-400 text-slate-950 transition';
+      const inactiveCls = 'px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition';
+
+      if (btnAll) btnAll.className = filter === 'ALL' ? activeCls : inactiveCls;
+      if (btnFvg) btnFvg.className = filter === 'FVG' ? activeCls : inactiveCls;
+      if (btnOb) btnOb.className = filter === 'OB' ? activeCls : inactiveCls;
+      if (btnSig) btnSig.className = filter === 'SIGNALS' ? activeCls : inactiveCls;
+
+      if (currentAnalysis) {
+        updateChartSmartMoneyMarkers(currentAnalysis);
+      }
+      showToast('🏷️ Overlay: ' + filter);
+    }
+
+    function updateChartSmartMoneyMarkers(data) {
+      if (!candleSeries || !data) return;
+      const markers = [];
+      const candles = data.series || [];
+      const minTime = candles[0]?.time ?? 0;
+
+      // 1. Historical Signals (A+, A, etc.)
+      if (smartMoneyOverlayFilter === 'ALL' || smartMoneyOverlayFilter === 'SIGNALS') {
+        const sigs = (data.historicalSignals || []).filter((s) => s.time >= minTime);
+        for (let i = 0; i < sigs.length; i++) {
+          const s = sigs[i];
+          markers.push({
+            time: s.time,
+            position: s.type === 'BUY' ? 'belowBar' : 'aboveBar',
+            color: s.type === 'BUY' ? '#10b981' : '#f43f5e',
+            shape: s.type === 'BUY' ? 'arrowUp' : 'arrowDown',
+            text: (s.grade || 'A') + ' ' + s.type,
+          });
+        }
+      }
+
+      // 2. Fair Value Gaps (FVGs)
+      if (data.smartMoney && Array.isArray(data.smartMoney.fvgs)) {
+        if (smartMoneyOverlayFilter === 'ALL' || smartMoneyOverlayFilter === 'FVG') {
+          const fvgs = data.smartMoney.fvgs.filter((f) => f.time >= minTime);
+          for (let i = 0; i < fvgs.length; i++) {
+            const f = fvgs[i];
+            const isBull = f.direction === 'BULLISH';
+            markers.push({
+              time: f.time,
+              position: isBull ? 'belowBar' : 'aboveBar',
+              color: isBull ? '#34d399' : '#fb7185',
+              shape: 'circle',
+              text: (isBull ? '+FVG' : '-FVG') + (f.isMitigated ? '' : ' 🔥'),
+            });
+          }
+        }
+      }
+
+      // 3. Order Blocks (OBs)
+      if (data.smartMoney && Array.isArray(data.smartMoney.orderBlocks)) {
+        if (smartMoneyOverlayFilter === 'ALL' || smartMoneyOverlayFilter === 'OB') {
+          const obs = data.smartMoney.orderBlocks.filter((o) => o.time >= minTime);
+          for (let i = 0; i < obs.length; i++) {
+            const o = obs[i];
+            const isBull = o.direction === 'BULLISH';
+            markers.push({
+              time: o.time,
+              position: isBull ? 'belowBar' : 'aboveBar',
+              color: isBull ? '#a855f7' : '#e11d48',
+              shape: 'square',
+              text: isBull ? 'BULL OB' : 'BEAR OB',
+            });
+          }
+        }
+      }
+
+      // 4. Liquidity Sweeps
+      if (data.smartMoney && Array.isArray(data.smartMoney.sweeps)) {
+        if (smartMoneyOverlayFilter === 'ALL') {
+          const swps = data.smartMoney.sweeps.filter((w) => w.time >= minTime);
+          for (let i = 0; i < swps.length; i++) {
+            const w = swps[i];
+            markers.push({
+              time: w.time,
+              position: w.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+              color: '#fbbf24',
+              shape: w.direction === 'BULLISH' ? 'arrowUp' : 'arrowDown',
+              text: '⚡ SWEEP',
+            });
+          }
+        }
+      }
+
+      markers.sort((a, b) => a.time - b.time);
+      try {
+        candleSeries.setMarkers(markers);
+      } catch (err) {
+        console.warn('setMarkers error:', err);
+      }
+
+      updateSmartMoneyTelemetryStrip(data);
+    }
+
+    function updateSmartMoneyTelemetryStrip(data) {
+      if (!data || !data.smartMoney) return;
+      const sm = data.smartMoney;
+
+      // FVG Card
+      const fvgText = document.getElementById('chartActiveFvgText');
+      const fvgBadge = document.getElementById('chartActiveFvgBadge');
+      if (sm.activeFvg) {
+        const af = sm.activeFvg;
+        if (fvgText) fvgText.textContent = (af.direction === 'BULLISH' ? '🟢 Bullish ' : '🔴 Bearish ') + '$' + af.low.toFixed(2) + ' - $' + af.high.toFixed(2) + ' (CE: $' + af.cePrice.toFixed(2) + ')';
+        if (fvgBadge) {
+          fvgBadge.textContent = af.isMitigated ? 'MITIGATED' : '🔥 UNFILLED';
+          fvgBadge.className = af.isMitigated ? 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0' : 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 shrink-0';
+        }
+      } else {
+        if (fvgText) fvgText.textContent = 'No unmitigated FVG in active zone';
+        if (fvgBadge) { fvgBadge.textContent = 'CLEAR'; fvgBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+
+      // Order Block Card
+      const obText = document.getElementById('chartActiveObText');
+      const obBadge = document.getElementById('chartActiveObBadge');
+      if (sm.activeOrderBlock) {
+        const ao = sm.activeOrderBlock;
+        if (obText) obText.textContent = (ao.direction === 'BULLISH' ? '🟣 Bullish OB ' : '🔴 Bearish OB ') + '$' + ao.low.toFixed(2) + ' - $' + ao.high.toFixed(2) + ' (Mean: $' + ao.cePrice.toFixed(2) + ')';
+        if (obBadge) {
+          obBadge.textContent = ao.isMitigated ? 'TESTED' : '🧱 DEFENSE';
+          obBadge.className = ao.isMitigated ? 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0' : 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 shrink-0';
+        }
+      } else {
+        if (obText) obText.textContent = 'No active order block';
+        if (obBadge) { obBadge.textContent = 'NONE'; obBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+
+      // Sweep Card
+      const swText = document.getElementById('chartActiveSweepText');
+      const swBadge = document.getElementById('chartActiveSweepBadge');
+      if (sm.sweeps && sm.sweeps.length > 0) {
+        const lastSw = sm.sweeps[sm.sweeps.length - 1];
+        if (swText) swText.textContent = lastSw.subText || 'Liquidity sweep confirmed';
+        if (swBadge) {
+          swBadge.textContent = 'PURGED';
+          swBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0';
+        }
+      } else {
+        if (swText) swText.textContent = 'Scanning for Asian/PDH/PDL sweeps';
+        if (swBadge) { swBadge.textContent = 'READY'; swBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+    }
+
     function initCharts() {
       const priceEl = document.getElementById('priceChart');
       if (!priceEl) return;
@@ -1563,14 +1841,14 @@ TELEGRAM_MIN_SCORE=90</pre>
       try {
         priceChart = LightweightCharts.createChart(priceEl, {
           layout: {
-            background: { type: 'solid', color: '#0c1220' },
+            background: { type: 'solid', color: '#07090e' },
             textColor: '#94a3b8',
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 11,
           },
           grid: {
-            vertLines: { color: 'rgba(30, 41, 59, 0.45)' },
-            horzLines: { color: 'rgba(30, 41, 59, 0.45)' },
+            vertLines: { color: 'rgba(30, 41, 59, 0.35)' },
+            horzLines: { color: 'rgba(30, 41, 59, 0.35)' },
           },
           crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
           rightPriceScale: { borderColor: '#1e293b' },
@@ -1586,7 +1864,7 @@ TELEGRAM_MIN_SCORE=90</pre>
             mouseWheel: true,
             pinch: true,
           },
-          height: window.innerWidth < 640 ? 280 : 430,
+          height: window.innerWidth < 640 ? 380 : currentChartHeight,
         });
 
         candleSeries = priceChart.addCandlestickSeries({
@@ -1602,12 +1880,30 @@ TELEGRAM_MIN_SCORE=90</pre>
         ema50Series = priceChart.addLineSeries({ color: '#a855f7', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
         ema200Series = priceChart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
 
+        priceChart.subscribeCrosshairMove((param) => {
+          const inspectPill = document.getElementById('chartInspectText');
+          if (!inspectPill) return;
+          if (!param || !param.time || !param.seriesPrices) {
+            inspectPill.textContent = 'Move cursor over candles to inspect FVG, OB & levels';
+            return;
+          }
+          const priceData = param.seriesPrices.get(candleSeries);
+          if (!priceData) return;
+          const o = priceData.open != null ? priceData.open.toFixed(2) : '--';
+          const h = priceData.high != null ? priceData.high.toFixed(2) : '--';
+          const l = priceData.low != null ? priceData.low.toFixed(2) : '--';
+          const c = priceData.close != null ? priceData.close.toFixed(2) : '--';
+          const diff = (priceData.close - priceData.open).toFixed(2);
+          const sign = priceData.close >= priceData.open ? '+' : '';
+          inspectPill.textContent = 'O: $' + o + ' H: $' + h + ' L: $' + l + ' C: $' + c + ' (' + sign + diff + ')';
+        });
+
         window.addEventListener('resize', () => {
           if (!priceChart || !priceEl) return;
           const isMob = window.innerWidth < 640;
           priceChart.applyOptions({
             width: priceEl.clientWidth,
-            height: isMob ? 280 : 450,
+            height: isMob ? 380 : currentChartHeight,
           });
         });
 
@@ -1919,6 +2215,34 @@ TELEGRAM_MIN_SCORE=90</pre>
             title: 'ASIAN LOW',
           })
         );
+      }
+
+      if (currentAnalysis && currentAnalysis.smartMoney) {
+        const sm = currentAnalysis.smartMoney;
+        if (sm.activeFvg && !sm.activeFvg.isMitigated) {
+          activePriceLines.push(
+            candleSeries.createPriceLine({
+              price: sm.activeFvg.cePrice,
+              color: sm.activeFvg.direction === 'BULLISH' ? 'rgba(52, 211, 153, 0.8)' : 'rgba(251, 113, 133, 0.8)',
+              lineWidth: 1,
+              lineStyle: LightweightCharts.LineStyle.Dotted,
+              axisLabelVisible: true,
+              title: (sm.activeFvg.direction === 'BULLISH' ? '🟢 +FVG CE 50% $' : '🔴 -FVG CE 50% $') + sm.activeFvg.cePrice.toFixed(2),
+            })
+          );
+        }
+        if (sm.activeOrderBlock && !sm.activeOrderBlock.isMitigated) {
+          activePriceLines.push(
+            candleSeries.createPriceLine({
+              price: sm.activeOrderBlock.cePrice,
+              color: 'rgba(168, 85, 247, 0.8)',
+              lineWidth: 1,
+              lineStyle: LightweightCharts.LineStyle.Dotted,
+              axisLabelVisible: true,
+              title: '🧱 OB MEAN $' + sm.activeOrderBlock.cePrice.toFixed(2),
+            })
+          );
+        }
       }
     }
 
@@ -2458,18 +2782,7 @@ TELEGRAM_MIN_SCORE=90</pre>
           ema200Series.setData(ema200);
           lastCandleBar = candles[candles.length - 1] ? { ...candles[candles.length - 1] } : null;
 
-          const minTime = candles[0]?.time ?? 0;
-          const markers = (data.historicalSignals || [])
-            .filter((s) => s.time >= minTime)
-            .sort((a, b) => a.time - b.time)
-            .map((s) => ({
-              time: s.time,
-              position: s.type === 'BUY' ? 'belowBar' : 'aboveBar',
-              color: s.type === 'BUY' ? '#10b981' : '#f43f5e',
-              shape: s.type === 'BUY' ? 'arrowUp' : 'arrowDown',
-              text: \`\${s.grade} \${s.type}\`,
-            }));
-          candleSeries.setMarkers(markers);
+          updateChartSmartMoneyMarkers(data);
           drawSetupPriceLines(ts, data.liquidityLevels);
         } catch (chartErr) {
           console.warn('Chart render error:', chartErr);
