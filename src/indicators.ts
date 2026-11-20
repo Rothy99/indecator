@@ -1887,10 +1887,13 @@ function analyzeMasterConfluenceAtBar(
     (cur.close < cur.open && prev.close > prev.open && cur.close <= prev.open) ||
     (upperWick / curRange >= 0.4 && cur.close <= cur.open);
 
+  const bodySize = Math.abs(cur.close - cur.open);
+  const isTrueDisplacement = bodySize >= atr * 0.35 && (bodySize / curRange) >= 0.40;
+
   let candleConfirmation: IctStructureDetails['candleConfirmation'] = 'WAITING CANDLE';
   if (isLongBias && bullEngulfOrPin) candleConfirmation = 'BULLISH ENGULFING / PIN BAR';
   else if (!isLongBias && bearEngulfOrPin) candleConfirmation = 'BEARISH ENGULFING / PIN BAR';
-  else if ((isLongBias && cur.close > cur.open) || (!isLongBias && cur.close < cur.open)) {
+  else if ((isLongBias && cur.close > cur.open && isTrueDisplacement) || (!isLongBias && cur.close < cur.open && isTrueDisplacement)) {
     candleConfirmation = 'DISPLACEMENT CLOSE';
   }
 

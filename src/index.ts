@@ -663,6 +663,16 @@ app.post('/api/telegram/push-now', async (c: any) => {
       }, 200);
     }
 
+    const isConfirmed = ts.entryTiming?.state === 'ENTER_NOW';
+    if (!isConfirmed && !c.req.query('force')) {
+      return c.json({
+        success: false,
+        error: `Setup is NOT confirmed yet! Status: ${ts.entryTiming?.badgeText || 'WAITING CONFIRMATION'}. System is waiting for FVG CE 50% mitigation & candle confirmation before pushing.`,
+        timingState: ts.entryTiming?.state,
+        grade: analysis.setupGrade
+      }, 200);
+    }
+
     const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
     const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
     const orderType = isEnterNow
@@ -830,18 +840,16 @@ async function runAutonomousTelegramScanner() {
       const ts = analysis.tradeSetup;
       const lc = ts?.entryTiming?.lifecycle;
 
-      // Strictly push ONLY 95%+ High-Confidence setups on 1h and 15m
+      // Strictly push ONLY when 95%+ AND fully CONFIRMED (ENTER_NOW)
       const score = qm?.totalScore ?? analysis.score;
       const prob = analysis.probability;
       const is95Plus = ts && (score >= 95 || prob >= 95) && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
+      const isConfirmed = ts?.entryTiming?.state === 'ENTER_NOW';
 
-      if (is95Plus) {
-        const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
-        const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
-        const orderType = isEnterNow
-          ? (ts.direction === 'LONG' ? 'BUY MARKET' : 'SELL MARKET')
-          : (ts.direction === 'LONG' ? 'BUY LIMIT (FVG Pullback)' : 'SELL LIMIT (FVG Pullback)');
-
+      // Patiently wait: do NOT broadcast while in WAIT_CONFIRMATION or LATE_WAIT_PULLBACK
+      if (is95Plus && isConfirmed) {
+        const entryPrice = analysis.currentPrice;
+        const orderType = ts.direction === 'LONG' ? 'BUY MARKET' : 'SELL MARKET';
         const lastBarTime = candles[candles.length - 1]?.time || Math.floor(Date.now() / 1000);
 
         await checkAndBroadcastSetup({
