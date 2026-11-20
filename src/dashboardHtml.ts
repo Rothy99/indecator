@@ -2169,30 +2169,6 @@ TELEGRAM_MIN_SCORE=90</pre>
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
           title: (lc?.isActivated ? '⚡ ACTIVE ENTRY $' : '⏳ FVG/OB WAIT $') + entryLinePrice.toFixed(2),
-        }),
-        candleSeries.createPriceLine({
-          price: lc ? lc.stopLoss : setup.stopLoss,
-          color: '#f43f5e',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Solid,
-          axisLabelVisible: true,
-          title: '🛑 HARD SL $' + (lc ? lc.stopLoss : setup.stopLoss).toFixed(2),
-        }),
-        candleSeries.createPriceLine({
-          price: lc ? lc.tp1 : setup.tp1,
-          color: '#34d399',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: '🎯 TP1 (1:1.5 • 50%+BE) $' + (lc ? lc.tp1 : setup.tp1).toFixed(2),
-        }),
-        candleSeries.createPriceLine({
-          price: lc ? lc.tp2 : setup.tp2,
-          color: '#10b981',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Solid,
-          axisLabelVisible: true,
-          title: '🏆 TP2 (1:2.5 RUNNER) $' + (lc ? lc.tp2 : setup.tp2).toFixed(2),
         })
       );
 
@@ -4057,7 +4033,7 @@ TELEGRAM_MIN_SCORE=90</pre>
 
     function togglePriceLines() {
       showPriceLines = !showPriceLines;
-      document.getElementById('toggleLinesBtn').textContent = 'SL / TP / PDH-PDL Lines: ' + (showPriceLines ? 'ON' : 'OFF');
+      document.getElementById('toggleLinesBtn').textContent = 'Lines: ' + (showPriceLines ? 'ON' : 'OFF');
       if (currentAnalysis) drawSetupPriceLines(currentAnalysis.tradeSetup, currentAnalysis.liquidityLevels);
     }
 
