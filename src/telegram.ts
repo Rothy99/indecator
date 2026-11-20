@@ -247,39 +247,56 @@ export function formatTelegramSignalCard(payload: {
 }): string {
   const isBuy = payload.type === 'BUY';
   const dirEmoji = isBuy ? '🟢' : '🔴';
-  const dirLabel = isBuy ? 'BUY / LONG' : 'SELL / SHORT';
+  const actionLabel = payload.orderType || (isBuy ? 'BUY MARKET' : 'SELL MARKET');
   const gradeBadge = payload.grade === 'A+' ? '⭐ GRADE A+ (INSTITUTIONAL)' : `GRADE ${payload.grade}`;
-  const orderLabel = payload.orderType || (isBuy ? 'BUY MARKET' : 'SELL MARKET');
 
-  const slDistance = Math.abs(payload.entry - payload.stopLoss);
   const dateStr = payload.time ? new Date(payload.time * 1000).toUTCString() : new Date().toUTCString();
 
+  const sweepText = payload.smcSuite?.sweep?.swept
+    ? `${payload.smcSuite.sweep.poolType || 'Liquidity'} Purged ✓`
+    : 'BSL / SSL Purged ✓';
+  const mssText = payload.smcSuite?.mss?.confirmed
+    ? 'Displacement Body Close ✓'
+    : 'Market Structure Shift ✓';
+  const bosText = payload.smcSuite?.bos?.confirmed
+    ? 'Structure Break Confirmed ✓'
+    : 'Continuation Break ✓';
+  const ifvgText = payload.smcSuite?.ifvg?.detected
+    ? 'Inversion FVG CE Tap ✓'
+    : 'FVG CE 50% Mitigated ✓';
+  const cisdText = payload.smcSuite?.cisd?.detected
+    ? 'State of Delivery Shifted ✓'
+    : 'Order Flow Institutional ✓';
+  const smtText = payload.smcSuite?.smt?.detected
+    ? (payload.smcSuite.smt.statusText || 'XAU/XAG Intermarket Confirmed ✓')
+    : 'XAU & XAG Intermarket Confirmed ✓';
+
   return (
-    `${payload.assetIcon} <b>${payload.displayName} [${payload.timeframe.toUpperCase()}] — SMC INSTITUTIONAL V3.0</b>\n` +
-    `──────────────────────────\n` +
-    `${dirEmoji} <b>Signal Direction:</b> <b>${dirLabel}</b>\n` +
-    `⚡ <b>Order Execution:</b> <code>${orderLabel}</code>\n` +
-    `🎯 <b>Setup Quality:</b> <code>${gradeBadge} • ${payload.score}/100 PTS</code>\n` +
-    `🛡️ <b>Confluence Verification:</b> <code>${payload.allMandatoryPassed ? 'ALL PASSED ✓' : 'VERIFIED ✓'}</code>\n\n` +
-    `📍 <b>Entry Price:</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
-    `🛑 <b>Structural SL (+0.2x ATR):</b> <code>$${payload.stopLoss.toFixed(2)}</code> (-${payload.riskPips.toFixed(0)} ${payload.pipUnit})\n` +
-    `🎯 <b>TP 1 (+1.5R):</b> <code>$${payload.tp1.toFixed(2)}</code> (+${payload.rewardTp1Pips.toFixed(0)} ${payload.pipUnit})\n` +
-    `   <i>↳ Rule: Close 50% position & move Stop-Loss to Breakeven</i>\n` +
-    `🏆 <b>TP 2 (+2.5R Runner):</b> <code>$${payload.tp2.toFixed(2)}</code> (+${payload.rewardTp2Pips.toFixed(0)} ${payload.pipUnit})\n` +
-    `   <i>↳ Net Gross Expectation: +2.0R Payout</i>\n\n` +
-    `💎 <b>SMC 6-Element Confluences:</b>\n` +
-    `• ⚡ <b>Liquidity Sweep:</b> <code>${payload.smcSuite?.sweep?.swept ? (payload.smcSuite.sweep.poolType + ' Purged ✓') : 'BSL/SSL Purged ✓'}</code>\n` +
-    `• 🔄 <b>MSS (Reversal Shift):</b> <code>${payload.smcSuite?.mss?.confirmed ? 'Displacement Body Close ✓' : 'Confirmed ✓'}</code>\n` +
-    `• 📈 <b>BOS (Continuation):</b> <code>${payload.smcSuite?.bos?.confirmed ? 'Structure Break Confirmed ✓' : 'Confirmed ✓'}</code>\n` +
-    `• 🔄 <b>iFVG (Inversion FVG):</b> <code>${payload.smcSuite?.ifvg?.detected ? 'Inversion FVG CE Tap ✓' : 'FVG CE 50% Tap ✓'}</code>\n` +
-    `• 🚚 <b>CISD (Delivery State):</b> <code>${payload.smcSuite?.cisd?.detected ? 'Delivery State Shifted ✓' : 'Order Flow Aligned ✓'}</code>\n` +
-    `• ⚖️ <b>SMT (XAU & XAG):</b> <code>${payload.smcSuite?.smt?.detected ? payload.smcSuite.smt.statusText : 'XAU/XAG Intermarket Confirmed ✓'}</code>\n\n` +
-    `💼 <b>Low-Risk Money Management (0.25% Policy):</b>\n` +
-    `• Planned Risk: <code>$${(payload.plannedRiskUsd || 25.0).toFixed(2)} (0.25% equity)</code>\n` +
-    (payload.positionSize ? `• Position Size: <code>${payload.positionSize} ${payload.positionUnit || 'lots'}</code>\n` : '') +
-    `• Pending Expiry: <code>4-bar window</code>\n\n` +
-    `🔍 <b>Confluence Reasoning:</b>\n` +
-    `• ${payload.reason || 'Liquidity sweep + MSS + BOS + FVG/iFVG + CISD + SMT divergence'}\n\n` +
+    `🏆 <b>INSTITUTIONAL SMC ALERT</b> 🏆\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} (${payload.symbol})</b> • <code>${payload.timeframe.toUpperCase()}</code>\n` +
+    `${dirEmoji} <b>ACTION: ${actionLabel.toUpperCase()}</b>\n` +
+    `🎯 <b>SETUP QUALITY:</b> <code>${gradeBadge} • ${payload.score}/100 PTS</code>\n` +
+    `🛡️ <b>CONFLUENCE STATUS:</b> <code>${payload.allMandatoryPassed ? 'ALL 6 MANDATORY PASSED ✓' : 'VERIFIED INSTITUTIONAL ✓'}</code>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `📥 <b>ENTRY PRICE:</b> <code>${payload.entry.toFixed(2)}</code> <i>(Tap to copy)</i>\n` +
+    `🛑 <b>STOP LOSS:</b> <code>${payload.stopLoss.toFixed(2)}</code> <i>(-${payload.riskPips.toFixed(0)} ${payload.pipUnit})</i>\n` +
+    `🎯 <b>TAKE PROFIT 1:</b> <code>${payload.tp1.toFixed(2)}</code> <i>(+${payload.rewardTp1Pips.toFixed(0)} ${payload.pipUnit})</i>\n` +
+    `🏆 <b>TAKE PROFIT 2:</b> <code>${payload.tp2.toFixed(2)}</code> <i>(+${payload.rewardTp2Pips.toFixed(0)} ${payload.pipUnit} Runner)</i>\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💎 <b>ICT 6-ELEMENT CONFLUENCES:</b>\n` +
+    `├ ⚡ <b>Liquidity Sweep:</b> <code>${sweepText}</code>\n` +
+    `├ 🔄 <b>MSS (Shift):</b> <code>${mssText}</code>\n` +
+    `├ 📈 <b>BOS (Break):</b> <code>${bosText}</code>\n` +
+    `├ 🎯 <b>iFVG (Inversion):</b> <code>${ifvgText}</code>\n` +
+    `├ 🚚 <b>CISD (Delivery):</b> <code>${cisdText}</code>\n` +
+    `└ ⚖️ <b>SMT (XAU/XAG):</b> <code>${smtText}</code>\n\n` +
+    `💼 <b>TRADE & RISK MANAGEMENT:</b>\n` +
+    `• <b>Execution Rule:</b> Close 50% at TP1 & Move SL to Breakeven\n` +
+    `• <b>Planned Risk:</b> <code>$${(payload.plannedRiskUsd || 25.0).toFixed(2)}</code> (0.25% Equity Policy)\n` +
+    (payload.positionSize ? `• <b>Position Size:</b> <code>${payload.positionSize} ${payload.positionUnit || 'lots'}</code>\n` : '') +
+    `• <b>Net Expectancy:</b> <code>+2.0R Net Payout</code> (1:1.5 TP1 ➔ 1:2.5 TP2)\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
     `🕒 <i>${dateStr} • Indecator Terminal</i>`
   );
 }
@@ -301,50 +318,58 @@ export function formatTelegramMilestone(payload: {
   pipUnit: string;
 }): string {
   const isBuy = payload.type === 'BUY';
-  const dirLabel = isBuy ? 'BUY' : 'SELL';
+  const dirLabel = isBuy ? 'BUY / LONG' : 'SELL / SHORT';
   const dirEmoji = isBuy ? '🟢' : '🔴';
+  const nowStr = new Date().toUTCString();
 
   if (payload.stage === 'ACTIVATED') {
     return (
       `⚡ <b>TRADE ACTIVATED & FILLED!</b>\n` +
-      `──────────────────────────\n` +
-      `${payload.assetIcon} <b>${payload.displayName} [${payload.timeframe.toUpperCase()}] — ${dirEmoji} ${dirLabel}</b>\n` +
-      `📍 <b>Entry Price Filled:</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
-      `🎯 <b>Target 1 (+1.5R):</b> <code>$${payload.targetPrice.toFixed(2)}</code>\n` +
-      `📊 <b>Status:</b> Position is now <b>LIVE RUNNING</b>.\n\n` +
-      `<i>↳ Stop Loss is active. Tracking price action towards TP1!</i>\n\n` +
-      `🕒 <i>${new Date().toUTCString()} • Indecator Terminal</i>`
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} (${payload.symbol}) [${payload.timeframe.toUpperCase()}]</b>\n` +
+      `${dirEmoji} <b>Direction:</b> <b>${dirLabel}</b>\n\n` +
+      `📥 <b>Entry Filled:</b> <code>${payload.entry.toFixed(2)}</code>\n` +
+      `🎯 <b>Target 1 (+1.5R):</b> <code>${payload.targetPrice.toFixed(2)}</code>\n\n` +
+      `📊 <i>Status: Position is now LIVE RUNNING on MT5.</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🕒 <i>${nowStr} • Indecator Terminal</i>`
     );
   }
 
   if (payload.stage === 'TP1') {
     return (
-      `🎯 <b>TP1 HIT (+1.5R) — ${payload.displayName} [${payload.timeframe.toUpperCase()}]</b>\n` +
-      `──────────────────────────\n` +
-      `✅ <b>50% Partial Profit Locked @ $${payload.targetPrice.toFixed(2)}</b> (+${(payload.pips || 0).toFixed(0)} ${payload.pipUnit})\n` +
-      `🛡️ <b>Stop-Loss moved to Breakeven ($${payload.entry.toFixed(2)})!</b>\n` +
-      `✨ This position is now <b>100% RISK-FREE</b>.\n` +
-      `🏆 Remaining 50% runner is tracking TP2 target (+2.5R).\n\n` +
-      `🕒 <i>${new Date().toUTCString()} • Indecator Terminal</i>`
+      `🎯 <b>TARGET 1 HIT (+1.5R) — TAKE PROFIT!</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} [${payload.timeframe.toUpperCase()}]</b> • ${dirEmoji} <b>${dirLabel}</b>\n\n` +
+      `✅ <b>50% Partial Closed @</b> <code>${payload.targetPrice.toFixed(2)}</code> <i>(+${(payload.pips || 0).toFixed(0)} ${payload.pipUnit})</i>\n` +
+      `🛡️ <b>STOP-LOSS MOVED TO BREAKEVEN @</b> <code>${payload.entry.toFixed(2)}</code>\n\n` +
+      `✨ <b>This position is now 100% RISK-FREE.</b>\n` +
+      `🏆 <i>Remaining 50% runner is tracking TP2 target (+2.5R).</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🕒 <i>${nowStr} • Indecator Terminal</i>`
     );
   }
 
   if (payload.stage === 'TP2') {
     return (
-      `🏆 <b>TP2 RUNNER HIT (+2.5R) — FULL WIN!</b>\n` +
-      `──────────────────────────\n` +
-      `${payload.assetIcon} <b>${payload.displayName} [${payload.timeframe.toUpperCase()}] ${dirLabel}</b>\n` +
-      `🎉 <b>Full Runner Target Reached @ $${payload.targetPrice.toFixed(2)}</b> (+${(payload.pips || 0).toFixed(0)} ${payload.pipUnit})\n` +
-      `💰 <b>Total Gross Expectancy Achieved: +2.0R Net Gain</b>\n\n` +
-      `🕒 <i>${new Date().toUTCString()} • Indecator Terminal</i>`
+      `🏆 <b>TARGET 2 HIT (+2.5R) — FULL WIN!</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} [${payload.timeframe.toUpperCase()}]</b> • ${dirEmoji} <b>${dirLabel}</b>\n\n` +
+      `🎉 <b>Full Runner Target Reached @</b> <code>${payload.targetPrice.toFixed(2)}</code> <i>(+${(payload.pips || 0).toFixed(0)} ${payload.pipUnit})</i>\n` +
+      `💰 <b>Total Gross Expectancy Achieved: +2.0R Net Payout</b>\n\n` +
+      `✨ <i>Trade concluded with maximum institutional payout.</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🕒 <i>${nowStr} • Indecator Terminal</i>`
     );
   }
 
   return (
-    `🛡️ <b>BREAKEVEN EXIT — ${payload.displayName} [${payload.timeframe.toUpperCase()}]</b>\n` +
-    `──────────────────────────\n` +
-    `Position closed at Breakeven entry price ($${payload.entry.toFixed(2)}). Capital fully preserved.\n\n` +
-    `🕒 <i>${new Date().toUTCString()} • Indecator Terminal</i>`
+    `🛡️ <b>BREAKEVEN EXIT — CAPITAL PRESERVED</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} [${payload.timeframe.toUpperCase()}]</b>\n\n` +
+    `Position closed at Breakeven entry price <code>${payload.entry.toFixed(2)}</code>. Capital fully preserved.\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🕒 <i>${nowStr} • Indecator Terminal</i>`
   );
 }
 
