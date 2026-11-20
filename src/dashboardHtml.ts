@@ -2294,11 +2294,11 @@ TELEGRAM_MIN_SCORE=90</pre>
       if (rect.width <= 0 || rect.height <= 0) return;
 
       const dpr = window.devicePixelRatio || 1;
-      const targetW = Math.round(rect.width * dpr);
-      const targetH = Math.round(rect.height * dpr);
-      if (canvas.width !== targetW || canvas.height !== targetH) {
-        canvas.width = targetW;
-        canvas.height = targetH;
+      const canvasW = Math.round(rect.width * dpr);
+      const canvasH = Math.round(rect.height * dpr);
+      if (canvas.width !== canvasW || canvas.height !== canvasH) {
+        canvas.width = canvasW;
+        canvas.height = canvasH;
       }
 
       const ctx = canvas.getContext('2d');
@@ -2403,11 +2403,11 @@ TELEGRAM_MIN_SCORE=90</pre>
       // Calculate vertical boxes
       const targetTop = isLong ? Math.min(clampedYTarget, clampedYEntry) : Math.min(clampedYEntry, clampedYTarget);
       const targetBottom = isLong ? Math.max(clampedYTarget, clampedYEntry) : Math.max(clampedYEntry, clampedYTarget);
-      const targetH = Math.max(2, targetBottom - targetTop);
+      const targetBoxH = Math.max(2, targetBottom - targetTop);
 
       const stopTop = isLong ? Math.min(clampedYEntry, clampedYStop) : Math.min(clampedYStop, clampedYEntry);
       const stopBottom = isLong ? Math.max(clampedYEntry, clampedYStop) : Math.max(clampedYStop, clampedYEntry);
-      const stopH = Math.max(2, stopBottom - stopTop);
+      const stopBoxH = Math.max(2, stopBottom - stopTop);
 
       function drawRoundRect(rx, ry, rw, rh, rad) {
         ctx.beginPath();
@@ -2421,17 +2421,17 @@ TELEGRAM_MIN_SCORE=90</pre>
 
       // 1. Draw Green Target Box (Profit Zone)
       ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
-      ctx.fillRect(x1, targetTop, boxW, targetH);
+      ctx.fillRect(x1, targetTop, boxW, targetBoxH);
       ctx.strokeStyle = '#10b981';
       ctx.lineWidth = 1;
-      ctx.strokeRect(x1, targetTop, boxW, targetH);
+      ctx.strokeRect(x1, targetTop, boxW, targetBoxH);
 
       // 2. Draw Red Stop Box (Risk Zone)
       ctx.fillStyle = 'rgba(244, 63, 94, 0.24)';
-      ctx.fillRect(x1, stopTop, boxW, stopH);
+      ctx.fillRect(x1, stopTop, boxW, stopBoxH);
       ctx.strokeStyle = '#f43f5e';
       ctx.lineWidth = 1;
-      ctx.strokeRect(x1, stopTop, boxW, stopH);
+      ctx.strokeRect(x1, stopTop, boxW, stopBoxH);
 
       // 3. Draw Entry Divider Line
       ctx.strokeStyle = '#38bdf8';
