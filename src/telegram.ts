@@ -258,7 +258,7 @@ export function formatTelegramSignalCard(payload: {
     `${dirEmoji} <b>Signal Direction:</b> <b>${dirLabel}</b>\n` +
     `🎯 <b>Setup Quality:</b> <code>${gradeBadge} • ${payload.score}/100 PTS</code>\n` +
     `🛡️ <b>Confluence Verification:</b> <code>${payload.allMandatoryPassed ? 'ALL PASSED ✓' : 'VERIFIED ✓'}</code>\n\n` +
-    `📍 <b>Entry Price (CE 50% FVG/iFVG):</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
+    `📍 <b>Entry Price (Live Execution):</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
     `🛑 <b>Structural SL (+0.2x ATR):</b> <code>$${payload.stopLoss.toFixed(2)}</code> (-${payload.riskPips.toFixed(0)} ${payload.pipUnit})\n` +
     `🎯 <b>TP 1 (+1.5R):</b> <code>$${payload.tp1.toFixed(2)}</code> (+${payload.rewardTp1Pips.toFixed(0)} ${payload.pipUnit})\n` +
     `   <i>↳ Rule: Close 50% position & move Stop-Loss to Breakeven</i>\n` +

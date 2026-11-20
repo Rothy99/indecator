@@ -2369,7 +2369,21 @@ function scanMasterStrategySignals(
     const testHigh = isNewBar ? lastBar.high : curPrice;
     const testLow = isNewBar ? lastBar.low : curPrice;
 
-    if (locked.type === 'BUY') {
+    const tfSec = timeframe === '1m' ? 60 : timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : timeframe === '30m' ? 1800 : timeframe === '1h' ? 3600 : 14400;
+    const barsElapsed = Math.floor((lastBar.time - locked.time) / tfSec);
+
+    // Auto-archive if TP1 already hit and > 1 bar passed, or if expired (> 6 bars)
+    if (locked.hitTp1 && barsElapsed >= 1) {
+      locked.outcome = 'TP1_HIT';
+      locked.pnlDollarsPerOz = locked.type === 'BUY' ? roundPrice(locked.tp1 - locked.entry) : roundPrice(locked.entry - locked.tp1);
+      archiveClosedTrade(cleanSymbol, timeframe, locked);
+      deleteLockedActiveTrade(cleanSymbol, timeframe);
+    } else if (barsElapsed >= 6) {
+      locked.outcome = locked.hitTp1 ? 'TP1_HIT' : 'BE_EXIT';
+      locked.pnlDollarsPerOz = roundPrice(locked.type === 'BUY' ? curPrice - locked.entry : locked.entry - curPrice);
+      archiveClosedTrade(cleanSymbol, timeframe, locked);
+      deleteLockedActiveTrade(cleanSymbol, timeframe);
+    } else if (locked.type === 'BUY') {
       if (testHigh >= locked.beTrigger) locked.hitBeLock = true;
       if (testHigh >= locked.tp1) locked.hitTp1 = true;
       if (testHigh >= locked.tp2) {
@@ -2539,35 +2553,6 @@ function scanMasterStrategySignals(
     else if (outcome === 'SL_HIT') pnlDollarsPerOz = roundPrice(-slDist);
     else {
       pnlDollarsPerOz = roundPrice(type === 'BUY' ? curPrice - entry : entry - curPrice);
-    }
-
-    // If signal is ACTIVE and no active trade is locked yet, permanently lock it
-    const curActive = getLockedActiveTrade(cleanSymbol, timeframe);
-    if (outcome === 'ACTIVE' && !curActive) {
-      const pos: LockedActivePosition = {
-        id: `TF_${tfKey}_${cur.time}`,
-        timeframe: tfKey,
-        time: cur.time,
-        type,
-        grade: evalBar.setupGrade,
-        probability: evalBar.probability,
-        confidence: evalBar.probability,
-        entry, // LOCKED!
-        stopLoss, // LOCKED!
-        tp1, // LOCKED!
-        tp2, // LOCKED!
-        beTrigger,
-        hitBeLock,
-        hitTp1,
-        hitTp2: false,
-        hitSl: false,
-        outcome: 'ACTIVE',
-        pnlDollarsPerOz,
-        reason: sweepBos && sweepBos.isValid
-          ? `Grade ${evalBar.setupGrade} • Sweep + BOS + FVG PRO (Locked @ $${entry.toFixed(2)})`
-          : `Grade ${evalBar.setupGrade} • 50/200 EMA + ${evalBar.ict.candleConfirmation}`,
-      };
-      setLockedActiveTrade(cleanSymbol, timeframe, pos);
     }
 
     signals.push({
@@ -3207,17 +3192,32 @@ export function analyzeGoldCandles(
   let isLongBias = evalRes.isLongBias;
   const direction: TradeSetup['direction'] = isLongBias ? 'LONG' : 'SHORT';
 
-  // True FVG PRO Consequent Encroachment (CE 50%) or 50 EMA Anchor level for Wait Entry
-  let waitPullbackEntry = roundPrice(ema50);
+  // Dynamic Pullback Entry: Pegged to Live Price and local FVG/iFVG structure within 1.5x ATR
+  let waitPullbackEntry = roundPrice(isLongBias ? currentPrice - atr * 0.35 : currentPrice + atr * 0.35);
+
   if (evalRes.ict.sweepBosFvgPro?.fvgPro.detected) {
-    waitPullbackEntry = evalRes.ict.sweepBosFvgPro.fvgPro.consequentEncroachment;
+    const fvgCe = evalRes.ict.sweepBosFvgPro.fvgPro.consequentEncroachment;
+    if (Math.abs(currentPrice - fvgCe) <= atr * 1.5) {
+      waitPullbackEntry = fvgCe;
+    }
+  } else if (evalRes.ict.sweepBosFvgPro?.ifvg?.detected) {
+    const ifvgCe = evalRes.ict.sweepBosFvgPro.ifvg.consequentEncroachment;
+    if (Math.abs(currentPrice - ifvgCe) <= atr * 1.5) {
+      waitPullbackEntry = ifvgCe;
+    }
   } else if (evalRes.ict.activeFvgZone) {
-    waitPullbackEntry = roundPrice((evalRes.ict.activeFvgZone.top + evalRes.ict.activeFvgZone.bottom) / 2);
+    const zoneCe = roundPrice((evalRes.ict.activeFvgZone.top + evalRes.ict.activeFvgZone.bottom) / 2);
+    if (Math.abs(currentPrice - zoneCe) <= atr * 1.5) {
+      waitPullbackEntry = zoneCe;
+    }
   } else if (evalRes.ict.activeOrderBlock) {
-    waitPullbackEntry = roundPrice((evalRes.ict.activeOrderBlock.top + evalRes.ict.activeOrderBlock.bottom) / 2);
+    const obCe = roundPrice((evalRes.ict.activeOrderBlock.top + evalRes.ict.activeOrderBlock.bottom) / 2);
+    if (Math.abs(currentPrice - obCe) <= atr * 1.5) {
+      waitPullbackEntry = obCe;
+    }
   }
 
-  // Distance from 50 EMA / FVG value zone to detect Late Entry
+  // Distance from FVG value zone to detect Late Entry
   const distFromZone = Math.abs(currentPrice - waitPullbackEntry);
   const isRsiExhausted = isLongBias ? rsi > 70 : rsi < 30;
   // A setup is only "ENTER_NOW" if price is actually at the FVG / 50 EMA (within 0.85x ATR) and Confluence 4B trigger passed
@@ -3235,12 +3235,12 @@ export function analyzeGoldCandles(
     timingState = 'ENTER_NOW';
     badgeText = '🟢 SWEEP + BOS + FVG PRO (ENTER NOW)';
     recommendedOrderType = isLongBias ? 'BUY MARKET' : 'SELL MARKET';
-    recommendedEntry = roundPrice(waitPullbackEntry);
+    recommendedEntry = currentPrice;
   } else if (isAtOptimalZone && evalRes.gatesPassed >= 5) {
     timingState = 'ENTER_NOW';
     badgeText = '🟢 ENTER NOW (4-CONFLUENCE CONFIRMED)';
     recommendedOrderType = isLongBias ? 'BUY MARKET' : 'SELL MARKET';
-    recommendedEntry = roundPrice(waitPullbackEntry);
+    recommendedEntry = currentPrice;
   } else if (isLate) {
     timingState = 'LATE_WAIT_PULLBACK';
     badgeText = `🟠 LATE ENTRY (+${(distFromZone * pipMult).toFixed(0)}${pipUnit[0]} FROM FVG PRO CE)`;
@@ -3341,37 +3341,25 @@ export function analyzeGoldCandles(
 
   evalRes.quantitativeMatrix.accountRisk = accountRiskProfile;
 
-  const entry = recommendedEntry;
-  // For Shorts: Add broker spread buffer to Stop-Loss because Short positions close at ASK
-  let stopLoss = isLongBias
-    ? roundPrice(entry - slDistance)
-    : roundPrice(entry + slDistance + spreadBufferDollars);
-  let tp1 = isLongBias ? roundPrice(entry + tp1Distance) : roundPrice(entry - tp1Distance);
-  let tp2 = isLongBias ? roundPrice(entry + tp2Distance) : roundPrice(entry - tp2Distance);
-  let tp3 = isLongBias ? roundPrice(entry + tp3Distance) : roundPrice(entry - tp3Distance);
-
-  // Check if an active trade is already locked for this timeframe/symbol
-  const lockedActive = getLockedActiveTrade(cleanSymbol, timeframe);
-  let lifecycle: EntryLifecycleTracker;
-  let finalEntry = recommendedEntry;
+  // Always calculate entry dynamically following the LIVE price
+  let finalEntry = timingState === 'ENTER_NOW' ? currentPrice : recommendedEntry;
   let finalDirection: TradeSetup['direction'] = isLongBias ? 'LONG' : 'SHORT';
   let finalOrderType = recommendedOrderType;
 
-  if (lockedActive && lockedActive.outcome === 'ACTIVE') {
-    // 100% Locked with history: Entry, StopLoss, TP1, TP2, Direction NEVER change after activated!
-    finalEntry = lockedActive.entry;
-    stopLoss = lockedActive.stopLoss;
-    tp1 = lockedActive.tp1;
-    tp2 = lockedActive.tp2;
-    timingState = 'ENTER_NOW';
-    finalOrderType = lockedActive.type === 'BUY' ? 'BUY MARKET' : 'SELL MARKET';
-    recommendedOrderType = finalOrderType;
-    recommendedEntry = finalEntry;
-    isLongBias = lockedActive.type === 'BUY';
-    finalDirection = lockedActive.type === 'BUY' ? 'LONG' : 'SHORT';
-    badgeText = `🟢 ACTIVATED • ${lockedActive.type} @ $${finalEntry.toFixed(2)}`;
+  // Dynamic Stop-Loss and Take-Profit pegged directly to the LIVE entry price
+  let stopLoss = isLongBias
+    ? roundPrice(finalEntry - slDistance)
+    : roundPrice(finalEntry + slDistance + spreadBufferDollars);
+  let tp1 = isLongBias ? roundPrice(finalEntry + tp1Distance) : roundPrice(finalEntry - tp1Distance);
+  let tp2 = isLongBias ? roundPrice(finalEntry + tp2Distance) : roundPrice(finalEntry - tp2Distance);
+  let tp3 = isLongBias ? roundPrice(finalEntry + tp3Distance) : roundPrice(finalEntry - tp3Distance);
 
-    const rawDiff = lockedActive.type === 'BUY' ? currentPrice - finalEntry : finalEntry - currentPrice;
+  // Check if an active trade is already tracked for running position telemetry
+  const lockedActive = getLockedActiveTrade(cleanSymbol, timeframe);
+  let lifecycle: EntryLifecycleTracker;
+
+  if (lockedActive && lockedActive.outcome === 'ACTIVE') {
+    const rawDiff = lockedActive.type === 'BUY' ? currentPrice - lockedActive.entry : lockedActive.entry - currentPrice;
     const livePips = roundPrice(rawDiff * pipMult);
     const liveDollars = roundPrice(rawDiff);
 
@@ -3385,24 +3373,24 @@ export function analyzeGoldCandles(
       statusBadge: badge,
       pnlStatusText: pnlText,
       direction: lockedActive.type,
-      entryPrice: finalEntry, // LOCKED!
+      entryPrice: lockedActive.entry,
       activatedTime: lockedActive.time,
       currentPrice,
-      stopLoss: lockedActive.stopLoss, // LOCKED!
-      tp1: lockedActive.tp1, // LOCKED!
-      tp2: lockedActive.tp2, // LOCKED!
+      stopLoss: lockedActive.stopLoss,
+      tp1: lockedActive.tp1,
+      tp2: lockedActive.tp2,
       floatingPips: livePips,
       floatingDollarsPerOz: liveDollars,
       distanceToEntryPips: 0,
       hitTp1: lockedActive.hitTp1,
       hitTp2: lockedActive.hitTp2,
       hitSl: lockedActive.hitSl,
-      progressPct: Math.max(-100, Math.min(100, Math.round((rawDiff / (Math.abs(lockedActive.tp2 - finalEntry) || 1)) * 100))),
-      summaryText: `Locked ${lockedActive.type} Entry @ $${finalEntry.toFixed(2)} — Currently ${pnlText}. Take 50% at +1.5R ($${lockedActive.tp1.toFixed(2)}) & move SL to BE.`,
+      progressPct: Math.max(-100, Math.min(100, Math.round((rawDiff / (Math.abs(lockedActive.tp2 - lockedActive.entry) || 1)) * 100))),
+      summaryText: `Locked ${lockedActive.type} Entry @ $${lockedActive.entry.toFixed(2)} — Currently ${pnlText}. Take 50% at +1.5R ($${lockedActive.tp1.toFixed(2)}) & move SL to BE.`,
     };
   } else if (timingState === 'ENTER_NOW' && evalRes.setupGrade === 'A+' && evalRes.quantitativeMatrix.allMandatoryConfluencesPassed && session.newsGuardStatus === 'CLEAR' && !backtest.circuitBreakerTripped) {
-    // V3.0 New activation: only lock A+ setups with 4/4 mandatory confluences and zero news window
-    finalEntry = recommendedEntry;
+    // V3.0 New activation: only lock A+ setups with 4/4 mandatory confluences and zero news window at live price
+    finalEntry = currentPrice;
     finalDirection = isLongBias ? 'LONG' : 'SHORT';
     finalOrderType = isLongBias ? 'BUY MARKET' : 'SELL MARKET';
     const newLocked: LockedActivePosition = {
@@ -3413,10 +3401,10 @@ export function analyzeGoldCandles(
       grade: evalRes.setupGrade,
       probability: evalRes.probability,
       confidence: evalRes.probability,
-      entry: finalEntry, // LOCKED!
-      stopLoss, // LOCKED!
-      tp1, // LOCKED! (+1.5R)
-      tp2, // LOCKED! (+2.5R)
+      entry: finalEntry, // Live MT5 price!
+      stopLoss,
+      tp1,
+      tp2,
       beTrigger: isLongBias ? roundPrice(finalEntry + slDistance * 1.0) : roundPrice(finalEntry - slDistance * 1.0),
       hitBeLock: false,
       hitTp1: false,
@@ -3424,7 +3412,7 @@ export function analyzeGoldCandles(
       hitSl: false,
       outcome: 'ACTIVE',
       pnlDollarsPerOz: 0,
-      reason: `V3.0 ${evalRes.setupGrade} (${evalRes.score}/100 Quality) • 4/4 Mandatory Confluences • 0.25% Risk ($${riskAmountUsd}) • Locked @ $${finalEntry.toFixed(2)}`,
+      reason: `V3.0 ${evalRes.setupGrade} (${evalRes.score}/100 Quality) • 4/4 Mandatory Confluences • 0.25% Risk ($${riskAmountUsd}) • Live Entry @ $${finalEntry.toFixed(2)}`,
     };
     setLockedActiveTrade(cleanSymbol, timeframe, newLocked);
 
@@ -3510,8 +3498,8 @@ export function analyzeGoldCandles(
     barsSinceCross: 3,
     movedPipsSinceOrigin: roundPrice(distFromZone * pipMult),
     isLate,
-    marketEntry: lockedActive ? finalEntry : roundPrice(currentPrice),
-    waitPullbackEntry: lockedActive ? finalEntry : waitPullbackEntry,
+    marketEntry: roundPrice(currentPrice),
+    waitPullbackEntry: waitPullbackEntry,
     recommendedEntry: finalEntry,
     recommendedOrderType: finalOrderType,
     stopLoss,
@@ -3621,7 +3609,7 @@ export function analyzeGoldCandles(
       direction: finalDirection,
       isActionable: timingState === 'ENTER_NOW' && evalRes.setupGrade === 'A+' && evalRes.quantitativeMatrix.allMandatoryConfluencesPassed && !session.isNoTradeWindow && isSpreadAcceptable && !backtest.circuitBreakerTripped,
       entry: finalEntry,
-      optimalPullbackEntry: lockedActive ? finalEntry : waitPullbackEntry,
+      optimalPullbackEntry: waitPullbackEntry,
       stopLoss,
       tp1,
       tp2,

@@ -781,7 +781,7 @@ async function runAutonomousTelegramScanner() {
           probability: analysis.probability,
           score: qm.totalScore,
           allMandatoryPassed: qm.allMandatoryConfluencesPassed,
-          entry: ts.entry,
+          entry: ts.entryTiming?.state === 'ENTER_NOW' ? analysis.currentPrice : ts.entry,
           stopLoss: ts.stopLoss,
           tp1: ts.tp1,
           tp2: ts.tp2,
