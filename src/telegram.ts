@@ -11,6 +11,7 @@ export interface TelegramConfig {
   chatId: string | null;
   autoBroadcast: boolean;
   minScore: number;
+  allowedTimeframes: string[];
 }
 
 export interface TelegramBroadcastResult {
@@ -30,12 +31,17 @@ export function getTelegramConfig(): TelegramConfig {
   const chatId = process.env.TELEGRAM_CHAT_ID?.trim() || null;
   const autoBroadcast = process.env.TELEGRAM_AUTO_BROADCAST !== 'false';
   const minScore = parseInt(process.env.TELEGRAM_MIN_SCORE || '90', 10);
+  const allowedTimeframes = (process.env.TELEGRAM_ALLOWED_TIMEFRAMES || '1h,15m')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 
   return {
     botToken,
     chatId,
     autoBroadcast,
     minScore,
+    allowedTimeframes,
   };
 }
 
@@ -72,6 +78,7 @@ export function getTelegramStatus() {
     chatId: cfg.chatId || '',
     autoBroadcast: cfg.autoBroadcast,
     minScore: cfg.minScore,
+    allowedTimeframes: cfg.allowedTimeframes,
   };
 }
 
@@ -83,11 +90,15 @@ export async function saveTelegramConfig(newConfig: {
   chatId?: string;
   autoBroadcast?: boolean;
   minScore?: number;
+  allowedTimeframes?: string[];
 }): Promise<{ success: boolean; botUsername?: string; error?: string }> {
   const token = (newConfig.botToken !== undefined ? newConfig.botToken : (process.env.TELEGRAM_BOT_TOKEN ?? '')).trim();
   const chat = (newConfig.chatId !== undefined ? newConfig.chatId : (process.env.TELEGRAM_CHAT_ID ?? '')).trim();
   const auto = newConfig.autoBroadcast !== undefined ? newConfig.autoBroadcast : (process.env.TELEGRAM_AUTO_BROADCAST !== 'false');
   const score = newConfig.minScore || parseInt(process.env.TELEGRAM_MIN_SCORE || '90', 10);
+  const allowedTfs = newConfig.allowedTimeframes
+    ? newConfig.allowedTimeframes.join(',')
+    : (process.env.TELEGRAM_ALLOWED_TIMEFRAMES || '1h,15m');
 
   let botUsername = '';
   if (token) {
@@ -108,6 +119,7 @@ export async function saveTelegramConfig(newConfig: {
   process.env.TELEGRAM_CHAT_ID = chat;
   process.env.TELEGRAM_AUTO_BROADCAST = auto ? 'true' : 'false';
   process.env.TELEGRAM_MIN_SCORE = String(score);
+  process.env.TELEGRAM_ALLOWED_TIMEFRAMES = allowedTfs;
 
   // Persist into .env file
   try {
@@ -122,6 +134,7 @@ export async function saveTelegramConfig(newConfig: {
       TELEGRAM_CHAT_ID: chat,
       TELEGRAM_AUTO_BROADCAST: auto ? 'true' : 'false',
       TELEGRAM_MIN_SCORE: String(score),
+      TELEGRAM_ALLOWED_TIMEFRAMES: allowedTfs,
     };
 
     for (const [key, val] of Object.entries(updates)) {
@@ -343,6 +356,13 @@ export async function checkAndBroadcastSetup(signal: {
     return null;
   }
 
+  // Strictly filter by allowed timeframes (Push ONLY 1h and 15m)
+  const tf = signal.timeframe.toLowerCase();
+  const allowed = cfg.allowedTimeframes || ['1h', '15m'];
+  if (!allowed.includes(tf)) {
+    return null;
+  }
+
   // Strict High-Confidence Filter:
   // Must be Grade A+ or Grade A with score >= minScore AND all 4 mandatory confluences passed!
   const isHighConfidence =
@@ -388,6 +408,13 @@ export async function checkAndBroadcastMilestone(milestone: {
 }): Promise<TelegramBroadcastResult | null> {
   const cfg = getTelegramConfig();
   if (!cfg.botToken || !cfg.chatId || !cfg.autoBroadcast) {
+    return null;
+  }
+
+  // Strictly filter by allowed timeframes (Push ONLY 1h and 15m)
+  const tf = milestone.timeframe.toLowerCase();
+  const allowed = cfg.allowedTimeframes || ['1h', '15m'];
+  if (!allowed.includes(tf)) {
     return null;
   }
 

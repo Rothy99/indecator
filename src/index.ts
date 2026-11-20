@@ -241,8 +241,9 @@ const handleMtf = async (c: any) => {
     highConfidenceByTf[tf] = entries;
   }
 
-  // Automatic Telegram Channel Broadcast for High-Confidence Setups & Milestones
+  // Automatic Telegram Channel Broadcast for High-Confidence Setups (Strictly 1H & 15M)
   for (const { tf, analysis } of results) {
+    if (tf !== '1h' && tf !== '15m') continue;
     const uInfo = SYMBOL_CONFIGS[symbol];
     const qm = analysis.scoringMatrix;
     const ts = analysis.tradeSetup;
@@ -732,7 +733,7 @@ async function runAutonomousTelegramScanner() {
   try {
     const symbol: SupportedSymbol = 'XAUUSD';
     const uInfo = SYMBOL_CONFIGS[symbol];
-    const scanTfs: SupportedTimeframe[] = ['15m', '5m', '1h', '30m', '4h'];
+    const scanTfs: SupportedTimeframe[] = ['1h', '15m'];
 
     for (const tf of scanTfs) {
       const { candles, source } = await getMarketCandles(symbol, tf);
