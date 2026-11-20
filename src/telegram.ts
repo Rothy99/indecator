@@ -20,8 +20,27 @@ export interface TelegramBroadcastResult {
   error?: string;
 }
 
-// In-memory deduplication cache: `${symbol}:${timeframe}:${signalTime}:${direction}:${stage}`
-const sentAlertCache = new Set<string>();
+// Persistent deduplication cache: `${symbol}:${timeframe}:${normalizedBarTime}:${direction}:${stage}`
+const CACHE_FILE = path.join(process.cwd(), 'data', 'sent_alerts.json');
+function loadSentAlertCache(): Set<string> {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+      if (Array.isArray(data)) {
+        return new Set(data.slice(-200));
+      }
+    }
+  } catch {}
+  return new Set();
+}
+function saveSentAlertCache(cache: Set<string>) {
+  try {
+    const dir = path.dirname(CACHE_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(Array.from(cache).slice(-200), null, 2), 'utf8');
+  } catch {}
+}
+const sentAlertCache = loadSentAlertCache();
 
 /**
  * Retrieve current Telegram configuration from environment
@@ -402,6 +421,7 @@ export async function checkAndBroadcastSetup(signal: {
   smcSuite?: any;
   time: number;
   isActionable?: boolean;
+  isActivated?: boolean;
 }): Promise<TelegramBroadcastResult | null> {
   const cfg = getTelegramConfig();
   if (!cfg.botToken || !cfg.chatId || !cfg.autoBroadcast) {
@@ -415,6 +435,11 @@ export async function checkAndBroadcastSetup(signal: {
     return null;
   }
 
+  // 5M Sniper Filter: 5-minute timeframe ONLY pushes when actively ACTIVATED
+  if (tf === '5m' && signal.isActivated === false) {
+    return null;
+  }
+
   // Strict Quality Filter: Push ONLY 95%+ High-Confidence setups to Telegram
   const minRequiredScore = Math.max(95, cfg.minScore || 95);
   const isHighConfidence95Plus =
@@ -425,8 +450,10 @@ export async function checkAndBroadcastSetup(signal: {
     return null;
   }
 
-  // Unique alert deduplication key
-  const alertKey = `${signal.symbol}:${signal.timeframe}:${signal.time}:${signal.type}:ENTRY`;
+  // Standardize timeframe step in seconds to avoid micro-tick timestamp drift
+  const stepSec = tf === '1h' ? 3600 : tf === '15m' ? 900 : tf === '5m' ? 300 : 60;
+  const normalizedBarTime = Math.floor(signal.time / stepSec) * stepSec;
+  const alertKey = `${signal.symbol}:${tf}:${normalizedBarTime}:${signal.type}:ENTRY`;
   if (sentAlertCache.has(alertKey)) {
     return null; // Already broadcasted
   }
@@ -436,6 +463,7 @@ export async function checkAndBroadcastSetup(signal: {
 
   if (result.success) {
     sentAlertCache.add(alertKey);
+    saveSentAlertCache(sentAlertCache);
     console.log(`[Telegram] 🚀 Broadcasted High-Confidence A+ setup: ${signal.symbol} [${signal.timeframe}] ${signal.type}`);
   }
 
@@ -470,7 +498,9 @@ export async function checkAndBroadcastMilestone(milestone: {
     return null;
   }
 
-  const alertKey = `${milestone.symbol}:${milestone.timeframe}:${milestone.signalTime}:${milestone.type}:${milestone.stage}`;
+  const stepSec = tf === '1h' ? 3600 : tf === '15m' ? 900 : tf === '5m' ? 300 : 60;
+  const normalizedBarTime = Math.floor(milestone.signalTime / stepSec) * stepSec;
+  const alertKey = `${milestone.symbol}:${tf}:${normalizedBarTime}:${milestone.type}:${milestone.stage}`;
   if (sentAlertCache.has(alertKey)) {
     return null;
   }
@@ -480,6 +510,7 @@ export async function checkAndBroadcastMilestone(milestone: {
 
   if (result.success) {
     sentAlertCache.add(alertKey);
+    saveSentAlertCache(sentAlertCache);
     console.log(`[Telegram] 🎯 Broadcasted milestone ${milestone.stage}: ${milestone.symbol} [${milestone.timeframe}]`);
   }
 

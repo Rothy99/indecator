@@ -673,6 +673,17 @@ app.post('/api/telegram/push-now', async (c: any) => {
       }, 200);
     }
 
+    const lc = ts.entryTiming?.lifecycle;
+    if (tf === '5m' && (!lc || !lc.isActivated) && !c.req.query('force')) {
+      return c.json({
+        success: false,
+        error: `5M timeframe push is strictly restricted to ACTIVATED trades only. Status: ${lc?.statusBadge || 'WAITING_CONFIRMATION'}. Position must be live/tapped before 5M broadcast.`,
+        isActivated: lc?.isActivated || false,
+        timingState: ts.entryTiming?.state,
+        grade: analysis.setupGrade
+      }, 200);
+    }
+
     const isEnterNow = ts.entryTiming?.state === 'ENTER_NOW';
     const entryPrice = isEnterNow ? analysis.currentPrice : (ts.optimalPullbackEntry || ts.entry);
     const orderType = isEnterNow
@@ -846,11 +857,16 @@ async function runAutonomousTelegramScanner() {
       const is95Plus = ts && (score >= 95 || prob >= 95) && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
       const isConfirmed = ts?.entryTiming?.state === 'ENTER_NOW';
 
+      // 5M Sniper Filter: 5-minute timeframe ONLY pushes when actively ACTIVATED (in-market position)
+      const is5mActivatedOk = tf !== '5m' || Boolean(lc?.isActivated);
+
       // Patiently wait: do NOT broadcast while in WAIT_CONFIRMATION or LATE_WAIT_PULLBACK
-      if (is95Plus && isConfirmed) {
-        const entryPrice = analysis.currentPrice;
+      if (is95Plus && isConfirmed && is5mActivatedOk) {
+        const entryPrice = lc?.isActivated && lc?.entryPrice ? lc.entryPrice : analysis.currentPrice;
         const orderType = ts.direction === 'LONG' ? 'BUY MARKET' : 'SELL MARKET';
-        const lastBarTime = candles[candles.length - 1]?.time || Math.floor(Date.now() / 1000);
+        const lastBarTime = lc?.isActivated && lc?.activatedTime
+          ? lc.activatedTime
+          : (candles[candles.length - 1]?.time || Math.floor(Date.now() / 1000));
 
         await checkAndBroadcastSetup({
           symbol,
@@ -877,11 +893,13 @@ async function runAutonomousTelegramScanner() {
           positionUnit: ts.v3Config?.positionUnit,
           smcSuite: analysis.smartMoney?.smcSuite,
           time: lastBarTime,
+          isActivated: Boolean(lc?.isActivated),
         });
       }
 
       // 1. Broadcast trade activation (Entry Tapped & Filled) - only for fresh activations within 5 minutes
-      if (lc && lc.isActivated && lc.activatedTime && (Date.now() / 1000 - lc.activatedTime) < 300) {
+      // (For 5M, the main setup card itself is pushed on activation, avoiding duplicate notifications)
+      if (tf !== '5m' && lc && lc.isActivated && lc.activatedTime && (Date.now() / 1000 - lc.activatedTime) < 300) {
         await checkAndBroadcastMilestone({
           symbol,
           displayName: uInfo.displayName,
