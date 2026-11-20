@@ -30,6 +30,7 @@ import {
   ALL_TIMEFRAMES,
   getLatestSpotQuote,
   getMarketCandles,
+  getSilverCandles,
   getMt5Status,
   ingestMt5Feed,
   initRealtimeMarketEngine,
@@ -100,7 +101,8 @@ const handleSignal = async (c: any) => {
   const symbol = parseSymbol(c.req.query('symbol'));
 
   const { candles, source, spotQuote } = await getMarketCandles(symbol, tf);
-  const analysis = analyzeGoldCandles(candles, tf, source, symbol);
+  const silverCandles = symbol === 'XAUUSD' ? await getSilverCandles(tf) : undefined;
+  const analysis = analyzeGoldCandles(candles, tf, source, symbol, silverCandles);
 
   return c.json({
     ...analysis,
@@ -117,7 +119,8 @@ const handleMtf = async (c: any) => {
   const results = await Promise.all(
     ALL_TIMEFRAMES.map(async (tf) => {
       const { candles, source } = await getMarketCandles(symbol, tf);
-      return { tf, analysis: analyzeGoldCandles(candles, tf, source, symbol) };
+      const silverCandles = symbol === 'XAUUSD' ? await getSilverCandles(tf) : undefined;
+      return { tf, analysis: analyzeGoldCandles(candles, tf, source, symbol, silverCandles) };
     })
   );
 
@@ -397,7 +400,8 @@ const handleRadar = async (c: any) => {
       ALL_TIMEFRAMES.map(async (tf) => {
         try {
           const { candles, source } = await getMarketCandles(sym, tf);
-          const analysis = analyzeGoldCandles(candles, tf, source, sym);
+          const silverCandles = sym === 'XAUUSD' ? await getSilverCandles(tf) : undefined;
+          const analysis = analyzeGoldCandles(candles, tf, source, sym, silverCandles);
           return { sym, tf, analysis };
         } catch {
           return null;
@@ -753,12 +757,13 @@ async function runAutonomousTelegramScanner() {
     for (const tf of scanTfs) {
       const { candles, source } = await getMarketCandles(symbol, tf);
       if (!candles || candles.length === 0) continue;
-      const analysis = analyzeGoldCandles(candles, tf, source, symbol);
+      const silverCandles = await getSilverCandles(tf);
+      const analysis = analyzeGoldCandles(candles, tf, source, symbol, silverCandles);
       const qm = analysis.scoringMatrix;
       const ts = analysis.tradeSetup;
       const lc = ts?.entryTiming?.lifecycle;
 
-      // Broadcast actionable Grade A+ or Score >= minScore setups with 4/4 confluences
+      // Broadcast actionable Grade A+ or Score >= minScore setups with confluences
       if (
         qm &&
         qm.allMandatoryConfluencesPassed &&
@@ -784,10 +789,11 @@ async function runAutonomousTelegramScanner() {
           rewardTp1Pips: ts.rewardTp1Pips,
           rewardTp2Pips: ts.rewardTp2Pips,
           pipUnit: uInfo.unitLabel || 'pips',
-          reason: analysis.summaryReason || `${tf.toUpperCase()} 4-Confluence A+ Confirmed`,
+          reason: analysis.summaryReason || `${tf.toUpperCase()} SMC Institutional Setup`,
           plannedRiskUsd: ts.v3Config?.plannedRiskUsd,
           positionSize: ts.v3Config?.positionSize,
           positionUnit: ts.v3Config?.positionUnit,
+          smcSuite: analysis.smartMoney?.smcSuite,
           time: Math.floor(Date.now() / 1000),
         });
       }

@@ -282,6 +282,24 @@ const quotesBySymbol: Record<SupportedSymbol, LiveSpotQuote> = {
 
 let latestSpotQuote: LiveSpotQuote = quotesBySymbol.XAUUSD;
 
+let latestSilverQuote: {
+  bid: number;
+  ask: number;
+  mid: number;
+  timestamp: number;
+  source: string;
+} = {
+  bid: 42.50,
+  ask: 42.54,
+  mid: 42.52,
+  timestamp: Date.now(),
+  source: 'Swissquote Spot XAG/USD',
+};
+
+export function getLatestSilverQuote() {
+  return latestSilverQuote;
+}
+
 const rawStore = new Map<string, RawTimeframeStore>();
 
 // Pre-populate rawStore with baseline candles so serverless cold starts never block
@@ -363,6 +381,48 @@ async function pollSwissquoteSpotXau(): Promise<void> {
           cb(latestSpotQuote);
         } catch {}
       });
+    }
+  } catch {
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Poll Swissquote Institutional Spot XAG/USD BBO Feed (Exact MT5 Spot Silver Bid/Ask)
+ */
+async function pollSwissquoteSpotXag(): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2200);
+
+  try {
+    const res = await fetch(
+      'https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAG/USD',
+      {
+        signal: controller.signal,
+        headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
+      }
+    );
+    if (!res.ok) return;
+    const data = (await res.json()) as any[];
+    const profiles: any[] = data?.[0]?.spreadProfilePrices ?? [];
+    const prime =
+      profiles.find((p) => p.spreadProfile?.toLowerCase() === 'prime') ||
+      profiles.find((p) => p.spreadProfile?.toLowerCase() === 'standard') ||
+      profiles[0];
+
+    if (prime && typeof prime.bid === 'number' && typeof prime.ask === 'number') {
+      const bid = round2(prime.bid);
+      const ask = round2(prime.ask);
+      const mid = round2((bid + ask) / 2);
+
+      latestSilverQuote = {
+        bid,
+        ask,
+        mid,
+        timestamp: data?.[0]?.ts || Date.now(),
+        source: 'MT5 Live Spot XAG/USD (Swissquote Feed)',
+      };
     }
   } catch {
   } finally {
@@ -540,6 +600,125 @@ async function fetchYahooCandlesForTf(tf: SupportedTimeframe): Promise<void> {
   return fetchYahooCandlesForSymbolTf('XAUUSD', tf);
 }
 
+/**
+ * Fetch raw OHLCV candles from Yahoo Finance for Silver futures (SI=F) to compute SMT Divergence
+ */
+async function fetchYahooCandlesForSilver(tf: SupportedTimeframe): Promise<void> {
+  const queryInterval = tf === '4h' ? '1h' : tf;
+  const range =
+    tf === '1m'
+      ? '1d'
+      : tf === '5m'
+      ? '5d'
+      : tf === '15m'
+      ? '5d'
+      : tf === '30m'
+      ? '1mo'
+      : tf === '1h'
+      ? '1mo'
+      : '3mo';
+
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/SI=F?interval=${queryInterval}&range=${range}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        Accept: 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as any;
+    const result = data?.chart?.result?.[0];
+    const timestamps: number[] = result?.timestamp ?? [];
+    const quote = result?.indicators?.quote?.[0] ?? {};
+
+    const parsed: Candle[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const o = quote.open?.[i];
+      const h = quote.high?.[i];
+      const l = quote.low?.[i];
+      const c = quote.close?.[i];
+      const v = quote.volume?.[i] ?? 100;
+      if (o != null && h != null && l != null && c != null) {
+        parsed.push({
+          time: timestamps[i],
+          open: round2(Number(o)),
+          high: round2(Number(h)),
+          low: round2(Number(l)),
+          close: round2(Number(c)),
+          volume: round2(Number(v)),
+        });
+      }
+    }
+
+    if (parsed.length < 25) return;
+
+    let finalCandles = parsed;
+    if (tf === '4h') {
+      finalCandles = aggregate1hTo4h(parsed);
+    }
+
+    const sliced = finalCandles.slice(-260);
+    const lastRawClose = sliced[sliced.length - 1].close;
+    const basis = latestSilverQuote.bid > 0 ? round2(latestSilverQuote.bid - lastRawClose) : 0;
+
+    rawStore.set(`XAGUSD_${tf}`, {
+      rawCandles: sliced,
+      lastRawClose,
+      calibratedBasis: basis,
+      fetchedAt: Date.now(),
+    });
+  } catch {
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Get calibrated Silver candles for SMT Divergence against Gold
+ */
+export async function getSilverCandles(timeframe: SupportedTimeframe): Promise<Candle[]> {
+  const key = `XAGUSD_${timeframe}`;
+  let stored = rawStore.get(key);
+  if (!stored) {
+    await fetchYahooCandlesForSilver(timeframe);
+    stored = rawStore.get(key);
+  }
+  if (!stored || !stored.rawCandles || stored.rawCandles.length === 0) {
+    return [];
+  }
+
+  const rawList = stored.rawCandles;
+  const basis = stored.calibratedBasis || 0;
+
+  return rawList.map((c, idx) => {
+    const isLast = idx === rawList.length - 1;
+    const open = round2(c.open + basis);
+    let close = round2(c.close + basis);
+    let high = round2(c.high + basis);
+    let low = round2(c.low + basis);
+
+    if (isLast && latestSilverQuote.bid > 0) {
+      close = latestSilverQuote.bid;
+      if (close > high) high = close;
+      if (close < low) low = close;
+    }
+
+    return {
+      time: c.time,
+      open,
+      high,
+      low,
+      close,
+      volume: c.volume,
+    };
+  });
+}
+
 function aggregate1hTo4h(candles1h: Candle[]): Candle[] {
   const map = new Map<number, Candle>();
   const step4h = 4 * 3600;
@@ -614,25 +793,28 @@ export async function initRealtimeMarketEngine(): Promise<void> {
   if (isInitialized) return;
   isInitialized = true;
 
-  // 1. Fetch live Swissquote Spot XAU/USD & Kraken Crypto immediately
-  await Promise.all([pollSwissquoteSpotXau(), pollKrakenCrypto()]);
+  // 1. Fetch live Swissquote Spot XAU/USD & Spot XAG/USD & Kraken Crypto immediately
+  await Promise.all([pollSwissquoteSpotXau(), pollSwissquoteSpotXag(), pollKrakenCrypto()]);
 
-  // 2. Fetch Yahoo candles in background for all symbols
-  void Promise.all(
-    ALL_SYMBOLS.flatMap((sym) => ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSymbolTf(sym, tf)))
-  );
+  // 2. Fetch Yahoo candles in background for all symbols and Silver
+  void Promise.all([
+    ...ALL_SYMBOLS.flatMap((sym) => ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSymbolTf(sym, tf))),
+    ...ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSilver(tf)),
+  ]);
 
   // 3. Periodic polling for long-running / local instances
   if (!process.env.VERCEL) {
     setInterval(() => {
       void pollSwissquoteSpotXau();
+      void pollSwissquoteSpotXag();
       void pollKrakenCrypto();
     }, 1500);
 
     setInterval(() => {
-      void Promise.all(
-        ALL_SYMBOLS.flatMap((sym) => ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSymbolTf(sym, tf)))
-      );
+      void Promise.all([
+        ...ALL_SYMBOLS.flatMap((sym) => ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSymbolTf(sym, tf))),
+        ...ALL_TIMEFRAMES.map((tf) => fetchYahooCandlesForSilver(tf)),
+      ]);
     }, 20000);
   }
 }
@@ -648,7 +830,7 @@ export async function getMarketCandles(
     await initRealtimeMarketEngine();
   } else if (process.env.VERCEL) {
     if (symbol === 'XAUUSD') {
-      await pollSwissquoteSpotXau();
+      await Promise.all([pollSwissquoteSpotXau(), pollSwissquoteSpotXag()]);
     } else {
       await pollKrakenCrypto();
     }

@@ -157,8 +157,13 @@ export interface SweepBosFvgProPattern {
   stage: 'STAGE_1_SWEEP' | 'STAGE_2_BOS' | 'STAGE_3_FVG_PRO' | 'READY_FOR_EXECUTION' | 'NONE';
   direction: 'BUY' | 'SELL' | 'NEUTRAL';
   sweep: LiquiditySweepDetails;
+  mss: BosDetails;
   bos: BosDetails;
   fvgPro: FvgProDetails;
+  ifvg: IfvgDetails;
+  cisd: CisdDetails;
+  smt: SmtDivergenceDetails;
+  smcSuite?: SmcSuiteSummary;
   optimalEntryPrice: number; // Consequent Encroachment (CE 50%)
   invalidationPrice: number; // Beyond sweep wick
   riskDollars: number;
@@ -181,6 +186,7 @@ export interface IctStructureDetails {
   activeOrderBlock: { top: number; bottom: number; type: 'BULLISH OB' | 'BEARISH OB' } | null;
   candleConfirmation: 'BULLISH ENGULFING / PIN BAR' | 'BEARISH ENGULFING / PIN BAR' | 'DISPLACEMENT CLOSE' | 'WAITING CANDLE';
   sweepBosFvgPro?: SweepBosFvgProPattern;
+  smcSuite?: SmcSuiteSummary;
 }
 
 export interface ExactM15ChecklistItem {
@@ -398,9 +404,49 @@ export interface GoldSignalAnalysis {
   smartMoney?: SmartMoneyStructure;
 }
 
+export interface SmtDivergenceDetails {
+  detected: boolean;
+  type: 'BULLISH_SMT' | 'BEARISH_SMT' | 'NONE';
+  goldAction: string;
+  silverAction: string;
+  divergenceTime: number;
+  statusText: string;
+}
+
+export interface CisdDetails {
+  detected: boolean;
+  direction: 'BULLISH_CISD' | 'BEARISH_CISD' | 'NONE';
+  deliveryShiftLevel: number;
+  displacementClose: number;
+  statusText: string;
+}
+
+export interface IfvgDetails {
+  detected: boolean;
+  type: 'BULLISH_iFVG' | 'BEARISH_iFVG' | 'NONE';
+  originalFvgTop: number;
+  originalFvgBottom: number;
+  consequentEncroachment: number; // 50% CE level
+  inversionTime: number;
+  isRetested: boolean;
+  statusText: string;
+}
+
+export interface SmcSuiteSummary {
+  sweep: LiquiditySweepDetails;
+  mss: BosDetails;
+  bos: BosDetails;
+  ifvg: IfvgDetails;
+  cisd: CisdDetails;
+  smt: SmtDivergenceDetails;
+  confluencesPassed: number;
+  totalConfluences: number;
+  statusText: string;
+}
+
 export interface SmartMoneyMarker {
   time: number;
-  type: 'FVG' | 'OB' | 'SWEEP' | 'MSS' | 'DISPLACEMENT' | 'PINBAR';
+  type: 'FVG' | 'iFVG' | 'OB' | 'SWEEP' | 'MSS' | 'BOS' | 'CISD' | 'SMT' | 'DISPLACEMENT' | 'PINBAR';
   direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
   label: string;
   subText: string;
@@ -413,11 +459,20 @@ export interface SmartMoneyMarker {
 
 export interface SmartMoneyStructure {
   fvgs: SmartMoneyMarker[];
+  ifvgs: SmartMoneyMarker[];
   orderBlocks: SmartMoneyMarker[];
   sweeps: SmartMoneyMarker[];
   mssList: SmartMoneyMarker[];
+  bosList: SmartMoneyMarker[];
+  cisdList: SmartMoneyMarker[];
+  smtMarkers: SmartMoneyMarker[];
   activeFvg?: SmartMoneyMarker;
+  activeIfvg?: SmartMoneyMarker;
   activeOrderBlock?: SmartMoneyMarker;
+  activeCisd?: CisdDetails;
+  activeSmt?: SmtDivergenceDetails;
+  activeBos?: BosDetails;
+  smcSuite?: SmcSuiteSummary;
 }
 
 function roundPrice(num: number): number {
@@ -870,6 +925,308 @@ export function computeLiquidityLevels(candles: Candle[]): KeyLiquidityLevels {
  * 2. Break of Structure (BOS / MSS): Impulsive displacement candle closes beyond opposing swing
  * 3. FVG PRO: Consequent Encroachment (CE 50%) optimal limit execution with Hard SL beyond sweep wick
  */
+/**
+ * 6-Element Institutional Smart Money Engine (ICT / SMC Suite):
+ * 1. Liquidity Sweep: Purges BSL / SSL / Asian Range / PDH / PDL with rejection wick
+ * 2. MSS (Market Structure Shift): Reversal displacement candle body closes beyond opposing swing
+ * 3. BOS (Break of Structure): Trend continuation displacement closes beyond structural swing in trend direction
+ * 4. iFVG (Inversion Fair Value Gap): Old FVG closed through by displacement, flipping into support/resistance
+ * 5. CISD (Change In State of Delivery): Displacement body closes past opening of last counter-trend delivery sequence
+ * 6. SMT Divergence (XAU/USD vs XAG/USD): Real-time intermarket smart money divergence between Gold and Silver
+ */
+
+export function detectSmtDivergenceAtBar(
+  series: IndicatorSeriesPoint[],
+  idx: number,
+  silverCandles?: Candle[]
+): SmtDivergenceDetails {
+  if (!silverCandles || silverCandles.length < 15 || idx < 5) {
+    return {
+      detected: false,
+      type: 'NONE',
+      goldAction: 'Awaiting Silver feed sync',
+      silverAction: 'Awaiting Silver feed sync',
+      divergenceTime: 0,
+      statusText: 'SMT Divergence: Silver data synchronized',
+    };
+  }
+
+  const curGold = series[idx];
+  const curTime = curGold.time;
+
+  // Find matching silver index by timestamp
+  let silIdx = -1;
+  let minDiff = Infinity;
+  for (let s = 0; s < silverCandles.length; s++) {
+    const diff = Math.abs(silverCandles[s].time - curTime);
+    if (diff < minDiff) {
+      minDiff = diff;
+      silIdx = s;
+    }
+  }
+
+  if (silIdx < 5 || minDiff > 14400) {
+    return {
+      detected: false,
+      type: 'NONE',
+      goldAction: 'Awaiting Silver feed sync',
+      silverAction: 'Awaiting Silver feed sync',
+      divergenceTime: 0,
+      statusText: 'SMT Divergence: Synchronizing timestamps',
+    };
+  }
+
+  const lookStart = Math.max(3, idx - 25);
+
+  // 1. Check Bearish SMT: Divergence at Highs
+  for (let i = idx; i >= lookStart; i--) {
+    const isGH =
+      series[i].high >= series[i - 1].high &&
+      series[i].high >= series[i - 2].high &&
+      (i === idx || series[i].high >= series[i + 1]?.high);
+
+    if (isGH) {
+      for (let j = i - 3; j >= Math.max(2, i - 20); j--) {
+        const isPrevGH =
+          series[j].high >= series[j - 1].high &&
+          series[j].high >= series[j - 2].high &&
+          series[j].high >= series[j + 1]?.high;
+
+        if (isPrevGH) {
+          const sOffset = silIdx - idx;
+          const sI = Math.max(2, Math.min(silverCandles.length - 1, i + sOffset));
+          const sJ = Math.max(2, Math.min(silverCandles.length - 1, j + sOffset));
+
+          const sHighCur = Math.max(...silverCandles.slice(Math.max(0, sI - 2), Math.min(silverCandles.length, sI + 3)).map((c) => c.high));
+          const sHighPrev = Math.max(...silverCandles.slice(Math.max(0, sJ - 2), Math.min(silverCandles.length, sJ + 3)).map((c) => c.high));
+          const gHighCur = series[i].high;
+          const gHighPrev = series[j].high;
+
+          if (gHighCur > gHighPrev && sHighCur < sHighPrev) {
+            return {
+              detected: true,
+              type: 'BEARISH_SMT',
+              goldAction: `Gold made Higher High ($${gHighCur.toFixed(2)} > $${gHighPrev.toFixed(2)})`,
+              silverAction: `Silver failed with Lower High ($${sHighCur.toFixed(2)} < $${sHighPrev.toFixed(2)})`,
+              divergenceTime: series[i].time,
+              statusText: `Bearish SMT: Gold Higher High ($${gHighCur.toFixed(1)}) vs Silver Lower High ($${sHighCur.toFixed(2)}) [Institutional Distribution]`,
+            };
+          } else if (gHighCur < gHighPrev && sHighCur > sHighPrev) {
+            return {
+              detected: true,
+              type: 'BEARISH_SMT',
+              goldAction: `Gold made Lower High ($${gHighCur.toFixed(2)} < $${gHighPrev.toFixed(2)})`,
+              silverAction: `Silver made Higher High ($${sHighCur.toFixed(2)} > $${sHighPrev.toFixed(2)})`,
+              divergenceTime: series[i].time,
+              statusText: `Bearish SMT: Silver Higher High ($${sHighCur.toFixed(2)}) vs Gold Relative Weakness ($${gHighCur.toFixed(1)})`,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Check Bullish SMT: Divergence at Lows
+  for (let i = idx; i >= lookStart; i--) {
+    const isGL =
+      series[i].low <= series[i - 1].low &&
+      series[i].low <= series[i - 2].low &&
+      (i === idx || series[i].low <= series[i + 1]?.low);
+
+    if (isGL) {
+      for (let j = i - 3; j >= Math.max(2, i - 20); j--) {
+        const isPrevGL =
+          series[j].low <= series[j - 1].low &&
+          series[j].low <= series[j - 2].low &&
+          series[j].low <= series[j + 1]?.low;
+
+        if (isPrevGL) {
+          const sOffset = silIdx - idx;
+          const sI = Math.max(2, Math.min(silverCandles.length - 1, i + sOffset));
+          const sJ = Math.max(2, Math.min(silverCandles.length - 1, j + sOffset));
+
+          const sLowCur = Math.min(...silverCandles.slice(Math.max(0, sI - 2), Math.min(silverCandles.length, sI + 3)).map((c) => c.low));
+          const sLowPrev = Math.min(...silverCandles.slice(Math.max(0, sJ - 2), Math.min(silverCandles.length, sJ + 3)).map((c) => c.low));
+          const gLowCur = series[i].low;
+          const gLowPrev = series[j].low;
+
+          if (gLowCur < gLowPrev && sLowCur > sLowPrev) {
+            return {
+              detected: true,
+              type: 'BULLISH_SMT',
+              goldAction: `Gold made Lower Low ($${gLowCur.toFixed(2)} < $${gLowPrev.toFixed(2)})`,
+              silverAction: `Silver held Higher Low ($${sLowCur.toFixed(2)} > $${sLowPrev.toFixed(2)})`,
+              divergenceTime: series[i].time,
+              statusText: `Bullish SMT: Gold Lower Low ($${gLowCur.toFixed(1)}) vs Silver Higher Low ($${sLowCur.toFixed(2)}) [Institutional Accumulation]`,
+            };
+          } else if (gLowCur > gLowPrev && sLowCur < sLowPrev) {
+            return {
+              detected: true,
+              type: 'BULLISH_SMT',
+              goldAction: `Gold held Higher Low ($${gLowCur.toFixed(2)} > $${gLowPrev.toFixed(2)})`,
+              silverAction: `Silver made Lower Low ($${sLowCur.toFixed(2)} < $${sLowPrev.toFixed(2)})`,
+              divergenceTime: series[i].time,
+              statusText: `Bullish SMT: Gold Relative Strength ($${gLowCur.toFixed(1)}) vs Silver Sweep Lower Low ($${sLowCur.toFixed(2)})`,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    detected: false,
+    type: 'NONE',
+    goldAction: 'Gold moving in sync with Silver',
+    silverAction: 'No SMT divergence detected',
+    divergenceTime: 0,
+    statusText: 'SMT Intermarket: XAU & XAG moving in sync',
+  };
+}
+
+export function detectInversionFvgAtBar(
+  series: IndicatorSeriesPoint[],
+  idx: number,
+  atr: number
+): IfvgDetails {
+  const cur = series[idx];
+  const lookback = Math.max(2, idx - 25);
+
+  for (let k = idx - 1; k >= lookback; k--) {
+    const c0 = series[k - 2];
+    const c1 = series[k - 1];
+    const c2 = series[k];
+
+    // Original Bearish FVG: c0.low > c2.high -> inverted by bullish displacement closing above top
+    if (c0.low > c2.high && c1.close < c1.open) {
+      const top = roundPrice(c0.low);
+      const bottom = roundPrice(c2.high);
+      const ce = roundPrice((top + bottom) / 2);
+
+      for (let m = k + 1; m <= idx; m++) {
+        if (series[m].close > top) {
+          const isRetested = cur.low <= top && cur.high >= bottom;
+          return {
+            detected: true,
+            type: 'BULLISH_iFVG',
+            originalFvgTop: top,
+            originalFvgBottom: bottom,
+            consequentEncroachment: ce,
+            inversionTime: series[m].time,
+            isRetested,
+            statusText: `Bullish iFVG ($${bottom.toFixed(2)}–$${top.toFixed(2)}) • CE 50% @ $${ce.toFixed(2)}${isRetested ? ' [RETESTED SUPPORT]' : ' [WAIT CE RETEST]'}`,
+          };
+        }
+      }
+    }
+
+    // Original Bullish FVG: c2.low > c0.high -> inverted by bearish displacement closing below bottom
+    if (c2.low > c0.high && c1.close > c1.open) {
+      const top = roundPrice(c2.low);
+      const bottom = roundPrice(c0.high);
+      const ce = roundPrice((top + bottom) / 2);
+
+      for (let m = k + 1; m <= idx; m++) {
+        if (series[m].close < bottom) {
+          const isRetested = cur.high >= bottom && cur.low <= top;
+          return {
+            detected: true,
+            type: 'BEARISH_iFVG',
+            originalFvgTop: top,
+            originalFvgBottom: bottom,
+            consequentEncroachment: ce,
+            inversionTime: series[m].time,
+            isRetested,
+            statusText: `Bearish iFVG ($${bottom.toFixed(2)}–$${top.toFixed(2)}) • CE 50% @ $${ce.toFixed(2)}${isRetested ? ' [RETESTED RESISTANCE]' : ' [WAIT CE RETEST]'}`,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    detected: false,
+    type: 'NONE',
+    originalFvgTop: 0,
+    originalFvgBottom: 0,
+    consequentEncroachment: roundPrice(cur.close),
+    inversionTime: 0,
+    isRetested: false,
+    statusText: 'No Inversion FVG (iFVG) in active window',
+  };
+}
+
+export function detectCisdAtBar(
+  series: IndicatorSeriesPoint[],
+  idx: number,
+  atr: number
+): CisdDetails {
+  const cur = series[idx];
+  const lookback = Math.max(3, idx - 15);
+
+  // Bullish CISD: previous consecutive down-close candles, then displacement body close above highest open
+  if (cur.close > cur.open) {
+    for (let k = idx - 1; k >= lookback; k--) {
+      if (series[k].close < series[k].open) {
+        let redCount = 1;
+        let highestOpen = series[k].open;
+        for (let j = k - 1; j >= Math.max(0, k - 4); j--) {
+          if (series[j].close < series[j].open) {
+            redCount++;
+            if (series[j].open > highestOpen) highestOpen = series[j].open;
+          } else {
+            break;
+          }
+        }
+        if (redCount >= 2 && cur.close > highestOpen) {
+          return {
+            detected: true,
+            direction: 'BULLISH_CISD',
+            deliveryShiftLevel: roundPrice(highestOpen),
+            displacementClose: roundPrice(cur.close),
+            statusText: `Bullish CISD: Body closed above Bearish Delivery open ($${highestOpen.toFixed(2)})`,
+          };
+        }
+      }
+    }
+  }
+
+  // Bearish CISD: previous consecutive up-close candles, then displacement body close below lowest open
+  if (cur.close < cur.open) {
+    for (let k = idx - 1; k >= lookback; k--) {
+      if (series[k].close > series[k].open) {
+        let greenCount = 1;
+        let lowestOpen = series[k].open;
+        for (let j = k - 1; j >= Math.max(0, k - 4); j--) {
+          if (series[j].close > series[j].open) {
+            greenCount++;
+            if (series[j].open < lowestOpen) lowestOpen = series[j].open;
+          } else {
+            break;
+          }
+        }
+        if (greenCount >= 2 && cur.close < lowestOpen) {
+          return {
+            detected: true,
+            direction: 'BEARISH_CISD',
+            deliveryShiftLevel: roundPrice(lowestOpen),
+            displacementClose: roundPrice(cur.close),
+            statusText: `Bearish CISD: Body closed below Bullish Delivery open ($${lowestOpen.toFixed(2)})`,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    detected: false,
+    direction: 'NONE',
+    deliveryShiftLevel: 0,
+    displacementClose: 0,
+    statusText: 'No delivery shift detected',
+  };
+}
+
 function detectSweepBosFvgProAtBar(
   series: IndicatorSeriesPoint[],
   idx: number,
@@ -877,10 +1234,16 @@ function detectSweepBosFvgProAtBar(
   isLongBias: boolean,
   atr: number,
   swingHighs: { idx: number; price: number; rsi: number }[],
-  swingLows: { idx: number; price: number; rsi: number }[]
+  swingLows: { idx: number; price: number; rsi: number }[],
+  silverCandles?: Candle[]
 ): SweepBosFvgProPattern {
   const cur = series[idx];
   const lookback = Math.max(2, idx - 20);
+
+  // 1. SMC Suite helpers: SMT, iFVG, CISD
+  const smt = detectSmtDivergenceAtBar(series, idx, silverCandles);
+  const ifvg = detectInversionFvgAtBar(series, idx, atr);
+  const cisd = detectCisdAtBar(series, idx, atr);
 
   let sweep: LiquiditySweepDetails = {
     swept: false,
@@ -891,12 +1254,20 @@ function detectSweepBosFvgProAtBar(
     statusText: 'No liquidity sweep detected in recent 20 bars',
   };
 
+  let mss: BosDetails = {
+    confirmed: false,
+    brokenLevel: 0,
+    displacementAtrRatio: 0,
+    direction: 'NONE',
+    statusText: 'Waiting for impulsive displacement reversal (MSS)',
+  };
+
   let bos: BosDetails = {
     confirmed: false,
     brokenLevel: 0,
     displacementAtrRatio: 0,
     direction: 'NONE',
-    statusText: 'Waiting for impulsive displacement to break structure',
+    statusText: 'Waiting for continuation displacement break (BOS)',
   };
 
   let fvgPro: FvgProDetails = {
@@ -911,7 +1282,7 @@ function detectSweepBosFvgProAtBar(
   };
 
   if (!isLongBias) {
-    // === BEARISH SETUP (SELL): 1. Sweep BSL/PDH/Asian High -> 2. Bearish BOS -> 3. Bearish FVG PRO ===
+    // === BEARISH SETUP (SELL): 1. Sweep BSL/PDH/Asian High -> 2. Bearish MSS & BOS -> 3. Bearish FVG / iFVG ===
     let bestSweepIdx = -1;
     let maxHigh = -Infinity;
     let sweptLevel = 0;
@@ -987,7 +1358,7 @@ function detectSweepBosFvgProAtBar(
       };
     }
 
-    // 2. Detect Bearish BOS / MSS
+    // 2. Detect Bearish MSS (Reversal break) & BOS (Continuation break)
     const recentSwingLows = swingLows.filter((sl) => sl.idx >= lookback - 10 && sl.idx <= idx);
     let lastBrokenLow = 0;
     let maxDisplacementRatio = 0;
@@ -998,27 +1369,44 @@ function detectSweepBosFvgProAtBar(
       const ratio = body / atr;
       for (const sl of recentSwingLows) {
         if (sl.idx < k && b.close < sl.price && body >= atr * 0.45) {
-          bos.confirmed = true;
-          bos.brokenLevel = roundPrice(sl.price);
-          bos.direction = 'BEARISH_BOS';
+          mss.confirmed = true;
+          mss.brokenLevel = roundPrice(sl.price);
+          mss.direction = 'BEARISH_BOS';
           if (ratio > maxDisplacementRatio) maxDisplacementRatio = ratio;
           lastBrokenLow = sl.price;
         }
       }
     }
 
-    if (bos.confirmed) {
-      bos.displacementAtrRatio = roundPrice(maxDisplacementRatio);
-      bos.statusText = `Bearish MSS/BOS: Impulsive displacement broke Swing Low @ $${lastBrokenLow.toFixed(2)} (${maxDisplacementRatio.toFixed(1)}x ATR body)`;
+    if (mss.confirmed) {
+      mss.displacementAtrRatio = roundPrice(maxDisplacementRatio);
+      mss.statusText = `Bearish MSS: Displacement broke Swing Low @ $${lastBrokenLow.toFixed(2)} (${maxDisplacementRatio.toFixed(1)}x ATR body)`;
     } else {
       const lastSL = swingLows[swingLows.length - 1];
       if (lastSL && cur.close < lastSL.price) {
+        mss.confirmed = true;
+        mss.brokenLevel = roundPrice(lastSL.price);
+        mss.displacementAtrRatio = roundPrice(Math.abs(cur.open - cur.close) / atr);
+        mss.direction = 'BEARISH_BOS';
+        mss.statusText = `Bearish MSS: Price broke below previous Low ($${lastSL.price.toFixed(2)})`;
+      }
+    }
+
+    // Bearish BOS (Continuation break)
+    if (swingLows.length >= 2) {
+      const prevSL = swingLows[swingLows.length - 2];
+      const lastSL = swingLows[swingLows.length - 1];
+      if (lastSL.price < prevSL.price && cur.close < lastSL.price) {
         bos.confirmed = true;
         bos.brokenLevel = roundPrice(lastSL.price);
         bos.displacementAtrRatio = roundPrice(Math.abs(cur.open - cur.close) / atr);
         bos.direction = 'BEARISH_BOS';
-        bos.statusText = `Bearish MSS: Price broke below previous Low ($${lastSL.price.toFixed(2)})`;
+        bos.statusText = `Bearish BOS: Structural continuation broke lower swing @ $${lastSL.price.toFixed(2)}`;
+      } else {
+        bos = { ...mss };
       }
+    } else {
+      bos = { ...mss };
     }
 
     // 3. Detect Bearish FVG PRO & Consequent Encroachment (CE 50%)
@@ -1048,35 +1436,68 @@ function detectSweepBosFvgProAtBar(
     }
 
     const invPrice = sweep.swept
-      ? roundPrice(sweep.sweepWickExtreme + atr * 0.2) // V3.0: 0.2x ATR buffer beyond sweep wick
+      ? roundPrice(sweep.sweepWickExtreme + atr * 0.2)
       : roundPrice(Math.max(cur.high, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.high)) + atr * 0.5);
-    const optimalEntry = fvgPro.detected ? fvgPro.consequentEncroachment : roundPrice(cur.ema50 ?? cur.close);
-    const risk = roundPrice(Math.abs(invPrice - optimalEntry));
-    const tp1 = roundPrice(optimalEntry - risk * 1.5); // V3.0: +1.5R (50% trim + SL->BE)
-    const tp2 = roundPrice(optimalEntry - risk * 2.5); // V3.0: +2.5R (Liquidity Runner)
 
-    const isComplete = sweep.swept && bos.confirmed && fvgPro.detected;
+    // Optimal entry supports either FVG CE 50% or Inversion FVG CE 50%!
+    let optimalEntry = roundPrice(cur.ema50 ?? cur.close);
+    if (fvgPro.detected) {
+      optimalEntry = fvgPro.consequentEncroachment;
+    } else if (ifvg.detected && ifvg.type === 'BEARISH_iFVG') {
+      optimalEntry = ifvg.consequentEncroachment;
+    }
+
+    const risk = roundPrice(Math.abs(invPrice - optimalEntry));
+    const tp1 = roundPrice(optimalEntry - risk * 1.5);
+    const tp2 = roundPrice(optimalEntry - risk * 2.5);
+
+    const confluencesPassed =
+      (sweep.swept ? 1 : 0) +
+      (mss.confirmed ? 1 : 0) +
+      (bos.confirmed ? 1 : 0) +
+      (fvgPro.detected || ifvg.detected ? 1 : 0) +
+      (cisd.detected && cisd.direction === 'BEARISH_CISD' ? 1 : 0) +
+      (smt.detected && smt.type === 'BEARISH_SMT' ? 1 : 0);
+
+    const smcSuite: SmcSuiteSummary = {
+      sweep,
+      mss,
+      bos,
+      ifvg,
+      cisd,
+      smt,
+      confluencesPassed,
+      totalConfluences: 6,
+      statusText: `${confluencesPassed}/6 SMC Confluences Active (Sweep: ${sweep.swept ? '✓' : '✗'}, MSS: ${mss.confirmed ? '✓' : '✗'}, BOS: ${bos.confirmed ? '✓' : '✗'}, iFVG: ${ifvg.detected ? '✓' : '✗'}, CISD: ${cisd.detected ? '✓' : '✗'}, SMT: ${smt.detected ? '✓' : '✗'})`,
+    };
+
+    const isComplete = sweep.swept && (mss.confirmed || bos.confirmed) && (fvgPro.detected || ifvg.detected);
     const stage: SweepBosFvgProPattern['stage'] = isComplete
-      ? fvgPro.isRetested ? 'READY_FOR_EXECUTION' : 'STAGE_3_FVG_PRO'
-      : bos.confirmed ? 'STAGE_2_BOS' : sweep.swept ? 'STAGE_1_SWEEP' : 'NONE';
+      ? fvgPro.isRetested || ifvg.isRetested ? 'READY_FOR_EXECUTION' : 'STAGE_3_FVG_PRO'
+      : bos.confirmed || mss.confirmed ? 'STAGE_2_BOS' : sweep.swept ? 'STAGE_1_SWEEP' : 'NONE';
 
     return {
-      isValid: sweep.swept || (bos.confirmed && fvgPro.detected),
+      isValid: sweep.swept || (mss.confirmed && (fvgPro.detected || ifvg.detected)),
       stage,
       direction: 'SELL',
       sweep,
+      mss,
       bos,
       fvgPro,
+      ifvg,
+      cisd,
+      smt,
+      smcSuite,
       optimalEntryPrice: optimalEntry,
       invalidationPrice: invPrice,
       riskDollars: risk,
       tp1,
       tp2,
       statusBadge: isComplete ? '⚡ V3.0 A+ SETUP (90+ PTS • +1.5R/+2.5R)' : '⏳ SWEEP/MSS FORMING',
-      summary: `Bearish ICT V3.0: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
+      summary: `Bearish ICT 6-Element SMC: ${sweep.statusText} -> ${mss.statusText} -> ${bos.statusText} -> ${fvgPro.detected ? fvgPro.statusText : ifvg.statusText} | CISD: ${cisd.statusText} | SMT: ${smt.statusText}`,
     };
   } else {
-    // === BULLISH SETUP (BUY): 1. Sweep SSL/PDL/Asian Low -> 2. Bullish BOS -> 3. Bullish FVG PRO ===
+    // === BULLISH SETUP (BUY): 1. Sweep SSL/PDL/Asian Low -> 2. Bullish MSS & BOS -> 3. Bullish FVG / iFVG ===
     let bestSweepIdx = -1;
     let minLow = Infinity;
     let sweptLevel = 0;
@@ -1152,7 +1573,7 @@ function detectSweepBosFvgProAtBar(
       };
     }
 
-    // 2. Detect Bullish BOS / MSS
+    // 2. Detect Bullish MSS (Reversal break) & BOS (Continuation break)
     const recentSwingHighs = swingHighs.filter((sh) => sh.idx >= lookback - 10 && sh.idx <= idx);
     let lastBrokenHigh = 0;
     let maxDisplacementRatio = 0;
@@ -1163,27 +1584,44 @@ function detectSweepBosFvgProAtBar(
       const ratio = body / atr;
       for (const sh of recentSwingHighs) {
         if (sh.idx < k && b.close > sh.price && body >= atr * 0.45) {
-          bos.confirmed = true;
-          bos.brokenLevel = roundPrice(sh.price);
-          bos.direction = 'BULLISH_BOS';
+          mss.confirmed = true;
+          mss.brokenLevel = roundPrice(sh.price);
+          mss.direction = 'BULLISH_BOS';
           if (ratio > maxDisplacementRatio) maxDisplacementRatio = ratio;
           lastBrokenHigh = sh.price;
         }
       }
     }
 
-    if (bos.confirmed) {
-      bos.displacementAtrRatio = roundPrice(maxDisplacementRatio);
-      bos.statusText = `Bullish MSS/BOS: Impulsive displacement broke Swing High @ $${lastBrokenHigh.toFixed(2)} (${maxDisplacementRatio.toFixed(1)}x ATR body)`;
+    if (mss.confirmed) {
+      mss.displacementAtrRatio = roundPrice(maxDisplacementRatio);
+      mss.statusText = `Bullish MSS: Displacement broke Swing High @ $${lastBrokenHigh.toFixed(2)} (${maxDisplacementRatio.toFixed(1)}x ATR body)`;
     } else {
       const lastSH = swingHighs[swingHighs.length - 1];
       if (lastSH && cur.close > lastSH.price) {
+        mss.confirmed = true;
+        mss.brokenLevel = roundPrice(lastSH.price);
+        mss.displacementAtrRatio = roundPrice(Math.abs(cur.close - cur.open) / atr);
+        mss.direction = 'BULLISH_BOS';
+        mss.statusText = `Bullish MSS: Price broke above previous High ($${lastSH.price.toFixed(2)})`;
+      }
+    }
+
+    // Bullish BOS (Continuation break)
+    if (swingHighs.length >= 2) {
+      const prevSH = swingHighs[swingHighs.length - 2];
+      const lastSH = swingHighs[swingHighs.length - 1];
+      if (lastSH.price > prevSH.price && cur.close > lastSH.price) {
         bos.confirmed = true;
         bos.brokenLevel = roundPrice(lastSH.price);
         bos.displacementAtrRatio = roundPrice(Math.abs(cur.close - cur.open) / atr);
         bos.direction = 'BULLISH_BOS';
-        bos.statusText = `Bullish MSS: Price broke above previous High ($${lastSH.price.toFixed(2)})`;
+        bos.statusText = `Bullish BOS: Structural continuation broke higher swing @ $${lastSH.price.toFixed(2)}`;
+      } else {
+        bos = { ...mss };
       }
+    } else {
+      bos = { ...mss };
     }
 
     // 3. Detect Bullish FVG PRO & Consequent Encroachment (CE 50%)
@@ -1213,32 +1651,65 @@ function detectSweepBosFvgProAtBar(
     }
 
     const invPrice = sweep.swept
-      ? roundPrice(sweep.sweepWickExtreme - atr * 0.2) // V3.0: 0.2x ATR buffer beyond sweep wick
+      ? roundPrice(sweep.sweepWickExtreme - atr * 0.2)
       : roundPrice(Math.min(cur.low, ...series.slice(Math.max(0, idx - 5), idx + 1).map((c) => c.low)) - atr * 0.5);
-    const optimalEntry = fvgPro.detected ? fvgPro.consequentEncroachment : roundPrice(cur.ema50 ?? cur.close);
-    const risk = roundPrice(Math.abs(optimalEntry - invPrice));
-    const tp1 = roundPrice(optimalEntry + risk * 1.5); // V3.0: +1.5R (50% trim + SL->BE)
-    const tp2 = roundPrice(optimalEntry + risk * 2.5); // V3.0: +2.5R (Liquidity Runner)
 
-    const isComplete = sweep.swept && bos.confirmed && fvgPro.detected;
+    // Optimal entry supports either FVG CE 50% or Inversion FVG CE 50%!
+    let optimalEntry = roundPrice(cur.ema50 ?? cur.close);
+    if (fvgPro.detected) {
+      optimalEntry = fvgPro.consequentEncroachment;
+    } else if (ifvg.detected && ifvg.type === 'BULLISH_iFVG') {
+      optimalEntry = ifvg.consequentEncroachment;
+    }
+
+    const risk = roundPrice(Math.abs(optimalEntry - invPrice));
+    const tp1 = roundPrice(optimalEntry + risk * 1.5);
+    const tp2 = roundPrice(optimalEntry + risk * 2.5);
+
+    const confluencesPassed =
+      (sweep.swept ? 1 : 0) +
+      (mss.confirmed ? 1 : 0) +
+      (bos.confirmed ? 1 : 0) +
+      (fvgPro.detected || ifvg.detected ? 1 : 0) +
+      (cisd.detected && cisd.direction === 'BULLISH_CISD' ? 1 : 0) +
+      (smt.detected && smt.type === 'BULLISH_SMT' ? 1 : 0);
+
+    const smcSuite: SmcSuiteSummary = {
+      sweep,
+      mss,
+      bos,
+      ifvg,
+      cisd,
+      smt,
+      confluencesPassed,
+      totalConfluences: 6,
+      statusText: `${confluencesPassed}/6 SMC Confluences Active (Sweep: ${sweep.swept ? '✓' : '✗'}, MSS: ${mss.confirmed ? '✓' : '✗'}, BOS: ${bos.confirmed ? '✓' : '✗'}, iFVG: ${ifvg.detected ? '✓' : '✗'}, CISD: ${cisd.detected ? '✓' : '✗'}, SMT: ${smt.detected ? '✓' : '✗'})`,
+    };
+
+    const isComplete = sweep.swept && (mss.confirmed || bos.confirmed) && (fvgPro.detected || ifvg.detected);
     const stage: SweepBosFvgProPattern['stage'] = isComplete
-      ? fvgPro.isRetested ? 'READY_FOR_EXECUTION' : 'STAGE_3_FVG_PRO'
-      : bos.confirmed ? 'STAGE_2_BOS' : sweep.swept ? 'STAGE_1_SWEEP' : 'NONE';
+      ? fvgPro.isRetested || ifvg.isRetested ? 'READY_FOR_EXECUTION' : 'STAGE_3_FVG_PRO'
+      : bos.confirmed || mss.confirmed ? 'STAGE_2_BOS' : sweep.swept ? 'STAGE_1_SWEEP' : 'NONE';
 
     return {
-      isValid: sweep.swept || (bos.confirmed && fvgPro.detected),
+      isValid: sweep.swept || (mss.confirmed && (fvgPro.detected || ifvg.detected)),
       stage,
       direction: 'BUY',
       sweep,
+      mss,
       bos,
       fvgPro,
+      ifvg,
+      cisd,
+      smt,
+      smcSuite,
       optimalEntryPrice: optimalEntry,
       invalidationPrice: invPrice,
       riskDollars: risk,
       tp1,
       tp2,
       statusBadge: isComplete ? '⚡ V3.0 A+ SETUP (90+ PTS • +1.5R/+2.5R)' : '⏳ SWEEP/MSS FORMING',
-      summary: `Bullish ICT V3.0: ${sweep.statusText} -> ${bos.statusText} -> ${fvgPro.statusText}`,
+      summary: `Bullish ICT 6-Element SMC: ${sweep.statusText} -> ${mss.statusText} -> ${bos.statusText} -> ${fvgPro.detected ? fvgPro.statusText : ifvg.statusText} | CISD: ${cisd.statusText} | SMT: ${smt.statusText}`,
     };
   }
 }
@@ -1251,7 +1722,8 @@ function analyzeMasterConfluenceAtBar(
   series: IndicatorSeriesPoint[],
   idx: number,
   liquidity: KeyLiquidityLevels,
-  session: SessionInfo
+  session: SessionInfo,
+  silverCandles?: Candle[]
 ): {
   ict: IctStructureDetails;
   m15Checklist: ExactM15ChecklistItem[];
@@ -1422,7 +1894,7 @@ function analyzeMasterConfluenceAtBar(
     candleConfirmation = 'DISPLACEMENT CLOSE';
   }
 
-  // 3-Stage Institutional Pattern: Liquidity Sweep + BOS + FVG PRO
+  // 6-Element Institutional SMC Suite: Liquidity Sweep + MSS + BOS + iFVG + CISD + SMT
   const sweepBosFvg = detectSweepBosFvgProAtBar(
     series,
     idx,
@@ -1430,7 +1902,8 @@ function analyzeMasterConfluenceAtBar(
     isLongBias,
     atr,
     swingHighs,
-    swingLows
+    swingLows,
+    silverCandles
   );
 
   if (sweepBosFvg.fvgPro.detected && sweepBosFvg.fvgPro.type !== 'NONE') {
@@ -1438,6 +1911,12 @@ function analyzeMasterConfluenceAtBar(
       bottom: sweepBosFvg.fvgPro.fvgBottom,
       top: sweepBosFvg.fvgPro.fvgTop,
       type: sweepBosFvg.fvgPro.type,
+    };
+  } else if (sweepBosFvg.ifvg && sweepBosFvg.ifvg.detected) {
+    activeFvgZone = {
+      bottom: sweepBosFvg.ifvg.originalFvgBottom,
+      top: sweepBosFvg.ifvg.originalFvgTop,
+      type: sweepBosFvg.ifvg.type === 'BULLISH_iFVG' ? 'BULLISH FVG' : 'BEARISH FVG',
     };
   }
 
@@ -1752,6 +2231,7 @@ function analyzeMasterConfluenceAtBar(
       activeOrderBlock,
       candleConfirmation,
       sweepBosFvgPro: sweepBosFvg,
+      smcSuite: sweepBosFvg.smcSuite,
     },
     m15Checklist,
     gates,
@@ -2199,21 +2679,35 @@ function scanMasterStrategySignals(
 export function extractAllSmartMoneyStructures(
   series: IndicatorSeriesPoint[],
   liquidity: KeyLiquidityLevels,
-  atr: number
+  atr: number,
+  silverCandles?: Candle[]
 ): SmartMoneyStructure {
   const fvgs: SmartMoneyMarker[] = [];
+  const ifvgs: SmartMoneyMarker[] = [];
   const orderBlocks: SmartMoneyMarker[] = [];
   const sweeps: SmartMoneyMarker[] = [];
   const mssList: SmartMoneyMarker[] = [];
+  const bosList: SmartMoneyMarker[] = [];
+  const cisdList: SmartMoneyMarker[] = [];
+  const smtMarkers: SmartMoneyMarker[] = [];
 
   const len = series.length;
   if (len < 5) {
-    return { fvgs, orderBlocks, sweeps, mssList };
+    return {
+      fvgs,
+      ifvgs,
+      orderBlocks,
+      sweeps,
+      mssList,
+      bosList,
+      cisdList,
+      smtMarkers,
+    };
   }
 
   const startIdx = Math.max(2, len - 120);
 
-  // 1. Fair Value Gaps (FVGs)
+  // 1. Fair Value Gaps (FVGs) and Inversion FVGs (iFVGs)
   for (let i = startIdx; i < len; i++) {
     const c1 = series[i - 2];
     const c2 = series[i - 1]; // impulse candle
@@ -2227,12 +2721,18 @@ export function extractAllSmartMoneyStructures(
       if (gap >= atr * 0.08) {
         const ce = roundPrice((top + bottom) / 2);
         let isMitigated = false;
+        let isInverted = false;
+        let invertedTime = 0;
+
         for (let k = i + 1; k < len; k++) {
-          if (series[k].low <= ce) {
-            isMitigated = true;
-            break;
+          if (series[k].low <= ce) isMitigated = true;
+          // Inversion: body closes below bottom of Bullish FVG -> flips to Bearish iFVG
+          if (series[k].close < bottom && !isInverted) {
+            isInverted = true;
+            invertedTime = series[k].time;
           }
         }
+
         fvgs.push({
           time: c2.time,
           type: 'FVG',
@@ -2245,6 +2745,21 @@ export function extractAllSmartMoneyStructures(
           cePrice: ce,
           isMitigated,
         });
+
+        if (isInverted) {
+          ifvgs.push({
+            time: invertedTime,
+            type: 'iFVG',
+            direction: 'BEARISH',
+            label: '-iFVG',
+            subText: `Bearish Inversion FVG $${bottom} - $${top} (CE 50%: $${ce}) [Resistance]`,
+            price: ce,
+            high: top,
+            low: bottom,
+            cePrice: ce,
+            isMitigated: false,
+          });
+        }
       }
     }
 
@@ -2256,12 +2771,18 @@ export function extractAllSmartMoneyStructures(
       if (gap >= atr * 0.08) {
         const ce = roundPrice((top + bottom) / 2);
         let isMitigated = false;
+        let isInverted = false;
+        let invertedTime = 0;
+
         for (let k = i + 1; k < len; k++) {
-          if (series[k].high >= ce) {
-            isMitigated = true;
-            break;
+          if (series[k].high >= ce) isMitigated = true;
+          // Inversion: body closes above top of Bearish FVG -> flips to Bullish iFVG
+          if (series[k].close > top && !isInverted) {
+            isInverted = true;
+            invertedTime = series[k].time;
           }
         }
+
         fvgs.push({
           time: c2.time,
           type: 'FVG',
@@ -2274,6 +2795,21 @@ export function extractAllSmartMoneyStructures(
           cePrice: ce,
           isMitigated,
         });
+
+        if (isInverted) {
+          ifvgs.push({
+            time: invertedTime,
+            type: 'iFVG',
+            direction: 'BULLISH',
+            label: '+iFVG',
+            subText: `Bullish Inversion FVG $${bottom} - $${top} (CE 50%: $${ce}) [Support]`,
+            price: ce,
+            high: top,
+            low: bottom,
+            cePrice: ce,
+            isMitigated: false,
+          });
+        }
       }
     }
   }
@@ -2286,7 +2822,7 @@ export function extractAllSmartMoneyStructures(
     const nextRange = next.high - next.low;
     const isNextDisplacement = (nextBody >= atr * 0.65) && (nextBody / Math.max(0.01, nextRange) >= 0.55);
 
-    // Bullish OB: down candle followed by bullish displacement
+    // Bullish OB
     if (c.close < c.open && next.close > next.open && isNextDisplacement) {
       const top = roundPrice(c.high);
       const bottom = roundPrice(c.low);
@@ -2312,7 +2848,7 @@ export function extractAllSmartMoneyStructures(
       });
     }
 
-    // Bearish OB: up candle followed by bearish displacement
+    // Bearish OB
     if (c.close > c.open && next.close < next.open && isNextDisplacement) {
       const top = roundPrice(c.high);
       const bottom = roundPrice(c.low);
@@ -2397,19 +2933,206 @@ export function extractAllSmartMoneyStructures(
     }
   }
 
+  // 4. Market Structure Shift (MSS) and Break of Structure (BOS)
+  const swingHighs: { idx: number; price: number; time: number }[] = [];
+  const swingLows: { idx: number; price: number; time: number }[] = [];
+  for (let i = 2; i < len - 2; i++) {
+    const c = series[i];
+    if (
+      c.high >= series[i - 1].high &&
+      c.high >= series[i - 2].high &&
+      c.high >= series[i + 1].high &&
+      c.high >= series[i + 2].high
+    ) {
+      swingHighs.push({ idx: i, price: c.high, time: c.time });
+    }
+    if (
+      c.low <= series[i - 1].low &&
+      c.low <= series[i - 2].low &&
+      c.low <= series[i + 1].low &&
+      c.low <= series[i + 2].low
+    ) {
+      swingLows.push({ idx: i, price: c.low, time: c.time });
+    }
+  }
+
+  for (let i = startIdx; i < len; i++) {
+    const cur = series[i];
+    const body = Math.abs(cur.close - cur.open);
+    const isDisplacement = body >= atr * 0.55;
+
+    // Bullish break of recent swing high
+    for (const sh of swingHighs) {
+      if (sh.idx < i && i - sh.idx <= 20 && cur.close > sh.price && isDisplacement) {
+        if (cur.open < sh.price) {
+          // If this follows a low sweep, mark as MSS; else BOS
+          const hadRecentLowSweep = sweeps.some((s) => s.direction === 'BULLISH' && s.time >= sh.time && s.time <= cur.time);
+          if (hadRecentLowSweep) {
+            mssList.push({
+              time: cur.time,
+              type: 'MSS',
+              direction: 'BULLISH',
+              label: 'MSS ↑',
+              subText: `Bullish Market Structure Shift @ $${sh.price.toFixed(2)}`,
+              price: cur.close,
+              high: cur.high,
+              low: cur.low,
+              cePrice: sh.price,
+              isMitigated: true,
+            });
+          } else {
+            bosList.push({
+              time: cur.time,
+              type: 'BOS',
+              direction: 'BULLISH',
+              label: 'BOS ↑',
+              subText: `Bullish Break of Structure @ $${sh.price.toFixed(2)}`,
+              price: cur.close,
+              high: cur.high,
+              low: cur.low,
+              cePrice: sh.price,
+              isMitigated: true,
+            });
+          }
+        }
+      }
+    }
+
+    // Bearish break of recent swing low
+    for (const sl of swingLows) {
+      if (sl.idx < i && i - sl.idx <= 20 && cur.close < sl.price && isDisplacement) {
+        if (cur.open > sl.price) {
+          const hadRecentHighSweep = sweeps.some((s) => s.direction === 'BEARISH' && s.time >= sl.time && s.time <= cur.time);
+          if (hadRecentHighSweep) {
+            mssList.push({
+              time: cur.time,
+              type: 'MSS',
+              direction: 'BEARISH',
+              label: 'MSS ↓',
+              subText: `Bearish Market Structure Shift @ $${sl.price.toFixed(2)}`,
+              price: cur.close,
+              high: cur.high,
+              low: cur.low,
+              cePrice: sl.price,
+              isMitigated: true,
+            });
+          } else {
+            bosList.push({
+              time: cur.time,
+              type: 'BOS',
+              direction: 'BEARISH',
+              label: 'BOS ↓',
+              subText: `Bearish Break of Structure @ $${sl.price.toFixed(2)}`,
+              price: cur.close,
+              high: cur.high,
+              low: cur.low,
+              cePrice: sl.price,
+              isMitigated: true,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Change In State of Delivery (CISD)
+  for (let i = startIdx; i < len; i++) {
+    const cur = series[i];
+    if (cur.close > cur.open) {
+      let redCount = 0;
+      let highestOpen = -Infinity;
+      for (let j = i - 1; j >= Math.max(0, i - 4); j--) {
+        if (series[j].close < series[j].open) {
+          redCount++;
+          if (series[j].open > highestOpen) highestOpen = series[j].open;
+        } else break;
+      }
+      if (redCount >= 2 && cur.close > highestOpen) {
+        cisdList.push({
+          time: cur.time,
+          type: 'CISD',
+          direction: 'BULLISH',
+          label: 'CISD ↑',
+          subText: `Bullish Change In State of Delivery @ $${highestOpen.toFixed(2)}`,
+          price: cur.close,
+          high: cur.high,
+          low: cur.low,
+          cePrice: highestOpen,
+          isMitigated: true,
+        });
+      }
+    } else if (cur.close < cur.open) {
+      let greenCount = 0;
+      let lowestOpen = Infinity;
+      for (let j = i - 1; j >= Math.max(0, i - 4); j--) {
+        if (series[j].close > series[j].open) {
+          greenCount++;
+          if (series[j].open < lowestOpen) lowestOpen = series[j].open;
+        } else break;
+      }
+      if (greenCount >= 2 && cur.close < lowestOpen) {
+        cisdList.push({
+          time: cur.time,
+          type: 'CISD',
+          direction: 'BEARISH',
+          label: 'CISD ↓',
+          subText: `Bearish Change In State of Delivery @ $${lowestOpen.toFixed(2)}`,
+          price: cur.close,
+          high: cur.high,
+          low: cur.low,
+          cePrice: lowestOpen,
+          isMitigated: true,
+        });
+      }
+    }
+  }
+
+  // 6. SMT Divergence (Gold vs Silver)
+  if (silverCandles && silverCandles.length >= 15) {
+    for (let i = startIdx; i < len; i++) {
+      const smt = detectSmtDivergenceAtBar(series, i, silverCandles);
+      if (smt.detected) {
+        smtMarkers.push({
+          time: series[i].time,
+          type: 'SMT',
+          direction: smt.type === 'BULLISH_SMT' ? 'BULLISH' : 'BEARISH',
+          label: 'SMT DIV',
+          subText: smt.statusText,
+          price: series[i].close,
+          high: series[i].high,
+          low: series[i].low,
+          cePrice: series[i].close,
+          isMitigated: true,
+        });
+      }
+    }
+  }
+
   const unmitigatedFvgs = fvgs.filter((f) => !f.isMitigated);
   const activeFvg = unmitigatedFvgs.length > 0 ? unmitigatedFvgs[unmitigatedFvgs.length - 1] : undefined;
+
+  const activeIfvg = ifvgs.length > 0 ? ifvgs[ifvgs.length - 1] : undefined;
 
   const unmitigatedObs = orderBlocks.filter((o) => !o.isMitigated);
   const activeOrderBlock = unmitigatedObs.length > 0 ? unmitigatedObs[unmitigatedObs.length - 1] : undefined;
 
+  const activeCisd = detectCisdAtBar(series, len - 1, atr);
+  const activeSmt = detectSmtDivergenceAtBar(series, len - 1, silverCandles);
+
   return {
     fvgs,
+    ifvgs,
     orderBlocks,
     sweeps,
     mssList,
+    bosList,
+    cisdList,
+    smtMarkers,
     activeFvg,
+    activeIfvg,
     activeOrderBlock,
+    activeCisd,
+    activeSmt,
   };
 }
 
@@ -2420,7 +3143,8 @@ export function analyzeGoldCandles(
   candles: Candle[],
   timeframe: string,
   dataSource: string = 'yfinance',
-  symbol: string = 'XAUUSD'
+  symbol: string = 'XAUUSD',
+  silverCandles?: Candle[]
 ): GoldSignalAnalysis {
   const cleanSymbol = (symbol || 'XAUUSD').toUpperCase();
   const tfKey = cleanSymbol !== 'XAUUSD' ? `${cleanSymbol}_${timeframe}` : timeframe;
@@ -2463,7 +3187,7 @@ export function analyzeGoldCandles(
 
   const session = evaluateSessionTiming(new Date());
   const liquidityLevels = computeLiquidityLevels(candles);
-  const evalRes = analyzeMasterConfluenceAtBar(series, lastIdx, liquidityLevels, session);
+  const evalRes = analyzeMasterConfluenceAtBar(series, lastIdx, liquidityLevels, session, silverCandles);
   const { signals: historicalSignals, backtest } = scanMasterStrategySignals(
     series,
     liquidityLevels,
@@ -2472,7 +3196,13 @@ export function analyzeGoldCandles(
     cleanSymbol
   );
 
-  const smartMoney = extractAllSmartMoneyStructures(series, liquidityLevels, atr);
+  const smartMoney = extractAllSmartMoneyStructures(series, liquidityLevels, atr, silverCandles);
+  if (evalRes.ict.smcSuite) {
+    smartMoney.smcSuite = evalRes.ict.smcSuite;
+  }
+  if (evalRes.ict.sweepBosFvgPro?.bos) {
+    smartMoney.activeBos = evalRes.ict.sweepBosFvgPro.bos;
+  }
 
   let isLongBias = evalRes.isLongBias;
   const direction: TradeSetup['direction'] = isLongBias ? 'LONG' : 'SHORT';

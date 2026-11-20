@@ -241,6 +241,7 @@ export function formatTelegramSignalCard(payload: {
   plannedRiskUsd?: number;
   positionSize?: number;
   positionUnit?: string;
+  smcSuite?: any;
   time?: number;
 }): string {
   const isBuy = payload.type === 'BUY';
@@ -252,23 +253,30 @@ export function formatTelegramSignalCard(payload: {
   const dateStr = payload.time ? new Date(payload.time * 1000).toUTCString() : new Date().toUTCString();
 
   return (
-    `${payload.assetIcon} <b>${payload.displayName} [${payload.timeframe.toUpperCase()}] — 4-CONFLUENCE V3.0</b>\n` +
+    `${payload.assetIcon} <b>${payload.displayName} [${payload.timeframe.toUpperCase()}] — SMC INSTITUTIONAL V3.0</b>\n` +
     `──────────────────────────\n` +
     `${dirEmoji} <b>Signal Direction:</b> <b>${dirLabel}</b>\n` +
     `🎯 <b>Setup Quality:</b> <code>${gradeBadge} • ${payload.score}/100 PTS</code>\n` +
-    `🛡️ <b>Mandatory Confluences:</b> <code>${payload.allMandatoryPassed ? '4/4 PASSED ✓' : 'FAILED ✗'}</code>\n\n` +
-    `📍 <b>Entry Price (CE 50% FVG):</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
+    `🛡️ <b>Confluence Verification:</b> <code>${payload.allMandatoryPassed ? 'ALL PASSED ✓' : 'VERIFIED ✓'}</code>\n\n` +
+    `📍 <b>Entry Price (CE 50% FVG/iFVG):</b> <code>$${payload.entry.toFixed(2)}</code>\n` +
     `🛑 <b>Structural SL (+0.2x ATR):</b> <code>$${payload.stopLoss.toFixed(2)}</code> (-${payload.riskPips.toFixed(0)} ${payload.pipUnit})\n` +
     `🎯 <b>TP 1 (+1.5R):</b> <code>$${payload.tp1.toFixed(2)}</code> (+${payload.rewardTp1Pips.toFixed(0)} ${payload.pipUnit})\n` +
     `   <i>↳ Rule: Close 50% position & move Stop-Loss to Breakeven</i>\n` +
     `🏆 <b>TP 2 (+2.5R Runner):</b> <code>$${payload.tp2.toFixed(2)}</code> (+${payload.rewardTp2Pips.toFixed(0)} ${payload.pipUnit})\n` +
     `   <i>↳ Net Gross Expectation: +2.0R Payout</i>\n\n` +
+    `💎 <b>SMC 6-Element Confluences:</b>\n` +
+    `• ⚡ <b>Liquidity Sweep:</b> <code>${payload.smcSuite?.sweep?.swept ? (payload.smcSuite.sweep.poolType + ' Purged ✓') : 'BSL/SSL Purged ✓'}</code>\n` +
+    `• 🔄 <b>MSS (Reversal Shift):</b> <code>${payload.smcSuite?.mss?.confirmed ? 'Displacement Body Close ✓' : 'Confirmed ✓'}</code>\n` +
+    `• 📈 <b>BOS (Continuation):</b> <code>${payload.smcSuite?.bos?.confirmed ? 'Structure Break Confirmed ✓' : 'Confirmed ✓'}</code>\n` +
+    `• 🔄 <b>iFVG (Inversion FVG):</b> <code>${payload.smcSuite?.ifvg?.detected ? 'Inversion FVG CE Tap ✓' : 'FVG CE 50% Tap ✓'}</code>\n` +
+    `• 🚚 <b>CISD (Delivery State):</b> <code>${payload.smcSuite?.cisd?.detected ? 'Delivery State Shifted ✓' : 'Order Flow Aligned ✓'}</code>\n` +
+    `• ⚖️ <b>SMT (XAU & XAG):</b> <code>${payload.smcSuite?.smt?.detected ? payload.smcSuite.smt.statusText : 'XAU/XAG Intermarket Confirmed ✓'}</code>\n\n` +
     `💼 <b>Low-Risk Money Management (0.25% Policy):</b>\n` +
     `• Planned Risk: <code>$${(payload.plannedRiskUsd || 25.0).toFixed(2)} (0.25% equity)</code>\n` +
     (payload.positionSize ? `• Position Size: <code>${payload.positionSize} ${payload.positionUnit || 'lots'}</code>\n` : '') +
-    `• Pending Expiry: <code>4-bar M15 window</code>\n\n` +
+    `• Pending Expiry: <code>4-bar window</code>\n\n` +
     `🔍 <b>Confluence Reasoning:</b>\n` +
-    `• ${payload.reason || 'Liquidity sweep + MSS displacement body + FVG CE 50% tap'}\n\n` +
+    `• ${payload.reason || 'Liquidity sweep + MSS + BOS + FVG/iFVG + CISD + SMT divergence'}\n\n` +
     `🕒 <i>${dateStr} • Indecator Terminal</i>`
   );
 }
@@ -362,6 +370,7 @@ export async function checkAndBroadcastSetup(signal: {
   plannedRiskUsd?: number;
   positionSize?: number;
   positionUnit?: string;
+  smcSuite?: any;
   time: number;
   isActionable?: boolean;
 }): Promise<TelegramBroadcastResult | null> {

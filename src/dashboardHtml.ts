@@ -435,33 +435,60 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
           </div>
 
-          <!-- Active Smart Money Telemetry Strip (FVG & Order Block Live Status) -->
-          <div id="chartSmartMoneyStrip" class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-            <!-- Active FVG Telemetry -->
-            <div id="chartActiveFvgCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <span class="text-emerald-400 font-extrabold text-xs">📦 FVG:</span>
-                <span id="chartActiveFvgText" class="mono text-[11px] text-slate-300 truncate">Scanning Fair Value Gaps...</span>
-              </div>
-              <span id="chartActiveFvgBadge" class="mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
-            </div>
-
-            <!-- Active Order Block (OB) Telemetry -->
-            <div id="chartActiveObCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <span class="text-purple-400 font-extrabold text-xs">🧱 OB:</span>
-                <span id="chartActiveObText" class="mono text-[11px] text-slate-300 truncate">Scanning Order Blocks...</span>
-              </div>
-              <span id="chartActiveObBadge" class="mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
-            </div>
-
-            <!-- Sweeps & MSS Telemetry -->
+          <!-- Active Institutional 6-Element SMC Telemetry Strip -->
+          <div id="chartSmartMoneyStrip" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+            <!-- 1. Liquidity Sweep Telemetry -->
             <div id="chartActiveSweepCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <span class="text-amber-400 font-extrabold text-xs">⚡ SWEEP:</span>
-                <span id="chartActiveSweepText" class="mono text-[11px] text-slate-300 truncate">Scanning Liquidity Sweeps...</span>
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="text-amber-400 font-black text-[11px]">⚡ SWEEP:</span>
+                <span id="chartActiveSweepText" class="mono text-[10px] text-slate-300 truncate">Scanning...</span>
               </div>
-              <span id="chartActiveSweepBadge" class="mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+              <span id="chartActiveSweepBadge" class="mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+
+            <!-- 2. Market Structure Shift (MSS) Telemetry -->
+            <div id="chartActiveMssCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="text-cyan-400 font-black text-[11px]">🔄 MSS:</span>
+                <span id="chartActiveMssText" class="mono text-[10px] text-slate-300 truncate">Scanning...</span>
+              </div>
+              <span id="chartActiveMssBadge" class="mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+
+            <!-- 3. Break of Structure (BOS) Telemetry -->
+            <div id="chartActiveBosCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="text-blue-400 font-black text-[11px]">📈 BOS:</span>
+                <span id="chartActiveBosText" class="mono text-[10px] text-slate-300 truncate">Scanning...</span>
+              </div>
+              <span id="chartActiveBosBadge" class="mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+
+            <!-- 4. Inversion FVG (iFVG) Telemetry -->
+            <div id="chartActiveIfvgCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="text-teal-400 font-black text-[11px]">🔄 iFVG:</span>
+                <span id="chartActiveIfvgText" class="mono text-[10px] text-slate-300 truncate">Scanning...</span>
+              </div>
+              <span id="chartActiveIfvgBadge" class="mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+
+            <!-- 5. Change In State of Delivery (CISD) Telemetry -->
+            <div id="chartActiveCisdCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="text-indigo-400 font-black text-[11px]">🚚 CISD:</span>
+                <span id="chartActiveCisdText" class="mono text-[10px] text-slate-300 truncate">Scanning...</span>
+              </div>
+              <span id="chartActiveCisdBadge" class="mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
+            </div>
+
+            <!-- 6. SMT Divergence (XAU vs XAG) Telemetry -->
+            <div id="chartActiveSmtCard" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="text-yellow-400 font-black text-[11px]">⚖️ SMT:</span>
+                <span id="chartActiveSmtText" class="mono text-[10px] text-slate-300 truncate">XAU/XAG Sync</span>
+              </div>
+              <span id="chartActiveSmtBadge" class="mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">--</span>
             </div>
           </div>
 
@@ -1804,7 +1831,25 @@ TELEGRAM_MIN_SCORE=90</pre>
         }
       }
 
-      // 4. Liquidity Sweeps
+      // 4. Inversion Fair Value Gaps (iFVGs)
+      if (data.smartMoney && Array.isArray(data.smartMoney.ifvgs)) {
+        if (smartMoneyOverlayFilter === 'ALL' || smartMoneyOverlayFilter === 'FVG') {
+          const ifvgs = data.smartMoney.ifvgs.filter((f) => f.time >= minTime);
+          for (let i = 0; i < ifvgs.length; i++) {
+            const f = ifvgs[i];
+            const isBull = f.direction === 'BULLISH';
+            markers.push({
+              time: f.time,
+              position: isBull ? 'belowBar' : 'aboveBar',
+              color: isBull ? '#14b8a6' : '#f43f5e',
+              shape: 'circle',
+              text: isBull ? '+iFVG' : '-iFVG',
+            });
+          }
+        }
+      }
+
+      // 5. Liquidity Sweeps
       if (data.smartMoney && Array.isArray(data.smartMoney.sweeps)) {
         if (smartMoneyOverlayFilter === 'ALL') {
           const swps = data.smartMoney.sweeps.filter((w) => w.time >= minTime);
@@ -1816,6 +1861,77 @@ TELEGRAM_MIN_SCORE=90</pre>
               color: '#fbbf24',
               shape: w.direction === 'BULLISH' ? 'arrowUp' : 'arrowDown',
               text: '⚡ SWEEP',
+            });
+          }
+        }
+      }
+
+      // 6. Market Structure Shift (MSS)
+      if (data.smartMoney && Array.isArray(data.smartMoney.mssList)) {
+        if (smartMoneyOverlayFilter === 'ALL') {
+          const mss = data.smartMoney.mssList.filter((m) => m.time >= minTime);
+          for (let i = 0; i < mss.length; i++) {
+            const m = mss[i];
+            const isBull = m.direction === 'BULLISH';
+            markers.push({
+              time: m.time,
+              position: isBull ? 'belowBar' : 'aboveBar',
+              color: '#06b6d4',
+              shape: isBull ? 'arrowUp' : 'arrowDown',
+              text: isBull ? 'MSS ↑' : 'MSS ↓',
+            });
+          }
+        }
+      }
+
+      // 7. Break of Structure (BOS)
+      if (data.smartMoney && Array.isArray(data.smartMoney.bosList)) {
+        if (smartMoneyOverlayFilter === 'ALL') {
+          const bos = data.smartMoney.bosList.filter((b) => b.time >= minTime);
+          for (let i = 0; i < bos.length; i++) {
+            const b = bos[i];
+            const isBull = b.direction === 'BULLISH';
+            markers.push({
+              time: b.time,
+              position: isBull ? 'belowBar' : 'aboveBar',
+              color: '#3b82f6',
+              shape: isBull ? 'arrowUp' : 'arrowDown',
+              text: isBull ? 'BOS ↑' : 'BOS ↓',
+            });
+          }
+        }
+      }
+
+      // 8. Change In State of Delivery (CISD)
+      if (data.smartMoney && Array.isArray(data.smartMoney.cisdList)) {
+        if (smartMoneyOverlayFilter === 'ALL') {
+          const cisd = data.smartMoney.cisdList.filter((c) => c.time >= minTime);
+          for (let i = 0; i < cisd.length; i++) {
+            const c = cisd[i];
+            const isBull = c.direction === 'BULLISH';
+            markers.push({
+              time: c.time,
+              position: isBull ? 'belowBar' : 'aboveBar',
+              color: '#6366f1',
+              shape: 'square',
+              text: isBull ? 'CISD ↑' : 'CISD ↓',
+            });
+          }
+        }
+      }
+
+      // 9. SMT Divergence (XAU vs XAG)
+      if (data.smartMoney && Array.isArray(data.smartMoney.smtMarkers)) {
+        if (smartMoneyOverlayFilter === 'ALL') {
+          const smts = data.smartMoney.smtMarkers.filter((s) => s.time >= minTime);
+          for (let i = 0; i < smts.length; i++) {
+            const s = smts[i];
+            markers.push({
+              time: s.time,
+              position: s.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+              color: '#eab308',
+              shape: s.direction === 'BULLISH' ? 'arrowUp' : 'arrowDown',
+              text: 'SMT DIV',
             });
           }
         }
@@ -1835,37 +1951,7 @@ TELEGRAM_MIN_SCORE=90</pre>
       if (!data || !data.smartMoney) return;
       const sm = data.smartMoney;
 
-      // FVG Card
-      const fvgText = document.getElementById('chartActiveFvgText');
-      const fvgBadge = document.getElementById('chartActiveFvgBadge');
-      if (sm.activeFvg) {
-        const af = sm.activeFvg;
-        if (fvgText) fvgText.textContent = (af.direction === 'BULLISH' ? '🟢 Bullish ' : '🔴 Bearish ') + '$' + af.low.toFixed(2) + ' - $' + af.high.toFixed(2) + ' (CE: $' + af.cePrice.toFixed(2) + ')';
-        if (fvgBadge) {
-          fvgBadge.textContent = af.isMitigated ? 'MITIGATED' : '🔥 UNFILLED';
-          fvgBadge.className = af.isMitigated ? 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0' : 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 shrink-0';
-        }
-      } else {
-        if (fvgText) fvgText.textContent = 'No unmitigated FVG in active zone';
-        if (fvgBadge) { fvgBadge.textContent = 'CLEAR'; fvgBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
-      }
-
-      // Order Block Card
-      const obText = document.getElementById('chartActiveObText');
-      const obBadge = document.getElementById('chartActiveObBadge');
-      if (sm.activeOrderBlock) {
-        const ao = sm.activeOrderBlock;
-        if (obText) obText.textContent = (ao.direction === 'BULLISH' ? '🟣 Bullish OB ' : '🔴 Bearish OB ') + '$' + ao.low.toFixed(2) + ' - $' + ao.high.toFixed(2) + ' (Mean: $' + ao.cePrice.toFixed(2) + ')';
-        if (obBadge) {
-          obBadge.textContent = ao.isMitigated ? 'TESTED' : '🧱 DEFENSE';
-          obBadge.className = ao.isMitigated ? 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0' : 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 shrink-0';
-        }
-      } else {
-        if (obText) obText.textContent = 'No active order block';
-        if (obBadge) { obBadge.textContent = 'NONE'; obBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
-      }
-
-      // Sweep Card
+      // 1. Sweep Card
       const swText = document.getElementById('chartActiveSweepText');
       const swBadge = document.getElementById('chartActiveSweepBadge');
       if (sm.sweeps && sm.sweeps.length > 0) {
@@ -1873,11 +1959,97 @@ TELEGRAM_MIN_SCORE=90</pre>
         if (swText) swText.textContent = lastSw.subText || 'Liquidity sweep confirmed';
         if (swBadge) {
           swBadge.textContent = 'PURGED';
-          swBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0';
+          swBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0';
         }
       } else {
-        if (swText) swText.textContent = 'Scanning for Asian/PDH/PDL sweeps';
-        if (swBadge) { swBadge.textContent = 'READY'; swBadge.className = 'mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+        if (swText) swText.textContent = 'Scanning sweeps...';
+        if (swBadge) { swBadge.textContent = 'READY'; swBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+
+      // 2. MSS Card
+      const mssText = document.getElementById('chartActiveMssText');
+      const mssBadge = document.getElementById('chartActiveMssBadge');
+      if (sm.mssList && sm.mssList.length > 0) {
+        const lastMss = sm.mssList[sm.mssList.length - 1];
+        if (mssText) mssText.textContent = lastMss.subText || 'Market Structure Shifted';
+        if (mssBadge) {
+          mssBadge.textContent = lastMss.direction === 'BULLISH' ? 'BULL MSS' : 'BEAR MSS';
+          mssBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shrink-0';
+        }
+      } else {
+        if (mssText) mssText.textContent = 'Scanning MSS...';
+        if (mssBadge) { mssBadge.textContent = 'READY'; mssBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+
+      // 3. BOS Card
+      const bosText = document.getElementById('chartActiveBosText');
+      const bosBadge = document.getElementById('chartActiveBosBadge');
+      if (sm.activeBos && sm.activeBos.confirmed) {
+        if (bosText) bosText.textContent = sm.activeBos.statusText || 'Trend continuation break';
+        if (bosBadge) {
+          bosBadge.textContent = 'BOS CONFIRMED';
+          bosBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 shrink-0';
+        }
+      } else if (sm.bosList && sm.bosList.length > 0) {
+        const lastBos = sm.bosList[sm.bosList.length - 1];
+        if (bosText) bosText.textContent = lastBos.subText || 'Structure Break Confirmed';
+        if (bosBadge) {
+          bosBadge.textContent = lastBos.direction === 'BULLISH' ? 'BULL BOS' : 'BEAR BOS';
+          bosBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 shrink-0';
+        }
+      } else {
+        if (bosText) bosText.textContent = 'Trend continuation';
+        if (bosBadge) { bosBadge.textContent = 'READY'; bosBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+
+      // 4. iFVG Card
+      const ifvgText = document.getElementById('chartActiveIfvgText');
+      const ifvgBadge = document.getElementById('chartActiveIfvgBadge');
+      if (sm.activeIfvg) {
+        const ai = sm.activeIfvg;
+        if (ifvgText) ifvgText.textContent = (ai.direction === 'BULLISH' ? '🟢 Bull iFVG $' : '🔴 Bear iFVG $') + ai.low.toFixed(2) + ' - $' + ai.high.toFixed(2) + ' (CE: $' + ai.cePrice.toFixed(2) + ')';
+        if (ifvgBadge) {
+          ifvgBadge.textContent = ai.direction === 'BULLISH' ? 'SUPPORT' : 'RESISTANCE';
+          ifvgBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 shrink-0';
+        }
+      } else if (sm.activeFvg) {
+        const af = sm.activeFvg;
+        if (ifvgText) ifvgText.textContent = (af.direction === 'BULLISH' ? '🟢 FVG ' : '🔴 FVG ') + '$' + af.low.toFixed(1) + '-$' + af.high.toFixed(1) + ' (CE $' + af.cePrice.toFixed(1) + ')';
+        if (ifvgBadge) {
+          ifvgBadge.textContent = af.isMitigated ? 'MITIGATED' : '🔥 UNFILLED';
+          ifvgBadge.className = af.isMitigated ? 'mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0' : 'mono text-[8px] font-black px-1 py-0.2 rounded bg-amber-400 text-slate-950 shrink-0';
+        }
+      } else {
+        if (ifvgText) ifvgText.textContent = 'No active iFVG';
+        if (ifvgBadge) { ifvgBadge.textContent = 'CLEAR'; ifvgBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+
+      // 5. CISD Card
+      const cisdText = document.getElementById('chartActiveCisdText');
+      const cisdBadge = document.getElementById('chartActiveCisdBadge');
+      if (sm.activeCisd && sm.activeCisd.detected) {
+        if (cisdText) cisdText.textContent = sm.activeCisd.statusText;
+        if (cisdBadge) {
+          cisdBadge.textContent = sm.activeCisd.direction === 'BULLISH_CISD' ? 'BULL CISD' : 'BEAR CISD';
+          cisdBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shrink-0';
+        }
+      } else {
+        if (cisdText) cisdText.textContent = 'Delivery state steady';
+        if (cisdBadge) { cisdBadge.textContent = 'STEADY'; cisdBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
+      }
+
+      // 6. SMT Divergence Card
+      const smtText = document.getElementById('chartActiveSmtText');
+      const smtBadge = document.getElementById('chartActiveSmtBadge');
+      if (sm.activeSmt && sm.activeSmt.detected) {
+        if (smtText) smtText.textContent = sm.activeSmt.statusText;
+        if (smtBadge) {
+          smtBadge.textContent = sm.activeSmt.type === 'BULLISH_SMT' ? 'BULL SMT 🔥' : 'BEAR SMT ⚡';
+          smtBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-yellow-400 text-slate-950 shrink-0';
+        }
+      } else {
+        if (smtText) smtText.textContent = 'XAU & XAG in sync';
+        if (smtBadge) { smtBadge.textContent = 'SYNC'; smtBadge.className = 'mono text-[8px] font-black px-1 py-0.2 rounded bg-slate-800 text-slate-500 shrink-0'; }
       }
     }
 
