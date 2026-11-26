@@ -94,7 +94,7 @@ app.get('/api/symbols', (c: any) =>
 );
 
 const handleSignal = async (c: any) => {
-  const rawTf = (c.req.query('tf') || '15m').toLowerCase();
+  const rawTf = (c.req.query('tf') || c.req.query('timeframe') || '15m').toLowerCase();
   const tf: SupportedTimeframe = ALL_TIMEFRAMES.includes(rawTf as SupportedTimeframe)
     ? (rawTf as SupportedTimeframe)
     : '15m';
