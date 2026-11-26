@@ -144,6 +144,8 @@ app.get('/api/scalp', async (c: any) => {
   let safeTp1 = ts?.tp1 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp1Dist : price - defaultTp1Dist);
   let safeTp2 = ts?.tp2 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp2Dist : price - defaultTp2Dist);
 
+  const canExecute = (analysis.signal === 'BUY' || analysis.signal === 'SELL' || ts?.isActionable === true) && analysis.score >= 70;
+
   return c.json({
     symbol,
     timeframe: tf,
@@ -151,6 +153,7 @@ app.get('/api/scalp', async (c: any) => {
     score: analysis.score,
     grade: analysis.setupGrade,
     isActionable: ts?.isActionable || false,
+    canExecute,
     timingState: timing?.state || 'WAIT',
     currentPrice: price,
     entry: ts?.entry || price,
