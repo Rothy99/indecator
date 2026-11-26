@@ -22,7 +22,7 @@ enum ENUM_LOT_MODE
 };
 
 input group "--- Execution Settings (XAUUSDc Gold Only) ---"
-input string         InpServerUrl       = "http://127.0.0.1:3000/api/scalp";  // Indecator Scalper API
+input string         InpServerUrl       = "https://indecator-lke5.vercel.app/api/scalp";  // Indecator Scalper API
 input ENUM_LOT_MODE  InpLotMode         = LOT_FIXED;                          // Lot Sizing Mode
 input double         InpFixedLot        = 0.01;                               // Fixed Lot Size (0.01)
 input double         InpRiskPercent     = 0.5;                                // Risk % per trade (if Risk Mode selected)
