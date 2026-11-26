@@ -180,7 +180,7 @@ app.get('/api/scalp', async (c: any) => {
     ? Math.round((price + actualSlDist * 3.0) * 100) / 100  // 1:3 PnL Runner
     : Math.round((price - actualSlDist * 3.0) * 100) / 100;
 
-  // --- Strict High-Probability Entry Filters ---
+  // --- Strict 90%+ Institutional High-Confidence Confluence Gates ---
   const rsi = analysis.indicators?.rsi14 || 50;
   const timingState: string = (timing?.state || 'WAIT') as string;
   // Trigger only on genuine actionable states, NOT passive WAIT
@@ -188,18 +188,26 @@ app.get('/api/scalp', async (c: any) => {
   
   // RSI Exhaustion Gates: never buy above 68 RSI or sell below 32 RSI
   const rsiOk = (dir === 'LONG' || dir === 'BUY') ? rsi <= 68 : (dir === 'SHORT' || dir === 'SELL') ? rsi >= 32 : false;
-  // Score Gate: Grade B+ (>= 60) in trending or >= 65 in general
-  const scoreOk = analysis.score >= 60;
-  // Chop Gate: in choppy markets require 70+
-  const regimeOk = analysis.marketRegime !== 'RANGING / CHOPPY' || analysis.score >= 70;
+  
+  // Strict 90%+ Institutional Confidence Requirement:
+  // Requires Score >= 90 (Grade A+ Institutional Setup) or Grade A (>=85) with HTF confluence
+  const minRequiredScore = Number(c.req.query('minScore')) || 90;
+  const confidence = Math.round((analysis.confidence || analysis.score) * 10) / 10;
+  const isHighConfidence = analysis.score >= minRequiredScore && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
 
-  const canExecute = dir !== 'NONE' && htfAligned && rsiOk && scoreOk && regimeOk && (hasTimingTrigger || ts?.isActionable === true || analysis.score >= 65);
+  // No chop allowed: market regime must be clean trend
+  const regimeOk = analysis.marketRegime !== 'RANGING / CHOPPY';
+
+  // canExecute requires ALL gates + 90%+ Confidence score
+  const canExecute = dir !== 'NONE' && htfAligned && rsiOk && regimeOk && isHighConfidence && (hasTimingTrigger || ts?.isActionable === true);
 
   return c.json({
     symbol,
     timeframe: tf,
     direction: dir,
     score: analysis.score,
+    confidence,
+    minRequiredScore,
     grade: analysis.setupGrade,
     isActionable: ts?.isActionable || false,
     canExecute,
