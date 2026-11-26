@@ -5,14 +5,15 @@ export const MQL5_EA_SCRIPT = `//+----------------------------------------------
 //+------------------------------------------------------------------+
 #property copyright "Indecator SMC Terminal"
 #property link      "http://localhost:3000"
-#property version   "3.10"
+#property version   "3.20"
 #property strict
 
-input string InpServerUrl    = "http://localhost:3000/api/mt5/feed"; // Terminal Ingestion URL
-input int    InpThrottleMs   = 500;                                  // Minimum Push Interval (ms)
-input int    InpBarsToSend   = 60;                                   // Number of Completed Candles
+input string InpServerUrl    = "http://127.0.0.1:3000/api/mt5/feed"; // Terminal Ingestion URL
+input int    InpThrottleMs   = 500;                                   // Minimum Push Interval (ms)
+input int    InpBarsToSend   = 60;                                    // Number of Completed Candles
 
 ulong lastPushMs = 0;
+bool g_firstPushOk = false;
 
 string GetTfCode(ENUM_TIMEFRAMES tf)
 {
@@ -32,28 +33,20 @@ string GetTfCode(ENUM_TIMEFRAMES tf)
 int OnInit()
 {
    Print("⚡ Indecator MT5 Real-Time Bridge started for ", _Symbol, " [", GetTfCode(_Period), "]");
-   EventSetMillisecondTimer(InpThrottleMs);
    return(INIT_SUCCEEDED);
 }
 
 void OnDeinit(const int reason)
 {
-   EventKillTimer();
    Print("⏹ Indecator MT5 Bridge stopped.");
-}
-
-void OnTimer()
-{
-   PushDataToTerminal();
 }
 
 void OnTick()
 {
    ulong nowMs = GetTickCount64();
-   if(nowMs - lastPushMs >= (ulong)InpThrottleMs)
-   {
-      PushDataToTerminal();
-   }
+   if(nowMs - lastPushMs < (ulong)InpThrottleMs) return;
+   
+   PushDataToTerminal();
 }
 
 void PushDataToTerminal()
@@ -70,6 +63,12 @@ void PushDataToTerminal()
    ArraySetAsSeries(rates, true);
    int copied = CopyRates(_Symbol, _Period, 0, InpBarsToSend, rates);
    if(copied <= 0) return;
+   
+   if(bid <= 0)
+   {
+      bid = rates[0].close;
+      ask = rates[0].close;
+   }
    
    string candlesJson = "[";
    for(int i = copied - 1; i >= 0; i--)
@@ -97,10 +96,16 @@ void PushDataToTerminal()
    if(res == -1)
    {
       int err = GetLastError();
+      PrintFormat("⚠️ WebRequest to %s failed (error %d)", InpServerUrl, err);
       if(err == 4060)
       {
-         Print("⚠️ WebRequest Error 4060: Please add 'http://localhost:3000' to MT5 Allowed URLs: Tools -> Options -> Expert Advisors -> Allow WebRequest!");
+         Print("⚠️ WebRequest Error 4060: Please add 'http://127.0.0.1:3000' and 'http://localhost:3000' to MT5 Allowed URLs: Tools -> Options -> Expert Advisors -> Allow WebRequest!");
       }
+   }
+   else if(!g_firstPushOk)
+   {
+      g_firstPushOk = true;
+      PrintFormat("✅ Indecator Bridge: Connected & streaming %s to %s!", _Symbol, InpServerUrl);
    }
 }
 `;
