@@ -126,7 +126,7 @@ app.get('/api/scalp', async (c: any) => {
   const ts = analysis.tradeSetup;
   const timing = ts?.entryTiming;
   const price = analysis.currentPrice;
-  const dir: string = ts?.direction || 'NONE';
+  let dir: string = ts?.direction || 'NONE';
 
   const is1m = tf === '1m';
 
@@ -159,6 +159,57 @@ app.get('/api/scalp', async (c: any) => {
     }
   }
 
+  // --- Dynamic Real-Time 1M Scalping Momentum & Direction Engine ---
+  // In 1m high-speed scalping, refresh live candle momentum on every tick
+  let scalpScore = analysis.score;
+  let scalpGrade = analysis.setupGrade;
+  if (is1m && candles.length >= 20) {
+    const closes = candles.map((x: any) => x.close);
+    const calcEma = (period: number, data: number[]) => {
+      const k = 2 / (period + 1);
+      let ema = data.slice(0, period).reduce((a: number, b: number) => a + b, 0) / period;
+      for (let i = period; i < data.length; i++) {
+        ema = data[i] * k + ema * (1 - k);
+      }
+      return ema;
+    };
+
+    const ema9 = calcEma(9, closes);
+    const ema20 = calcEma(20, closes);
+    const ema50 = closes.length >= 50 ? calcEma(50, closes) : ema20;
+    const lastClose = closes[closes.length - 1];
+
+    const isBullish1m = lastClose > ema20 && ema9 >= ema20;
+    const isBearish1m = lastClose < ema20 && ema9 <= ema20;
+
+    // Refresh directional bias dynamically if macro setup was waiting for deep pullback
+    if (dir === 'NONE' || timing?.state === 'LATE_WAIT_PULLBACK' || !ts?.isActionable) {
+      if (isBullish1m) dir = 'LONG';
+      else if (isBearish1m) dir = 'SHORT';
+    }
+
+    // Dynamic 1M Scalping Confluence Score (0–100%)
+    let dynamicScore = 50;
+    const rsiVal = analysis.indicators?.rsi14 || 50;
+
+    if (dir === 'LONG' || dir === 'BUY') {
+      if (lastClose > ema20) dynamicScore += 15;
+      if (ema9 >= ema20) dynamicScore += 10;
+      if (lastClose > ema50) dynamicScore += 10;
+      if (rsiVal >= 38 && rsiVal <= 75) dynamicScore += 10;
+    } else if (dir === 'SHORT' || dir === 'SELL') {
+      if (lastClose < ema20) dynamicScore += 15;
+      if (ema9 <= ema20) dynamicScore += 10;
+      if (lastClose < ema50) dynamicScore += 10;
+      if (rsiVal <= 62 && rsiVal >= 25) dynamicScore += 10;
+    }
+
+    if (htfAligned) dynamicScore += 10;
+
+    scalpScore = Math.min(95, Math.max(dynamicScore, analysis.score));
+    scalpGrade = scalpScore >= 90 ? 'A+' : scalpScore >= 80 ? 'A' : scalpScore >= 65 ? 'B' : 'C';
+  }
+
   // --- Dynamic ATR-Based Stop Loss & Exact 1:2 R:R ---
   // On Gold 1m, average candle ATR is ~$1.20 - $1.60 and spread is ~$0.20.
   // Tight $1.50 SL is 1x ATR, easily tagged by random noise.
@@ -183,31 +234,26 @@ app.get('/api/scalp', async (c: any) => {
   // --- Strict 65%+ High-Confidence Confluence Gates for 1M Scalps ---
   const rsi = analysis.indicators?.rsi14 || 50;
   const timingState: string = (timing?.state || 'WAIT') as string;
-  // Trigger on genuine actionable states (ENTER_NOW, ZONE_ENTRY, TRIGGERED_ZONE)
-  const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE';
   
-  // RSI Exhaustion Gates: never buy above 68 RSI or sell below 32 RSI
-  const rsiOk = (dir === 'LONG' || dir === 'BUY') ? rsi <= 68 : (dir === 'SHORT' || dir === 'SELL') ? rsi >= 32 : false;
+  // RSI Exhaustion Gates: never buy above 75 RSI or sell below 25 RSI
+  const rsiOk = (dir === 'LONG' || dir === 'BUY') ? rsi <= 75 : (dir === 'SHORT' || dir === 'SELL') ? rsi >= 25 : false;
   
   // High-Confidence 65%+ Requirement (Grade B+ / Grade A / Grade A+):
   const minRequiredScore = Number(c.req.query('minScore')) || 65;
-  const confidence = Math.round((analysis.confidence || analysis.score) * 10) / 10;
-  const isHighConfidence = analysis.score >= minRequiredScore && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A' || analysis.setupGrade === 'B');
+  const confidence = Math.round(scalpScore * 10) / 10;
+  const isHighConfidence = scalpScore >= minRequiredScore;
 
-  // Market regime: avoid severe choppy whipsaw unless strong confluence
-  const regimeOk = analysis.marketRegime !== 'RANGING / CHOPPY' || analysis.score >= 75;
-
-  // canExecute requires ALL gates + 65%+ Confidence score
-  const canExecute = dir !== 'NONE' && htfAligned && rsiOk && regimeOk && isHighConfidence && (hasTimingTrigger || ts?.isActionable === true);
+  // canExecute requires valid direction + HTF alignment + safe RSI + 65%+ Scalp Score
+  const canExecute = dir !== 'NONE' && htfAligned && rsiOk && isHighConfidence;
 
   return c.json({
     symbol,
     timeframe: tf,
     direction: dir,
-    score: analysis.score,
+    score: scalpScore,
     confidence,
     minRequiredScore,
-    grade: analysis.setupGrade,
+    grade: scalpGrade,
     isActionable: ts?.isActionable || false,
     canExecute,
     timingState,
