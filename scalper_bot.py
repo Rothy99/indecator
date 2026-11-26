@@ -20,7 +20,8 @@ LOT_SIZE = 0.01                   # Fixed Micro-Lot: 0.01
 MAX_OPEN_TRADES = 5               # Up to 5 Concurrent Entries
 MIN_SPACING = 0.35                # Minimum $0.35 spacing between entries
 ENTRY_COOLDOWN = 12               # Smooth 12s interval between scale-in entries
-BE_PROFIT_TRIGGER = 1.00          # Move SL to Breakeven when profit reaches $1.00
+BE_PROFIT_TRIGGER = 0.10          # Fast BE Trigger: +$0.10 profit moves SL to +$0.05
+BE_BUFFER = 0.05                  # Guaranteed Profit locked in (+5 cents)
 TEST_MODE = False                 # Live MT5 Real Execution
 MIN_SCORE = 50                    # Minimum Quality Score
 if "--min-score" in sys.argv:
@@ -62,10 +63,10 @@ def check_and_manage_breakeven(broker_sym):
     for p in active_positions:
         cur_price = tick.bid if p.type == mt5.POSITION_TYPE_BUY else tick.ask
 
-        # 1. Breakeven for BUY: When current price >= entry + $1.00, move SL to entry + 0.10
+        # 1. Breakeven for BUY: When current price >= entry + $0.10, move SL to entry + 0.05
         if p.type == mt5.POSITION_TYPE_BUY:
-            if cur_price >= p.price_open + BE_PROFIT_TRIGGER and p.sl < p.price_open + 0.05:
-                be_sl = round(p.price_open + 0.10, digits)
+            if cur_price >= p.price_open + BE_PROFIT_TRIGGER and p.sl < p.price_open + BE_BUFFER - 0.01:
+                be_sl = round(p.price_open + BE_BUFFER, digits)
                 req = {
                     "action": mt5.TRADE_ACTION_SLTP,
                     "position": p.ticket,
@@ -75,12 +76,12 @@ def check_and_manage_breakeven(broker_sym):
                 }
                 res = mt5.order_send(req)
                 if res.retcode == mt5.TRADE_RETCODE_DONE:
-                    print(f"\n[BREAKEVEN] Moved SL to {be_sl} on BUY #{p.ticket} (100% Risk-Free!)")
+                    print(f"\n[FAST-BE] Moved SL to {be_sl} (+5¢ locked) on BUY #{p.ticket} (Profit >= +10¢)")
 
-        # 2. Breakeven for SELL: When current price <= entry - $1.00, move SL to entry - 0.10
+        # 2. Breakeven for SELL: When current price <= entry - $0.10, move SL to entry - 0.05
         elif p.type == mt5.POSITION_TYPE_SELL:
-            if cur_price <= p.price_open - BE_PROFIT_TRIGGER and (p.sl == 0 or p.sl > p.price_open - 0.05):
-                be_sl = round(p.price_open - 0.10, digits)
+            if cur_price <= p.price_open - BE_PROFIT_TRIGGER and (p.sl == 0 or p.sl > p.price_open - BE_BUFFER + 0.01):
+                be_sl = round(p.price_open - BE_BUFFER, digits)
                 req = {
                     "action": mt5.TRADE_ACTION_SLTP,
                     "position": p.ticket,
@@ -90,7 +91,7 @@ def check_and_manage_breakeven(broker_sym):
                 }
                 res = mt5.order_send(req)
                 if res.retcode == mt5.TRADE_RETCODE_DONE:
-                    print(f"\n[BREAKEVEN] Moved SL to {be_sl} on SELL #{p.ticket} (100% Risk-Free!)")
+                    print(f"\n[FAST-BE] Moved SL to {be_sl} (+5¢ locked) on SELL #{p.ticket} (Profit >= +10¢)")
 
 def is_far_enough_from_existing(price, active_positions, min_spacing):
     for p in active_positions:
