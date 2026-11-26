@@ -335,7 +335,7 @@ export function formatTelegramMilestone(payload: {
   assetIcon: string;
   timeframe: string;
   type: 'BUY' | 'SELL';
-  stage: 'ACTIVATED' | 'TP1' | 'TP2' | 'BE_EXIT';
+  stage: 'ACTIVATED' | 'TP1' | 'TP2' | 'SL' | 'BE_EXIT';
   entry: number;
   targetPrice: number;
   pnlDollars?: number;
@@ -383,6 +383,20 @@ export function formatTelegramMilestone(payload: {
       `🎉 <b>Full Runner Target Reached @</b> <code>${payload.targetPrice.toFixed(2)}</code> <i>(+${(payload.pips || 0).toFixed(0)} ${payload.pipUnit})</i>\n` +
       `💰 <b>Total Gross Expectancy Achieved: +2.0R Net Payout</b>\n\n` +
       `✨ <i>Trade concluded with maximum institutional payout.</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🕒 <i>${nowStr} • Indecator Terminal</i>`
+    );
+  }
+
+  if (payload.stage === 'SL') {
+    return (
+      `🛑 <b>STOP LOSS HIT — CAPITAL PRESERVED</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `${payload.assetIcon} <b>${payload.displayName.toUpperCase()} (${payload.symbol}) [${payload.timeframe.toUpperCase()}]</b>\n` +
+      `${dirEmoji} <b>Direction:</b> <b>${dirLabel}</b>\n\n` +
+      `🛑 <b>Stop Loss Hit @</b> <code>${payload.targetPrice.toFixed(2)}</code> <i>(-${(payload.pips || 0).toFixed(0)} ${payload.pipUnit})</i>\n` +
+      `📉 <b>Risk Managed:</b> <code>0.25% Max Risk Policy Preserved ✓</code>\n\n` +
+      `🛡️ <i>Hard structural stop triggered. Capital protected for next Grade A+ setup.</i>\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🕒 <i>${nowStr} • Indecator Terminal</i>`
     );
@@ -481,7 +495,7 @@ export async function checkAndBroadcastMilestone(milestone: {
   assetIcon: string;
   timeframe: string;
   type: 'BUY' | 'SELL';
-  stage: 'ACTIVATED' | 'TP1' | 'TP2' | 'BE_EXIT';
+  stage: 'ACTIVATED' | 'TP1' | 'TP2' | 'SL' | 'BE_EXIT';
   entry: number;
   targetPrice: number;
   signalTime: number;

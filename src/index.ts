@@ -24,7 +24,7 @@ if (fs.existsSync('.env')) {
     console.warn('[Env] Failed to load .env:', err);
   }
 }
-import { analyzeGoldCandles, SignalDirection } from './indicators.js';
+import { analyzeGoldCandles, SignalDirection, getLockedClosedHistory } from './indicators.js';
 import {
   ALL_SYMBOLS,
   ALL_TIMEFRAMES,
@@ -329,6 +329,20 @@ const handleMtf = async (c: any) => {
           targetPrice: lc.tp1,
           signalTime: lc.activatedTime || 0,
           pips: ts.rewardTp1Pips,
+          pipUnit: uInfo.unitLabel || 'pips',
+        });
+      } else if (lc.hitSl) {
+        void checkAndBroadcastMilestone({
+          symbol,
+          displayName: uInfo.displayName,
+          assetIcon: uInfo.icon,
+          timeframe: tf,
+          type: lc.direction,
+          stage: 'SL',
+          entry: lc.entryPrice,
+          targetPrice: lc.stopLoss,
+          signalTime: lc.activatedTime || 0,
+          pips: ts.riskPips,
           pipUnit: uInfo.unitLabel || 'pips',
         });
       }
@@ -953,21 +967,114 @@ async function runAutonomousTelegramScanner() {
         });
       }
 
-      // 2. Broadcast milestone notifications (TP1 hit, TP2 hit)
-      if (lc && (lc.activationState === 'TP1_HIT_RUNNING' || lc.activationState === 'TP2_HIT_PROFIT')) {
-        await checkAndBroadcastMilestone({
-          symbol,
-          displayName: uInfo.displayName,
-          assetIcon: uInfo.icon,
-          timeframe: tf,
-          type: lc.direction as 'BUY' | 'SELL',
-          stage: lc.activationState === 'TP2_HIT_PROFIT' ? 'TP2' : 'TP1',
-          entry: lc.entryPrice,
-          targetPrice: lc.activationState === 'TP2_HIT_PROFIT' ? lc.tp2 : lc.tp1,
-          signalTime: lc.activatedTime || Math.floor(Date.now() / 1000),
-          pips: Math.abs(lc.currentPrice - lc.entryPrice) * (uInfo.pipMultiplier || 10),
-          pipUnit: uInfo.unitLabel || 'pips',
-        });
+      // 2. Broadcast milestone notifications (TP1 hit, TP2 hit, SL hit) for currently active trade
+      if (lc) {
+        if (lc.hitTp2 || lc.activationState === 'TP2_HIT_PROFIT') {
+          await checkAndBroadcastMilestone({
+            symbol,
+            displayName: uInfo.displayName,
+            assetIcon: uInfo.icon,
+            timeframe: tf,
+            type: lc.direction as 'BUY' | 'SELL',
+            stage: 'TP2',
+            entry: lc.entryPrice,
+            targetPrice: lc.tp2,
+            signalTime: lc.activatedTime || Math.floor(Date.now() / 1000),
+            pips: Math.abs(lc.currentPrice - lc.entryPrice) * (uInfo.pipMultiplier || 10),
+            pipUnit: uInfo.unitLabel || 'pips',
+          });
+        } else if (lc.hitTp1 || lc.activationState === 'TP1_HIT_RUNNING') {
+          await checkAndBroadcastMilestone({
+            symbol,
+            displayName: uInfo.displayName,
+            assetIcon: uInfo.icon,
+            timeframe: tf,
+            type: lc.direction as 'BUY' | 'SELL',
+            stage: 'TP1',
+            entry: lc.entryPrice,
+            targetPrice: lc.tp1,
+            signalTime: lc.activatedTime || Math.floor(Date.now() / 1000),
+            pips: Math.abs(lc.currentPrice - lc.entryPrice) * (uInfo.pipMultiplier || 10),
+            pipUnit: uInfo.unitLabel || 'pips',
+          });
+        } else if (lc.hitSl || lc.activationState === 'SL_HIT_LOSS') {
+          await checkAndBroadcastMilestone({
+            symbol,
+            displayName: uInfo.displayName,
+            assetIcon: uInfo.icon,
+            timeframe: tf,
+            type: lc.direction as 'BUY' | 'SELL',
+            stage: 'SL',
+            entry: lc.entryPrice,
+            targetPrice: lc.stopLoss,
+            signalTime: lc.activatedTime || Math.floor(Date.now() / 1000),
+            pips: Math.abs(lc.entryPrice - lc.stopLoss) * (uInfo.pipMultiplier || 10),
+            pipUnit: uInfo.unitLabel || 'pips',
+          });
+        }
+      }
+
+      // 3. Check recently closed trade history (catches trades archived right upon hitting SL/TP/BE)
+      const closedHistory = getLockedClosedHistory(symbol, tf);
+      const lastClosed = closedHistory && closedHistory.length > 0 ? closedHistory[0] : null;
+      if (lastClosed && lastClosed.time && (Date.now() / 1000 - lastClosed.time) < 1800) {
+        if (lastClosed.outcome === 'TP2_HIT') {
+          await checkAndBroadcastMilestone({
+            symbol,
+            displayName: uInfo.displayName,
+            assetIcon: uInfo.icon,
+            timeframe: tf,
+            type: lastClosed.type as 'BUY' | 'SELL',
+            stage: 'TP2',
+            entry: lastClosed.entry,
+            targetPrice: lastClosed.tp2,
+            signalTime: lastClosed.time,
+            pips: Math.abs(lastClosed.tp2 - lastClosed.entry) * (uInfo.pipMultiplier || 10),
+            pipUnit: uInfo.unitLabel || 'pips',
+          });
+        } else if (lastClosed.outcome === 'TP1_HIT') {
+          await checkAndBroadcastMilestone({
+            symbol,
+            displayName: uInfo.displayName,
+            assetIcon: uInfo.icon,
+            timeframe: tf,
+            type: lastClosed.type as 'BUY' | 'SELL',
+            stage: 'TP1',
+            entry: lastClosed.entry,
+            targetPrice: lastClosed.tp1,
+            signalTime: lastClosed.time,
+            pips: Math.abs(lastClosed.tp1 - lastClosed.entry) * (uInfo.pipMultiplier || 10),
+            pipUnit: uInfo.unitLabel || 'pips',
+          });
+        } else if (lastClosed.outcome === 'SL_HIT') {
+          await checkAndBroadcastMilestone({
+            symbol,
+            displayName: uInfo.displayName,
+            assetIcon: uInfo.icon,
+            timeframe: tf,
+            type: lastClosed.type as 'BUY' | 'SELL',
+            stage: 'SL',
+            entry: lastClosed.entry,
+            targetPrice: lastClosed.stopLoss,
+            signalTime: lastClosed.time,
+            pips: Math.abs(lastClosed.entry - lastClosed.stopLoss) * (uInfo.pipMultiplier || 10),
+            pipUnit: uInfo.unitLabel || 'pips',
+          });
+        } else if (lastClosed.outcome === 'BE_EXIT') {
+          await checkAndBroadcastMilestone({
+            symbol,
+            displayName: uInfo.displayName,
+            assetIcon: uInfo.icon,
+            timeframe: tf,
+            type: lastClosed.type as 'BUY' | 'SELL',
+            stage: 'BE_EXIT',
+            entry: lastClosed.entry,
+            targetPrice: lastClosed.entry,
+            signalTime: lastClosed.time,
+            pips: 0,
+            pipUnit: uInfo.unitLabel || 'pips',
+          });
+        }
       }
     }
   } catch (err: any) {

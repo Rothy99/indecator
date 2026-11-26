@@ -3366,8 +3366,21 @@ export function analyzeGoldCandles(
     const livePips = roundPrice(rawDiff * pipMult);
     const liveDollars = roundPrice(rawDiff);
 
-    const actState: EntryActivationState = livePips >= 0 ? 'ACTIVATED_PROFIT' : 'ACTIVATED_LOSS';
-    const badge = livePips >= 0 ? '🟢 ACTIVATED • IN PROFIT' : '🔴 ACTIVATED • IN LOSS';
+    let actState: EntryActivationState = livePips >= 0 ? 'ACTIVATED_PROFIT' : 'ACTIVATED_LOSS';
+    if (lockedActive.hitTp2) {
+      actState = 'TP2_HIT_PROFIT';
+    } else if (lockedActive.hitTp1) {
+      actState = 'TP1_HIT_RUNNING';
+    } else if (lockedActive.hitSl) {
+      actState = 'SL_HIT_LOSS';
+    }
+    const badge = lockedActive.hitTp2
+      ? '🏆 TP2 RUNNER HIT'
+      : lockedActive.hitTp1
+      ? '🎯 TP1 HIT (SL @ BE)'
+      : lockedActive.hitSl
+      ? '🛑 SL HIT'
+      : livePips >= 0 ? '🟢 ACTIVATED • IN PROFIT' : '🔴 ACTIVATED • IN LOSS';
     const pnlText = `${livePips >= 0 ? '+' : ''}${livePips.toFixed(1)} ${pipUnit} (${liveDollars >= 0 ? '+' : ''}$${liveDollars.toFixed(2)}/${unitLabel})`;
 
     lifecycle = {
@@ -3422,8 +3435,21 @@ export function analyzeGoldCandles(
     const rawDiff = isLongBias ? currentPrice - finalEntry : finalEntry - currentPrice;
     const livePips = roundPrice(rawDiff * pipMult);
     const liveDollars = roundPrice(rawDiff);
-    const actState: EntryActivationState = livePips >= 0 ? 'ACTIVATED_PROFIT' : 'ACTIVATED_LOSS';
-    const badge = livePips >= 0 ? '🟢 ACTIVATED • IN PROFIT' : '🔴 ACTIVATED • IN LOSS';
+    let actState: EntryActivationState = livePips >= 0 ? 'ACTIVATED_PROFIT' : 'ACTIVATED_LOSS';
+    if (newLocked.hitTp2) {
+      actState = 'TP2_HIT_PROFIT';
+    } else if (newLocked.hitTp1) {
+      actState = 'TP1_HIT_RUNNING';
+    } else if (newLocked.hitSl) {
+      actState = 'SL_HIT_LOSS';
+    }
+    const badge = newLocked.hitTp2
+      ? '🏆 TP2 RUNNER HIT'
+      : newLocked.hitTp1
+      ? '🎯 TP1 HIT (SL @ BE)'
+      : newLocked.hitSl
+      ? '🛑 SL HIT'
+      : livePips >= 0 ? '🟢 ACTIVATED • IN PROFIT' : '🔴 ACTIVATED • IN LOSS';
     const pnlText = `${livePips >= 0 ? '+' : ''}${livePips.toFixed(1)} ${pipUnit} (${liveDollars >= 0 ? '+' : ''}$${liveDollars.toFixed(2)}/${unitLabel})`;
 
     lifecycle = {
