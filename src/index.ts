@@ -114,6 +114,52 @@ const handleSignal = async (c: any) => {
 app.get('/api/signal', handleSignal);
 app.get('/signal', handleSignal);
 
+app.get('/api/scalp', async (c: any) => {
+  const rawTf = (c.req.query('tf') || c.req.query('timeframe') || '1m').toLowerCase();
+  const tf: SupportedTimeframe = ALL_TIMEFRAMES.includes(rawTf as SupportedTimeframe)
+    ? (rawTf as SupportedTimeframe)
+    : '1m';
+  const symbol = parseSymbol(c.req.query('symbol'));
+  const { candles, source, spotQuote } = await getMarketCandles(symbol, tf);
+  const silverCandles = symbol === 'XAUUSD' ? await getSilverCandles(tf) : undefined;
+  const analysis = analyzeGoldCandles(candles, tf, source, symbol, silverCandles);
+  const ts = analysis.tradeSetup;
+  const timing = ts?.entryTiming;
+  const price = analysis.currentPrice;
+  const dir: string = ts?.direction || 'NONE';
+
+  const is1m = tf === '1m';
+  const defaultSlDist = is1m ? 2.50 : 3.50;
+  const defaultTp1Dist = is1m ? 3.50 : 4.50;
+  const defaultTp2Dist = is1m ? 6.00 : 8.00;
+
+  // Safeguard: For BUY SL must be below price, for SELL SL must be above price
+  let safeSl = ts?.stopLoss || (dir === 'LONG' || dir === 'BUY' ? price - defaultSlDist : price + defaultSlDist);
+  if ((dir === 'LONG' || dir === 'BUY') && safeSl >= price) {
+    safeSl = price - defaultSlDist;
+  } else if ((dir === 'SHORT' || dir === 'SELL') && safeSl <= price) {
+    safeSl = price + defaultSlDist;
+  }
+
+  let safeTp1 = ts?.tp1 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp1Dist : price - defaultTp1Dist);
+  let safeTp2 = ts?.tp2 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp2Dist : price - defaultTp2Dist);
+
+  return c.json({
+    symbol,
+    timeframe: tf,
+    direction: dir,
+    score: analysis.score,
+    grade: analysis.setupGrade,
+    isActionable: ts?.isActionable || false,
+    timingState: timing?.state || 'WAIT',
+    currentPrice: price,
+    entry: ts?.entry || price,
+    stopLoss: safeSl,
+    tp1: safeTp1,
+    tp2: safeTp2,
+  });
+});
+
 const handleMtf = async (c: any) => {
   const symbol = parseSymbol(c.req.query('symbol'));
   const results = await Promise.all(
