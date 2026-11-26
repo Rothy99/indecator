@@ -62,36 +62,49 @@ def check_and_manage_breakeven(broker_sym):
 
     for p in active_positions:
         cur_price = tick.bid if p.type == mt5.POSITION_TYPE_BUY else tick.ask
+        target_sl = None
 
-        # 1. Breakeven for BUY: When current price >= entry + $0.10, move SL to entry + 0.05
         if p.type == mt5.POSITION_TYPE_BUY:
-            if cur_price >= p.price_open + BE_PROFIT_TRIGGER and p.sl < p.price_open + BE_BUFFER - 0.01:
-                be_sl = round(p.price_open + BE_BUFFER, digits)
-                req = {
-                    "action": mt5.TRADE_ACTION_SLTP,
-                    "position": p.ticket,
-                    "symbol": broker_sym,
-                    "sl": be_sl,
-                    "tp": p.tp,
-                }
-                res = mt5.order_send(req)
-                if res.retcode == mt5.TRADE_RETCODE_DONE:
-                    print(f"\n[FAST-BE] Moved SL to {be_sl} (+5¢ locked) on BUY #{p.ticket} (Profit >= +10¢)")
+            gain = cur_price - p.price_open
+            if gain >= 0.50:
+                target_sl = round(p.price_open + 0.20, digits)
+            elif gain >= 0.15:
+                target_sl = round(p.price_open + 0.10, digits)
+            elif gain >= 0.10:
+                target_sl = round(p.price_open + 0.05, digits)
 
-        # 2. Breakeven for SELL: When current price <= entry - $0.10, move SL to entry - 0.05
-        elif p.type == mt5.POSITION_TYPE_SELL:
-            if cur_price <= p.price_open - BE_PROFIT_TRIGGER and (p.sl == 0 or p.sl > p.price_open - BE_BUFFER + 0.01):
-                be_sl = round(p.price_open - BE_BUFFER, digits)
+            if target_sl and target_sl > p.sl + 0.005:
                 req = {
                     "action": mt5.TRADE_ACTION_SLTP,
                     "position": p.ticket,
                     "symbol": broker_sym,
-                    "sl": be_sl,
+                    "sl": target_sl,
                     "tp": p.tp,
                 }
                 res = mt5.order_send(req)
                 if res.retcode == mt5.TRADE_RETCODE_DONE:
-                    print(f"\n[FAST-BE] Moved SL to {be_sl} (+5¢ locked) on SELL #{p.ticket} (Profit >= +10¢)")
+                    print(f"\n[TIER-BE] BUY #{p.ticket} Gain: +${gain:.2f} -> SL moved to {target_sl} (+${target_sl - p.price_open:.2f} locked)")
+
+        elif p.type == mt5.POSITION_TYPE_SELL:
+            gain = p.price_open - cur_price
+            if gain >= 0.50:
+                target_sl = round(p.price_open - 0.20, digits)
+            elif gain >= 0.15:
+                target_sl = round(p.price_open - 0.10, digits)
+            elif gain >= 0.10:
+                target_sl = round(p.price_open - 0.05, digits)
+
+            if target_sl and (p.sl == 0 or target_sl < p.sl - 0.005):
+                req = {
+                    "action": mt5.TRADE_ACTION_SLTP,
+                    "position": p.ticket,
+                    "symbol": broker_sym,
+                    "sl": target_sl,
+                    "tp": p.tp,
+                }
+                res = mt5.order_send(req)
+                if res.retcode == mt5.TRADE_RETCODE_DONE:
+                    print(f"\n[TIER-BE] SELL #{p.ticket} Gain: +${gain:.2f} -> SL moved to {target_sl} (+${p.price_open - target_sl:.2f} locked)")
 
 def is_far_enough_from_existing(price, active_positions, min_spacing):
     for p in active_positions:
