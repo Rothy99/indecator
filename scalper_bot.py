@@ -19,9 +19,10 @@ TIMEFRAMES = ["1m"]               # 1-Minute Quick Trade Focus
 LOT_SIZE = 0.01                   # Fixed Micro-Lot: 0.01
 MAX_OPEN_TRADES = 5               # Up to 5 Concurrent Entries
 MIN_SPACING = 0.35                # Minimum $0.35 spacing between entries
+ENTRY_COOLDOWN = 12               # Smooth 12s interval between scale-in entries
 BE_PROFIT_TRIGGER = 1.00          # Move SL to Breakeven when profit reaches $1.00
 TEST_MODE = False                 # Live MT5 Real Execution
-MIN_SCORE = 75                    # Minimum Quality Score (75+ for Fast 1m Scalps)
+MIN_SCORE = 50                    # Minimum Quality Score
 if "--min-score" in sys.argv:
     try:
         MIN_SCORE = int(sys.argv[sys.argv.index("--min-score") + 1])
@@ -102,6 +103,10 @@ def execute_order(broker_sym, direction, entry, sl, tp1, tp2, tf, order_idx):
     if not tick:
         return
 
+    term = mt5.terminal_info()
+    if not term.trade_allowed:
+        return False
+
     info = mt5.symbol_info(broker_sym)
     digits = info.digits if info else 2
 
@@ -134,14 +139,15 @@ def execute_order(broker_sym, direction, entry, sl, tp1, tp2, tf, order_idx):
     res = mt5.order_send(request)
     if res.retcode == mt5.TRADE_RETCODE_DONE:
         print(f"\n[SUCCESS] Scalp #{order_idx}/5 Executed: Ticket #{res.order} @ ${res.price:.2f} | SL: ${sl:.2f} | TP: ${final_tp:.2f}")
-    else:
+        return True
+    elif res.retcode != 10027:
         print(f"\n[ERROR] Order failed: {res.comment} (code {res.retcode})")
+    return False
 
 def main():
     print("=" * 65)
-    print("INDECATOR 1-MINUTE QUICK SCALPER (UP TO 5 ENTRIES + BREAKEVEN)")
+    print("INDECATOR 1-MINUTE QUICK SCALPER (SMOOTH 5-ENTRY SCALING)")
     print(f"Lot Size: {LOT_SIZE} | Max Open Trades: {MAX_OPEN_TRADES} | BE: +${BE_PROFIT_TRIGGER:.2f}")
-    print(f"Mode: {'SIMULATION' if TEST_MODE else 'LIVE MT5 REAL EXECUTION'}")
     print("=" * 65)
 
     if not mt5.initialize():
@@ -152,7 +158,7 @@ def main():
     print(f"[OK] Connected: Broker={acc.company}, Account={acc.login}, Balance=${acc.balance:.2f}")
     broker_sym = get_broker_symbol(SYMBOL)
     print(f"[OK] Target: {SYMBOL} -> Broker: {broker_sym}")
-    print(f"[OK] Active Timeframe: 1m (Quick Scalp) | Min Quality Score: {MIN_SCORE}+\n")
+    print(f"[OK] Quick Scalper Primed | 1m Timeframe | Max {MAX_OPEN_TRADES} Entries\n")
 
     spot = 0
     last_signal_time = 0
@@ -167,13 +173,19 @@ def main():
             open_count = len(active_positions)
             total_pnl = sum(p.profit for p in active_positions)
 
-            if open_count > 0:
-                pos_status = f"{open_count}/5 POSITIONS OPEN | Total PnL: ${total_pnl:+.2f}"
-            else:
-                pos_status = "0/5 OPEN (SCANNING 1M)"
+            term = mt5.terminal_info()
+            algo_status = "ALGO ON" if term.trade_allowed else "PAUSED (PRESS CTRL+E IN MT5)"
 
-            # 3. If fewer than 5 entries, check 1m signal for new scalp entry
-            if open_count < MAX_OPEN_TRADES:
+            if open_count > 0:
+                pos_status = f"{open_count}/5 POSITIONS OPEN | PnL: ${total_pnl:+.2f} | [{algo_status}]"
+            else:
+                pos_status = f"0/5 OPEN (SCANNING 1M) | [{algo_status}]"
+
+            # 3. If fewer than 5 entries and Algo Trading is enabled, check 1m signal
+            now = time.time()
+            cooldown_remaining = max(0, int(ENTRY_COOLDOWN - (now - last_signal_time)))
+
+            if open_count < MAX_OPEN_TRADES and term.trade_allowed and cooldown_remaining == 0:
                 res = requests.get(f"{API_URL}?symbol={SYMBOL}&tf=1m", timeout=2.0)
                 if res.status_code == 200:
                     data = res.json()
@@ -189,15 +201,14 @@ def main():
 
                     can_enter = (is_actionable or timing_state in ['ENTER_NOW', 'ZONE_ENTRY', 'TRIGGERED_ZONE', 'WAIT_CONFIRMATION'])
                     if can_enter and score >= MIN_SCORE and direction in ['LONG', 'SHORT', 'BUY', 'SELL']:
-                        now = time.time()
-                        if now - last_signal_time > 5:
-                            # Verify price spacing from existing trades
-                            if is_far_enough_from_existing(spot, active_positions, MIN_SPACING):
+                        # Verify price spacing from existing trades
+                        if is_far_enough_from_existing(spot, active_positions, MIN_SPACING):
+                            success = execute_order(broker_sym, direction, entry, sl, tp1, tp2, "1m", open_count + 1)
+                            if success:
                                 last_signal_time = now
-                                execute_order(broker_sym, direction, entry, sl, tp1, tp2, "1m", open_count + 1)
 
             # Heartbeat print
-            print(f"\r[{time.strftime('%H:%M:%S')}] {broker_sym} ${spot:.2f} | Lot: {LOT_SIZE} | {pos_status}   ", end="", flush=True)
+            print(f"\r[{time.strftime('%H:%M:%S')}] {broker_sym} ${spot:.2f} | {pos_status}   ", end="", flush=True)
 
         except Exception as e:
             pass
