@@ -3259,8 +3259,8 @@ export function analyzeGoldCandles(
   }
 
   // V3.0: Dynamic Stop-Loss Rule adapted to sweep extreme + 0.2x ATR buffer
-  let minSlDollars = (timeframe === '1m' || timeframe === '3m') ? 2.5 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
-  let maxSlDollars = (timeframe === '1m' || timeframe === '3m') ? 5.0 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
+  let minSlDollars = timeframe === '1m' ? 1.5 : timeframe === '3m' ? 2.0 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
+  let maxSlDollars = timeframe === '1m' ? 2.2 : timeframe === '3m' ? 3.5 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
 
   let spreadPips = 6.0;
   let maxAllowedSpreadPips = 25.0;
@@ -3299,9 +3299,11 @@ export function analyzeGoldCandles(
 
   const isSpreadAcceptable = spreadPips <= maxAllowedSpreadPips;
 
-  // V3.0 Conservative Target Model: TP1 = 1.5x SL (take 50% partial & move SL to BE), TP2 = 2.5x SL (Liquidity Runner)
-  const tp1Distance = roundPrice(slDistance * 1.5); // V3.0: 1:1.5 R:R
-  const tp2Distance = roundPrice(slDistance * 2.5); // V3.0: 1:2.5 R:R
+  // V3.0 Target Model: 1m uses exact 1:2 R:R (TP1 = 2.0x SL), other TFs use 1.5x SL
+  const tp1Multiplier = timeframe === '1m' ? 2.0 : 1.5;
+  const tp2Multiplier = timeframe === '1m' ? 3.0 : 2.5;
+  const tp1Distance = roundPrice(slDistance * tp1Multiplier); // 1:2 R:R for 1m
+  const tp2Distance = roundPrice(slDistance * tp2Multiplier); // 1:3 R:R runner
   const tp3Distance = roundPrice(slDistance * 3.5);
 
   // V3.0 Low-Risk Money Management (0.25% Account Risk on $10,000 Equity)

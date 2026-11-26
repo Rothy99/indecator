@@ -129,9 +129,11 @@ app.get('/api/scalp', async (c: any) => {
   const dir: string = ts?.direction || 'NONE';
 
   const is1m = tf === '1m';
-  const defaultSlDist = is1m ? 1.80 : 3.00;
-  const defaultTp1Dist = is1m ? 2.20 : 4.00;
-  const defaultTp2Dist = is1m ? 4.00 : 7.00;
+  // Exact 1:2 Risk to Reward for 1-minute quick scalps:
+  // Risk (SL): $1.50 -> Reward (TP1): $3.00 (Exact 1:2 PnL) -> Runner (TP2): $4.50 (1:3 PnL)
+  const defaultSlDist = is1m ? 1.50 : 3.00;
+  const defaultTp1Dist = is1m ? 3.00 : 4.50; // Exact 1:2 PnL for 1m
+  const defaultTp2Dist = is1m ? 4.50 : 7.50; // 1:3 PnL runner for 1m
 
   // Safeguard: For BUY SL must be below price, for SELL SL must be above price
   let safeSl = ts?.stopLoss || (dir === 'LONG' || dir === 'BUY' ? price - defaultSlDist : price + defaultSlDist);
@@ -141,12 +143,20 @@ app.get('/api/scalp', async (c: any) => {
     safeSl = price + defaultSlDist;
   }
 
-  let safeTp1 = ts?.tp1 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp1Dist : price - defaultTp1Dist);
-  let safeTp2 = ts?.tp2 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp2Dist : price - defaultTp2Dist);
+  // Exact 1:2 R:R from actual stop distance
+  const actualSlDist = Math.abs(price - safeSl);
+  let safeTp1 = (dir === 'LONG' || dir === 'BUY')
+    ? Math.round((price + actualSlDist * (is1m ? 2.0 : 1.5)) * 100) / 100
+    : Math.round((price - actualSlDist * (is1m ? 2.0 : 1.5)) * 100) / 100;
+  let safeTp2 = (dir === 'LONG' || dir === 'BUY')
+    ? Math.round((price + actualSlDist * (is1m ? 3.0 : 2.5)) * 100) / 100
+    : Math.round((price - actualSlDist * (is1m ? 3.0 : 2.5)) * 100) / 100;
 
   const timingState: string = (timing?.state || 'WAIT') as string;
   const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE';
-  const canExecute = (analysis.signal === 'BUY' || analysis.signal === 'SELL' || ts?.isActionable === true || hasTimingTrigger) && dir !== 'NONE' && analysis.score >= 55;
+  // High-probability confirmation: requires clear directional bias + active timing trigger or score >= 70
+  const isHighProb = analysis.score >= 70 || (analysis.score >= 55 && hasTimingTrigger);
+  const canExecute = isHighProb && dir !== 'NONE';
 
   return c.json({
     symbol,
