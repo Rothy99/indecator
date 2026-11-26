@@ -153,10 +153,9 @@ app.get('/api/scalp', async (c: any) => {
     : Math.round((price - actualSlDist * (is1m ? 3.0 : 2.5)) * 100) / 100;
 
   const timingState: string = (timing?.state || 'WAIT') as string;
-  const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE';
-  // High-probability confirmation: requires clear directional bias + active timing trigger or score >= 70
-  const isHighProb = analysis.score >= 70 || (analysis.score >= 55 && hasTimingTrigger);
-  const canExecute = isHighProb && dir !== 'NONE';
+  const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE' || timingState === 'WAIT_CONFIRMATION';
+  // Fast 1m confirmation: triggers every confirmed 1m direction
+  const canExecute = dir !== 'NONE' && (hasTimingTrigger || ts?.isActionable === true || analysis.score >= 50);
 
   return c.json({
     symbol,
