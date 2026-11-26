@@ -5,26 +5,41 @@ export const MQL5_EA_SCRIPT = `//+----------------------------------------------
 //+------------------------------------------------------------------+
 #property copyright "Indecator SMC Terminal"
 #property link      "http://localhost:3000"
-#property version   "3.00"
+#property version   "3.10"
 #property strict
 
 input string InpServerUrl    = "http://localhost:3000/api/mt5/feed"; // Terminal Ingestion URL
-input int    InpTimerSeconds = 1;                                    // Push Frequency (Seconds)
+input int    InpThrottleMs   = 500;                                  // Minimum Push Interval (ms)
 input int    InpBarsToSend   = 60;                                   // Number of Completed Candles
 
-datetime lastPushTime = 0;
+ulong lastPushMs = 0;
+
+string GetTfCode(ENUM_TIMEFRAMES tf)
+{
+   switch(tf)
+   {
+      case PERIOD_M1:  return "1m";
+      case PERIOD_M5:  return "5m";
+      case PERIOD_M15: return "15m";
+      case PERIOD_M30: return "30m";
+      case PERIOD_H1:  return "1h";
+      case PERIOD_H4:  return "4h";
+      case PERIOD_D1:  return "1d";
+      default:         return "15m";
+   }
+}
 
 int OnInit()
 {
-   Print("Indecator MT5 Real-Time Bridge started for ", _Symbol);
-   EventSetTimer(InpTimerSeconds);
+   Print("⚡ Indecator MT5 Real-Time Bridge started for ", _Symbol, " [", GetTfCode(_Period), "]");
+   EventSetMillisecondTimer(InpThrottleMs);
    return(INIT_SUCCEEDED);
 }
 
 void OnDeinit(const int reason)
 {
    EventKillTimer();
-   Print("Indecator MT5 Bridge stopped.");
+   Print("⏹ Indecator MT5 Bridge stopped.");
 }
 
 void OnTimer()
@@ -34,8 +49,8 @@ void OnTimer()
 
 void OnTick()
 {
-   datetime current = TimeCurrent();
-   if(current - lastPushTime >= InpTimerSeconds)
+   ulong nowMs = GetTickCount64();
+   if(nowMs - lastPushMs >= (ulong)InpThrottleMs)
    {
       PushDataToTerminal();
    }
@@ -43,7 +58,7 @@ void OnTick()
 
 void PushDataToTerminal()
 {
-   lastPushTime = TimeCurrent();
+   lastPushMs = GetTickCount64();
    
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -68,7 +83,7 @@ void PushDataToTerminal()
    
    string payload = StringFormat(
       "{\\"broker\\":\\"%s\\",\\"account\\":%d,\\"symbol\\":\\"%s\\",\\"timeframe\\":\\"%s\\",\\"bid\\":%.2f,\\"ask\\":%.2f,\\"spread\\":%.1f,\\"timestamp\\":%d,\\"candles\\":%s}",
-      company, login, _Symbol, EnumToString(_Period), bid, ask, (double)spread, (long)TimeCurrent(), candlesJson
+      company, login, _Symbol, GetTfCode(_Period), bid, ask, (double)spread, (long)TimeCurrent(), candlesJson
    );
    
    char postData[];
@@ -84,7 +99,7 @@ void PushDataToTerminal()
       int err = GetLastError();
       if(err == 4060)
       {
-         Print("WebRequest Error 4060: Please add 'http://localhost:3000' to MT5 Allowed URLs in Tools -> Options -> Expert Advisors -> Allow WebRequest!");
+         Print("⚠️ WebRequest Error 4060: Please add 'http://localhost:3000' to MT5 Allowed URLs: Tools -> Options -> Expert Advisors -> Allow WebRequest!");
       }
    }
 }
@@ -92,7 +107,7 @@ void PushDataToTerminal()
 
 export const PYTHON_MT5_SCRIPT = `"""
 Indecator MT5 Real-Time Python Bridge
-Connects to live MetaTrader 5 on Windows and streams real-time ticks & M15 candles to Indecator Terminal.
+Connects to live MetaTrader 5 on Windows and streams real-time ticks & candles (M15, M5, H1) to Indecator Terminal.
 Requirement: pip install MetaTrader5 requests
 """
 import time
@@ -100,11 +115,51 @@ import requests
 import MetaTrader5 as mt5
 
 TERMINAL_URL = "http://localhost:3000/api/mt5/feed"
-SYMBOLS = ["XAUUSD", "BTCUSD", "ETHUSD", "SOLUSD"]
+TARGET_SYMBOLS = ["XAUUSD", "BTCUSD", "ETHUSD", "SOLUSD"]
+
+def resolve_broker_symbol(target):
+    info = mt5.symbol_info(target)
+    if info:
+        mt5.symbol_select(target, True)
+        return target
+    all_syms = mt5.symbols_get()
+    if all_syms:
+        for s in all_syms:
+            name = s.name.upper()
+            if target == "XAUUSD" and ("XAU" in name or "GOLD" in name):
+                mt5.symbol_select(s.name, True)
+                return s.name
+            if target == "BTCUSD" and "BTC" in name and "USD" in name:
+                mt5.symbol_select(s.name, True)
+                return s.name
+            if target == "ETHUSD" and "ETH" in name and "USD" in name:
+                mt5.symbol_select(s.name, True)
+                return s.name
+            if target == "SOLUSD" and "SOL" in name and "USD" in name:
+                mt5.symbol_select(s.name, True)
+                return s.name
+    return None
+
+def fetch_candles(sym, mt5_tf, count=60):
+    rates = mt5.copy_rates_from_pos(sym, mt5_tf, 0, count)
+    candles = []
+    if rates is not None:
+        for r in rates:
+            candles.append({
+                "time": int(r['time']),
+                "open": float(r['open']),
+                "high": float(r['high']),
+                "low": float(r['low']),
+                "close": float(r['close']),
+                "volume": int(r['tick_volume'])
+            })
+    return candles
 
 def run_bridge():
+    print("Connecting to MetaTrader 5...")
     if not mt5.initialize():
         print(f"❌ Failed to initialize MT5: {mt5.last_error()}")
+        print("💡 Ensure MetaTrader 5 is running and logged in.")
         return
 
     account_info = mt5.account_info()
@@ -113,44 +168,68 @@ def run_bridge():
     print(f"⚡ MT5 Connected: Broker={broker}, Account={account}")
     print(f"🚀 Streaming real-time data to {TERMINAL_URL}...")
 
+    symbol_map = {}
+    for tgt in TARGET_SYMBOLS:
+        mapped = resolve_broker_symbol(tgt)
+        if mapped:
+            symbol_map[tgt] = mapped
+            print(f"  ✓ {tgt} mapped to broker symbol '{mapped}'")
+        else:
+            print(f"  ⚠️ {tgt} not found in broker market watch")
+
+    last_candle_push = 0
+
     while True:
-        for sym in SYMBOLS:
-            tick = mt5.symbol_info_tick(sym)
-            if tick is None:
+        now = time.time()
+        push_candles = (now - last_candle_push) >= 2.0
+
+        for tgt, broker_sym in symbol_map.items():
+            tick = mt5.symbol_info_tick(broker_sym)
+            if tick is None or tick.bid <= 0:
                 continue
-            
-            # Fetch last 60 candles on M15
-            rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M15, 0, 60)
-            candles = []
-            if rates is not None:
-                for r in rates:
-                    candles.append({
-                        "time": int(r['time']),
-                        "open": float(r['open']),
-                        "high": float(r['high']),
-                        "low": float(r['low']),
-                        "close": float(r['close']),
-                        "volume": int(r['tick_volume'])
-                    })
 
             payload = {
                 "broker": broker,
                 "account": account,
-                "symbol": sym,
+                "symbol": tgt,
                 "timeframe": "15m",
                 "bid": tick.bid,
                 "ask": tick.ask,
-                "spread": (tick.ask - tick.bid) * (10 if "XAU" in sym else 1),
-                "timestamp": int(time.time()),
-                "candles": candles
+                "spread": round((tick.ask - tick.bid) * (10 if "XAU" in tgt else 1), 1),
+                "timestamp": int(now * 1000)
             }
 
+            if push_candles:
+                candles_15m = fetch_candles(broker_sym, mt5.TIMEFRAME_M15, 60)
+                if candles_15m:
+                    payload["candles"] = candles_15m
+
+                candles_5m = fetch_candles(broker_sym, mt5.TIMEFRAME_M5, 60)
+                if candles_5m:
+                    try:
+                        requests.post(TERMINAL_URL, json={
+                            "broker": broker,
+                            "account": account,
+                            "symbol": tgt,
+                            "timeframe": "5m",
+                            "bid": tick.bid,
+                            "ask": tick.ask,
+                            "spread": payload["spread"],
+                            "timestamp": int(now * 1000),
+                            "candles": candles_5m
+                        }, timeout=0.8)
+                    except Exception:
+                        pass
+
             try:
-                requests.post(TERMINAL_URL, json=payload, timeout=1.5)
+                requests.post(TERMINAL_URL, json=payload, timeout=0.8)
             except Exception:
                 pass
 
-        time.sleep(1.0)
+        if push_candles:
+            last_candle_push = now
+
+        time.sleep(0.3)
 
 if __name__ == "__main__":
     run_bridge()

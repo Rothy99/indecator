@@ -146,16 +146,33 @@ export function getMt5Status(): Mt5ConnectionStatus {
   };
 }
 
+export function parseMt5Symbol(raw: any): SupportedSymbol {
+  const s = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (s.includes('BTC')) return 'BTCUSD';
+  if (s.includes('ETH')) return 'ETHUSD';
+  if (s.includes('SOL')) return 'SOLUSD';
+  if (s.includes('XAU') || s.includes('GOLD')) return 'XAUUSD';
+  return 'XAUUSD';
+}
+
+export function parseMt5Timeframe(raw: any): SupportedTimeframe {
+  const s = String(raw || '15m').toUpperCase().trim();
+  if (s.includes('1M') || s.includes('M1') || s === '1' || s.endsWith('_M1')) return '1m';
+  if (s.includes('5M') || s.includes('M5') || s === '5' || s.endsWith('_M5')) return '5m';
+  if (s.includes('15M') || s.includes('M15') || s === '15' || s.endsWith('_M15')) return '15m';
+  if (s.includes('30M') || s.includes('M30') || s === '30' || s.endsWith('_M30')) return '30m';
+  if (s.includes('1H') || s.includes('H1') || s === '60' || s.endsWith('_H1')) return '1h';
+  if (s.includes('4H') || s.includes('H4') || s === '240' || s.endsWith('_H4')) return '4h';
+  return '15m';
+}
+
 export function ingestMt5Feed(payload: Mt5FeedPayload): { success: boolean; symbol: SupportedSymbol; message: string } {
   if (!payload || !payload.symbol) {
     return { success: false, symbol: 'XAUUSD', message: 'Missing symbol in MT5 payload' };
   }
 
-  const rawSym = String(payload.symbol).toUpperCase().replace(/[^A-Z]/g, '');
-  let symbol: SupportedSymbol = 'XAUUSD';
-  if (rawSym.includes('BTC')) symbol = 'BTCUSD';
-  else if (rawSym.includes('ETH')) symbol = 'ETHUSD';
-  else if (rawSym.includes('SOL')) symbol = 'SOLUSD';
+  const symbol: SupportedSymbol = parseMt5Symbol(payload.symbol);
+  const tf: SupportedTimeframe = parseMt5Timeframe(payload.timeframe);
 
   const cfg = SYMBOL_CONFIGS[symbol];
   const now = Date.now();
@@ -201,15 +218,6 @@ export function ingestMt5Feed(payload: Mt5FeedPayload): { success: boolean; symb
 
   // 2. Process Candles array if provided
   if (Array.isArray(payload.candles) && payload.candles.length > 0) {
-    const rawTf = String(payload.timeframe || '15m').toLowerCase().replace('m', '');
-    let tf: SupportedTimeframe = '15m';
-    if (rawTf === '1') tf = '1m';
-    else if (rawTf === '5') tf = '5m';
-    else if (rawTf === '15') tf = '15m';
-    else if (rawTf === '30') tf = '30m';
-    else if (rawTf === '60' || rawTf === '1h' || rawTf === 'h1') tf = '1h';
-    else if (rawTf === '240' || rawTf === '4h' || rawTf === 'h4') tf = '4h';
-
     const cleanCandles: Candle[] = payload.candles.map((c) => ({
       time: c.time > 1e11 ? Math.floor(c.time / 1000) : c.time,
       open: round2(c.open),
