@@ -138,21 +138,29 @@ void ManageAllPositions()
          if(type == POSITION_TYPE_BUY)
          {
             double gain = curPrice - openPrice;
-            if(gain >= 2.50)      targetSl = curPrice - 0.70;          // Dynamic trailing runner
-            else if(gain >= 2.00) targetSl = openPrice + 1.50;          // +2.00 -> Lock +1.50
-            else if(gain >= 1.50) targetSl = openPrice + 1.00;          // +1.50 -> Lock +1.00
-            else if(gain >= 1.00) targetSl = openPrice + 0.60;          // +1.00 -> Lock +0.60
-            else if(gain >= 0.60) targetSl = openPrice + 0.30;          // +0.60 -> Lock +0.30
-            else if(gain >= InpBeProfitTrigger) targetSl = openPrice + InpBeBuffer; // +0.35 (clears 0.20 spread) -> Lock +0.10
-
-            if(targetSl > 0)
+            if(gain >= 0.10)
             {
+               if(gain >= 0.50)
+               {
+                  // Always Move: Continuous dynamic trailing ratchet $0.30 behind market price
+                  targetSl = MathMax(openPrice + 0.20, curPrice - 0.30);
+               }
+               else if(gain >= 0.15)
+               {
+                  targetSl = openPrice + 0.10; // +0.15 -> SL to +0.10
+               }
+               else
+               {
+                  targetSl = openPrice + 0.05; // +0.10 -> SL to +0.05
+               }
+
                targetSl = NormalizeDouble(targetSl, digits);
-               if(curSl == 0 || targetSl > curSl + 0.005)
+               // Ratchet SL up: always moves higher as price rises
+               if(curSl == 0 || targetSl > curSl + 0.02)
                {
                   if(m_trade.PositionModify(ticket, targetSl, curTp))
                   {
-                     PrintFormat("[STEP-BE] BUY #%d Gain: +$%.2f -> SL moved to %.3f (+%.2f locked)",
+                     PrintFormat("[ALWAYS-TRAIL] BUY #%d Gain: +$%.2f -> SL ratcheted to %.3f (+%.2f locked)",
                         ticket, gain, targetSl, targetSl - openPrice);
                   }
                }
@@ -161,21 +169,29 @@ void ManageAllPositions()
          else if(type == POSITION_TYPE_SELL)
          {
             double gain = openPrice - curPrice;
-            if(gain >= 2.50)      targetSl = curPrice + 0.70;          // Dynamic trailing runner
-            else if(gain >= 2.00) targetSl = openPrice - 1.50;          // +2.00 -> Lock +1.50
-            else if(gain >= 1.50) targetSl = openPrice - 1.00;          // +1.50 -> Lock +1.00
-            else if(gain >= 1.00) targetSl = openPrice - 0.60;          // +1.00 -> Lock +0.60
-            else if(gain >= 0.60) targetSl = openPrice - 0.30;          // +0.60 -> Lock +0.30
-            else if(gain >= InpBeProfitTrigger) targetSl = openPrice - InpBeBuffer; // +0.35 (clears 0.20 spread) -> Lock +0.10
-
-            if(targetSl > 0)
+            if(gain >= 0.10)
             {
+               if(gain >= 0.50)
+               {
+                  // Always Move: Continuous dynamic trailing ratchet $0.30 behind market price
+                  targetSl = MathMin(openPrice - 0.20, curPrice + 0.30);
+               }
+               else if(gain >= 0.15)
+               {
+                  targetSl = openPrice - 0.10; // +0.15 -> SL to +0.10
+               }
+               else
+               {
+                  targetSl = openPrice - 0.05; // +0.10 -> SL to +0.05
+               }
+
                targetSl = NormalizeDouble(targetSl, digits);
-               if(curSl == 0 || targetSl < curSl - 0.005)
+               // Ratchet SL down: always moves lower as price falls
+               if(curSl == 0 || targetSl < curSl - 0.02)
                {
                   if(m_trade.PositionModify(ticket, targetSl, curTp))
                   {
-                     PrintFormat("[STEP-BE] SELL #%d Gain: +$%.2f -> SL moved to %.3f (+%.2f locked)",
+                     PrintFormat("[ALWAYS-TRAIL] SELL #%d Gain: +$%.2f -> SL ratcheted to %.3f (+%.2f locked)",
                         ticket, gain, targetSl, openPrice - targetSl);
                   }
                }
