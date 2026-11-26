@@ -120,7 +120,7 @@ app.get('/api/scalp', async (c: any) => {
     ? (rawTf as SupportedTimeframe)
     : '1m';
   const symbol = parseSymbol(c.req.query('symbol'));
-  const { candles, source, spotQuote } = await getMarketCandles(symbol, tf);
+  const { candles, source } = await getMarketCandles(symbol, tf);
   const silverCandles = symbol === 'XAUUSD' ? await getSilverCandles(tf) : undefined;
   const analysis = analyzeGoldCandles(candles, tf, source, symbol, silverCandles);
   const ts = analysis.tradeSetup;
@@ -129,33 +129,71 @@ app.get('/api/scalp', async (c: any) => {
   const dir: string = ts?.direction || 'NONE';
 
   const is1m = tf === '1m';
-  // Exact 1:2 Risk to Reward for 1-minute quick scalps:
-  // Risk (SL): $1.50 -> Reward (TP1): $3.00 (Exact 1:2 PnL) -> Runner (TP2): $4.50 (1:3 PnL)
-  const defaultSlDist = is1m ? 1.50 : 3.00;
-  const defaultTp1Dist = is1m ? 3.00 : 4.50; // Exact 1:2 PnL for 1m
-  const defaultTp2Dist = is1m ? 4.50 : 7.50; // 1:3 PnL runner for 1m
 
-  // Safeguard: For BUY SL must be below price, for SELL SL must be above price
-  let safeSl = ts?.stopLoss || (dir === 'LONG' || dir === 'BUY' ? price - defaultSlDist : price + defaultSlDist);
-  if ((dir === 'LONG' || dir === 'BUY') && safeSl >= price) {
-    safeSl = price - defaultSlDist;
-  } else if ((dir === 'SHORT' || dir === 'SELL') && safeSl <= price) {
-    safeSl = price + defaultSlDist;
+  // --- Multi-Timeframe High-Probability Filter for 1M Scalping ---
+  let htfAligned = true;
+  let htfReason = 'HTF Aligned';
+  if (is1m) {
+    try {
+      const m5Data = await getMarketCandles(symbol, '5m');
+      const m5Analysis = analyzeGoldCandles(m5Data.candles, '5m', m5Data.source, symbol);
+      const m5Dir = m5Analysis.tradeSetup?.direction || 'NONE';
+      const m5Ema50 = m5Analysis.indicators?.ema50 || price;
+      const m5Rsi = m5Analysis.indicators?.rsi14 || 50;
+
+      if (dir === 'LONG' || dir === 'BUY') {
+        // Disallow buying if 5m is clearly bearish (below EMA50 and RSI < 45)
+        if (m5Dir === 'SHORT' || (price < m5Ema50 && m5Rsi < 45)) {
+          htfAligned = false;
+          htfReason = '5M Bearish Momentum (Counter-Trend Blocked)';
+        }
+      } else if (dir === 'SHORT' || dir === 'SELL') {
+        // Disallow selling if 5m is clearly bullish (above EMA50 and RSI > 55)
+        if (m5Dir === 'LONG' || (price > m5Ema50 && m5Rsi > 55)) {
+          htfAligned = false;
+          htfReason = '5M Bullish Momentum (Counter-Trend Blocked)';
+        }
+      }
+    } catch {
+      // Fallback: non-blocking
+    }
   }
 
-  // Exact 1:2 R:R from actual stop distance
+  // --- Dynamic ATR-Based Stop Loss & Exact 1:2 R:R ---
+  // On Gold 1m, average candle ATR is ~$1.20 - $1.60 and spread is ~$0.20.
+  // Tight $1.50 SL is 1x ATR, easily tagged by random noise.
+  // Optimal high-prob SL is 1.6x ATR (min $2.00, max $2.60) to survive spread & wicks.
+  const atr = analysis.indicators?.atr14 || (is1m ? 1.40 : 3.00);
+  const adaptiveSlDist = is1m
+    ? Math.max(2.00, Math.min(2.60, Math.round(atr * 1.5 * 10) / 10))
+    : 3.50;
+
+  let safeSl = (dir === 'LONG' || dir === 'BUY')
+    ? Math.round((price - adaptiveSlDist) * 100) / 100
+    : Math.round((price + adaptiveSlDist) * 100) / 100;
+
   const actualSlDist = Math.abs(price - safeSl);
   let safeTp1 = (dir === 'LONG' || dir === 'BUY')
-    ? Math.round((price + actualSlDist * (is1m ? 2.0 : 1.5)) * 100) / 100
-    : Math.round((price - actualSlDist * (is1m ? 2.0 : 1.5)) * 100) / 100;
+    ? Math.round((price + actualSlDist * 2.0) * 100) / 100  // Exact 1:2 PnL Risk-to-Reward
+    : Math.round((price - actualSlDist * 2.0) * 100) / 100;
   let safeTp2 = (dir === 'LONG' || dir === 'BUY')
-    ? Math.round((price + actualSlDist * (is1m ? 3.0 : 2.5)) * 100) / 100
-    : Math.round((price - actualSlDist * (is1m ? 3.0 : 2.5)) * 100) / 100;
+    ? Math.round((price + actualSlDist * 3.0) * 100) / 100  // 1:3 PnL Runner
+    : Math.round((price - actualSlDist * 3.0) * 100) / 100;
 
+  // --- Strict High-Probability Entry Filters ---
+  const rsi = analysis.indicators?.rsi14 || 50;
   const timingState: string = (timing?.state || 'WAIT') as string;
-  const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE' || timingState === 'WAIT_CONFIRMATION';
-  // Fast 1m confirmation: triggers every confirmed 1m direction
-  const canExecute = dir !== 'NONE' && (hasTimingTrigger || ts?.isActionable === true || analysis.score >= 50);
+  // Trigger only on genuine actionable states, NOT passive WAIT
+  const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE';
+  
+  // RSI Exhaustion Gates: never buy above 68 RSI or sell below 32 RSI
+  const rsiOk = (dir === 'LONG' || dir === 'BUY') ? rsi <= 68 : (dir === 'SHORT' || dir === 'SELL') ? rsi >= 32 : false;
+  // Score Gate: Grade B+ (>= 60) in trending or >= 65 in general
+  const scoreOk = analysis.score >= 60;
+  // Chop Gate: in choppy markets require 70+
+  const regimeOk = analysis.marketRegime !== 'RANGING / CHOPPY' || analysis.score >= 70;
+
+  const canExecute = dir !== 'NONE' && htfAligned && rsiOk && scoreOk && regimeOk && (hasTimingTrigger || ts?.isActionable === true || analysis.score >= 65);
 
   return c.json({
     symbol,
@@ -166,11 +204,17 @@ app.get('/api/scalp', async (c: any) => {
     isActionable: ts?.isActionable || false,
     canExecute,
     timingState,
+    marketRegime: analysis.marketRegime,
+    rsi: Math.round(rsi * 10) / 10,
+    htfAligned,
+    htfReason,
     currentPrice: price,
-    entry: ts?.entry || price,
+    entry: price,
     stopLoss: safeSl,
     tp1: safeTp1,
     tp2: safeTp2,
+    slDistance: Math.round(actualSlDist * 100) / 100,
+    tp1Distance: Math.round(actualSlDist * 2.0 * 100) / 100,
   });
 });
 

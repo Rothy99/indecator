@@ -26,15 +26,16 @@ input string         InpServerUrl       = "https://indecator-lke5.vercel.app/api
 input ENUM_LOT_MODE  InpLotMode         = LOT_FIXED;                          // Lot Sizing Mode
 input double         InpFixedLot        = 0.01;                               // Fixed Lot Size (0.01)
 input double         InpRiskPercent     = 0.5;                                // Risk % per trade (if Risk Mode selected)
-input int            InpMinScore        = 50;                                 // Minimum Confluence Score (50 = Trades Every 1m Confirmation)
+input int            InpMinScore        = 65;                                 // Minimum Confluence Score (65 = High-Probability Grade B+/A)
 input int            InpMaxOpenTrades   = 5;                                  // Max Concurrent Trades (5 Entries Max)
-input double         InpMinSpacing      = 0.20;                               // Spacing Between Entries ($0.20)
+input double         InpMinSpacing      = 0.80;                               // Spacing Between Entries ($0.80 = Prevents Spread Overlap)
+input int            InpTradeCooldown   = 15;                                 // Cooldown Between New Setups (15 Seconds)
 input ulong          InpMagicNumber     = 992601;                             // Magic Number
 
 input group "--- Trade Management ---"
 input bool           InpAutoBreakeven   = true;                               // Move SL to Breakeven in Profit
-input double         InpBeProfitTrigger = 0.10;                               // Fast BE Trigger ($0.10 profit)
-input double         InpBeBuffer        = 0.05;                               // Guaranteed Profit on BE ($0.05)
+input double         InpBeProfitTrigger = 0.35;                               // Fast BE Trigger ($0.35 clears $0.20 spread)
+input double         InpBeBuffer        = 0.10;                               // Guaranteed Profit on BE ($0.10)
 input int            InpPollingSec      = 1;                                  // Fast Polling (1 Second)
 
 datetime lastPollTime = 0;
@@ -137,14 +138,12 @@ void ManageAllPositions()
          if(type == POSITION_TYPE_BUY)
          {
             double gain = curPrice - openPrice;
-            if(gain >= 2.50)      targetSl = openPrice + (gain - 0.50); // Trail closely until TP
+            if(gain >= 2.50)      targetSl = curPrice - 0.70;          // Dynamic trailing runner
             else if(gain >= 2.00) targetSl = openPrice + 1.50;          // +2.00 -> Lock +1.50
             else if(gain >= 1.50) targetSl = openPrice + 1.00;          // +1.50 -> Lock +1.00
             else if(gain >= 1.00) targetSl = openPrice + 0.60;          // +1.00 -> Lock +0.60
-            else if(gain >= 0.75) targetSl = openPrice + 0.40;          // +0.75 -> Lock +0.40
-            else if(gain >= 0.50) targetSl = openPrice + 0.20;          // +0.50 -> Lock +0.20
-            else if(gain >= 0.15) targetSl = openPrice + 0.10;          // +0.15 -> Lock +0.10
-            else if(gain >= 0.10) targetSl = openPrice + 0.05;          // +0.10 -> Lock +0.05
+            else if(gain >= 0.60) targetSl = openPrice + 0.30;          // +0.60 -> Lock +0.30
+            else if(gain >= InpBeProfitTrigger) targetSl = openPrice + InpBeBuffer; // +0.35 (clears 0.20 spread) -> Lock +0.10
 
             if(targetSl > 0)
             {
@@ -162,14 +161,12 @@ void ManageAllPositions()
          else if(type == POSITION_TYPE_SELL)
          {
             double gain = openPrice - curPrice;
-            if(gain >= 2.50)      targetSl = openPrice - (gain - 0.50); // Trail closely until TP
+            if(gain >= 2.50)      targetSl = curPrice + 0.70;          // Dynamic trailing runner
             else if(gain >= 2.00) targetSl = openPrice - 1.50;          // +2.00 -> Lock +1.50
             else if(gain >= 1.50) targetSl = openPrice - 1.00;          // +1.50 -> Lock +1.00
             else if(gain >= 1.00) targetSl = openPrice - 0.60;          // +1.00 -> Lock +0.60
-            else if(gain >= 0.75) targetSl = openPrice - 0.40;          // +0.75 -> Lock +0.40
-            else if(gain >= 0.50) targetSl = openPrice - 0.20;          // +0.50 -> Lock +0.20
-            else if(gain >= 0.15) targetSl = openPrice - 0.10;          // +0.15 -> Lock +0.10
-            else if(gain >= 0.10) targetSl = openPrice - 0.05;          // +0.10 -> Lock +0.05
+            else if(gain >= 0.60) targetSl = openPrice - 0.30;          // +0.60 -> Lock +0.30
+            else if(gain >= InpBeProfitTrigger) targetSl = openPrice - InpBeBuffer; // +0.35 (clears 0.20 spread) -> Lock +0.10
 
             if(targetSl > 0)
             {
@@ -196,12 +193,15 @@ void OnTick()
    if(now - lastPollTime < InpPollingSec) return;
    lastPollTime = now;
 
+   // Enforce 15-second cooldown after a trade to prevent revenge / machine-gun chop
+   if(now - lastOrderTime < InpTradeCooldown) return;
+
    // Only evaluate entry if fewer than InpMaxOpenTrades are open (Max 5 entries)
    int openCount = CountOpenPositions();
    if(openCount >= InpMaxOpenTrades) return;
 
-   // Instant zero-delay for Entry #1; 3-second rapid spacing for scale-in entries (#2 to #5)
-   if(openCount > 0 && now - lastOrderTime < 3) return;
+   // Staggered spacing for scale-in entries (#2 to #5): wait at least 8 seconds
+   if(openCount > 0 && now - lastOrderTime < 8) return;
 
    PollAndExecuteSignal();
 }
