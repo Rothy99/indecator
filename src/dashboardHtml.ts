@@ -2829,7 +2829,6 @@ TELEGRAM_MIN_SCORE=90</pre>
       const clampedYTarget = Math.max(8, Math.min(rect.height - 8, yTarget));
 
       // Calculate horizontal boundaries (X1 and X2)
-      const plotWidth = priceChart.timeScale().width() || (rect.width - 65);
       const maxX = Math.max(80, plotWidth - 10);
 
       const candles = (currentAnalysis && currentAnalysis.series) || [];
