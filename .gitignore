@@ -6,3 +6,6 @@ dist/
 .DS_Store
 data/
 *.db
+__pycache__/
+Unicode
+
