@@ -371,66 +371,82 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span id="chartTfLabel" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black mono text-xs">15M</span>
                 <span class="text-[11px] sm:text-xs">PRO CHART</span>
               </span>
-              <span class="flex items-center gap-1 text-purple-400 font-bold mono text-[10px] sm:text-[11px]">
-                <span class="w-2 sm:w-2.5 h-0.5 bg-purple-400 inline-block"></span>50 EMA
+
+              <!-- Direct Chart Timeframe Switcher -->
+              <div class="inline-flex rounded-lg bg-slate-950/90 p-0.5 border border-slate-800 text-[10px] mono">
+                <button id="chart-tf-1m" onclick="switchTimeframe('1m')" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">1M</button>
+                <button id="chart-tf-5m" onclick="switchTimeframe('5m')" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">5M</button>
+                <button id="chart-tf-15m" onclick="switchTimeframe('15m')" class="px-1.5 py-0.5 rounded font-black bg-amber-400 text-slate-950 transition">15M</button>
+                <button id="chart-tf-30m" onclick="switchTimeframe('30m')" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">30M</button>
+                <button id="chart-tf-1h" onclick="switchTimeframe('1h')" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">1H</button>
+                <button id="chart-tf-4h" onclick="switchTimeframe('4h')" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">4H</button>
+              </div>
+
+              <!-- Candle Countdown Badge -->
+              <div id="candleCountdownBadge" class="mono text-[10px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                <span id="countdownTimerText">⏳ 15M: --:--</span>
+              </div>
+
+              <span class="hidden 2xl:flex items-center gap-1 text-purple-400 font-bold mono text-[10px]">
+                <span class="w-2 h-0.5 bg-purple-400 inline-block"></span>50 EMA
               </span>
-              <span class="flex items-center gap-1 text-sky-400 font-bold mono text-[10px] sm:text-[11px]">
-                <span class="w-2 sm:w-2.5 h-0.5 bg-sky-400 inline-block"></span>200 EMA
+              <span class="hidden 2xl:flex items-center gap-1 text-sky-400 font-bold mono text-[10px]">
+                <span class="w-2 h-0.5 bg-sky-400 inline-block"></span>200 EMA
               </span>
             </div>
 
             <!-- Live Crosshair Telemetry Pill -->
-            <div id="chartCandleInspectPill" class="mono text-[10px] sm:text-[11px] text-slate-300 bg-slate-950/80 px-2.5 py-0.5 rounded border border-slate-800 hidden sm:flex items-center gap-2">
+            <div id="chartCandleInspectPill" class="mono text-[10px] sm:text-[11px] text-slate-300 bg-slate-950/80 px-2.5 py-0.5 rounded border border-slate-800 hidden xl:flex items-center gap-2">
               <span class="text-amber-400 font-bold">INSPECT:</span>
               <span id="chartInspectText">Move cursor over candles to inspect FVG, OB &amp; levels</span>
             </div>
 
-            <!-- Toolbar Controls: Smart Money Filter, Height, Lines, Focus, Fit -->
+            <!-- Toolbar Controls: Overlays & Indicators Toggles -->
             <div class="flex items-center gap-1.5 flex-wrap">
               <!-- Smart Money Overlay Filter Pills -->
               <div class="inline-flex rounded-lg bg-slate-950/90 p-0.5 border border-slate-800 text-[10px] mono">
-                <button id="smFilterAll" onclick="setSmartMoneyOverlayFilter('ALL')" class="px-2 py-0.5 rounded font-black bg-amber-400 text-slate-950 transition" title="Show all FVG, Order Blocks, Sweeps and Signals">
-                  ⚡ ALL
-                </button>
-                <button id="smFilterFvg" onclick="setSmartMoneyOverlayFilter('FVG')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show Fair Value Gaps only">
-                  📦 FVG
-                </button>
-                <button id="smFilterOb" onclick="setSmartMoneyOverlayFilter('OB')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show Order Blocks only">
-                  🧱 OB
-                </button>
-                <button id="smFilterSig" onclick="setSmartMoneyOverlayFilter('SIGNALS')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show A+ Signals only">
-                  🎯 SIGNALS
-                </button>
+                <button id="smFilterAll" onclick="setSmartMoneyOverlayFilter('ALL')" class="px-2 py-0.5 rounded font-black bg-amber-400 text-slate-950 transition" title="Show all FVG, Order Blocks, Sweeps and Signals">⚡ ALL</button>
+                <button id="smFilterFvg" onclick="setSmartMoneyOverlayFilter('FVG')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show Fair Value Gaps only">📦 FVG</button>
+                <button id="smFilterOb" onclick="setSmartMoneyOverlayFilter('OB')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show Order Blocks only">🧱 OB</button>
+                <button id="smFilterSig" onclick="setSmartMoneyOverlayFilter('SIGNALS')" class="px-2 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Show A+ Signals only">🎯 SIGS</button>
               </div>
 
-              <!-- Chart Height Sizer -->
-              <div class="inline-flex rounded-lg bg-slate-950/90 p-0.5 border border-slate-800 text-[10px] mono hidden md:inline-flex">
-                <button id="btnSize560" onclick="setChartHeight(560)" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">
-                  560px
-                </button>
-                <button id="btnSize680" onclick="setChartHeight(680)" class="px-1.5 py-0.5 rounded font-black bg-slate-800 text-amber-300 transition">
-                  680px
-                </button>
-                <button id="btnSize820" onclick="setChartHeight(820)" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition">
-                  820px
-                </button>
-              </div>
-
-              <!-- Focus / Full-Width Mode -->
-              <button onclick="toggleChartFocusMode()" id="btnChartFocus" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-900 border border-slate-700/80 text-amber-300 hover:bg-slate-800 transition flex items-center gap-1" title="Toggle Full-Width Focused Chart View">
-                <span>🖥️</span>
-                <span class="hidden sm:inline" id="btnChartFocusLabel">Focus</span>
+              <!-- Feature Toggles -->
+              <button onclick="toggleVolume()" id="toggleVolumeBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 transition hover:bg-teal-500/30" title="Toggle Institutional Volume Sub-Pane">
+                📊 Vol: ON
               </button>
-
+              <button onclick="toggleFvgZones()" id="toggleFvgBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition hover:bg-emerald-500/30" title="Toggle FVG Shaded Zones">
+                📦 FVG: ON
+              </button>
+              <button onclick="toggleObZones()" id="toggleObBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 transition hover:bg-purple-500/30" title="Toggle Order Block Zones">
+                🧱 OB: ON
+              </button>
+              <button onclick="toggleEmaLines()" id="toggleEmaBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 transition hover:bg-sky-500/30" title="Toggle 50/200 EMA Lines">
+                📈 EMA: ON
+              </button>
+              <button onclick="toggleSessions()" id="toggleSessionsBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 transition hover:bg-amber-500/30" title="Toggle Asian Range & Killzone Bands">
+                🌏 Sessions: ON
+              </button>
               <button onclick="toggleRRBox()" id="toggleRRBoxBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition hover:bg-emerald-500/30" title="Toggle TradingView-Style Long/Short Risk:Reward Position Tool">
                 📐 R:R Tool: ON
               </button>
-
               <button onclick="togglePriceLines()" id="toggleLinesBtn" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/20">
                 Lines: ON
               </button>
-              <button onclick="resetChartZoom()" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800/90 text-slate-300 hover:bg-slate-700 transition">
-                Fit
+
+              <!-- Quick Zoom Presets -->
+              <div class="inline-flex rounded-lg bg-slate-950/90 p-0.5 border border-slate-800 text-[10px] mono">
+                <button onclick="zoomChartDays(1)" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Zoom to last 24 hours">1D</button>
+                <button onclick="zoomChartDays(3)" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Zoom to last 3 days">3D</button>
+                <button onclick="zoomChartDays(7)" class="px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition" title="Zoom to last 7 days">1W</button>
+                <button onclick="resetChartZoom()" class="px-1.5 py-0.5 rounded font-black bg-slate-800 text-amber-300 transition" title="Fit all candles">Fit</button>
+              </div>
+
+              <!-- Focus Mode -->
+              <button onclick="toggleChartFocusMode()" id="btnChartFocus" class="px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-900 border border-slate-700/80 text-amber-300 hover:bg-slate-800 transition flex items-center gap-1" title="Toggle Full-Width Focused Chart View">
+                <span>🖥️</span>
+                <span class="hidden sm:inline" id="btnChartFocusLabel">Focus</span>
               </button>
             </div>
           </div>
@@ -1357,8 +1373,15 @@ TELEGRAM_MIN_SCORE=90</pre>
     let lastCandleBar = null;
     let currentEventSource = null;
 
-    let priceChart, candleSeries, ema50Series, ema200Series;
+    let priceChart, candleSeries, ema50Series, ema200Series, volumeSeries;
     let activePriceLines = [];
+    let showVolume = true;
+    let showFvgZones = true;
+    let showObZones = true;
+    let showEmaLines = true;
+    let showSessions = true;
+    let lastKnownVolumeData = [];
+    let countdownInterval = null;
 
     // Cross-Market Signal Radar State
     let radarSignals = [];
@@ -2069,18 +2092,45 @@ TELEGRAM_MIN_SCORE=90</pre>
       try {
         priceChart = LightweightCharts.createChart(priceEl, {
           layout: {
-            background: { type: 'solid', color: '#07090e' },
+            background: { type: 'solid', color: '#05070d' },
             textColor: '#94a3b8',
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 11,
           },
           grid: {
-            vertLines: { color: 'rgba(30, 41, 59, 0.35)' },
-            horzLines: { color: 'rgba(30, 41, 59, 0.35)' },
+            vertLines: { color: 'rgba(255, 255, 255, 0.035)' },
+            horzLines: { color: 'rgba(255, 255, 255, 0.035)' },
           },
-          crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-          rightPriceScale: { borderColor: '#1e293b' },
-          timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false },
+          crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: {
+              color: 'rgba(251, 191, 36, 0.45)',
+              width: 1,
+              style: LightweightCharts.LineStyle.Dashed,
+              labelBackgroundColor: '#1e293b',
+            },
+            horzLine: {
+              color: 'rgba(251, 191, 36, 0.45)',
+              width: 1,
+              style: LightweightCharts.LineStyle.Dashed,
+              labelBackgroundColor: '#1e293b',
+            },
+          },
+          rightPriceScale: {
+            borderColor: '#1e293b',
+            scaleMargins: {
+              top: 0.08,
+              bottom: 0.18,
+            },
+            alignLabels: true,
+          },
+          timeScale: {
+            borderColor: '#1e293b',
+            timeVisible: true,
+            secondsVisible: false,
+            rightOffset: 12,
+            barSpacing: 8,
+          },
           handleScroll: {
             mouseWheel: true,
             pressedMouseMove: true,
@@ -2102,11 +2152,31 @@ TELEGRAM_MIN_SCORE=90</pre>
           borderDownColor: '#f43f5e',
           wickUpColor: '#10b981',
           wickDownColor: '#f43f5e',
+          priceFormat: {
+            type: 'price',
+            precision: 2,
+            minMove: 0.01,
+          },
+        });
+
+        // Institutional Volume Histogram Overlay (Bottom 18%)
+        volumeSeries = priceChart.addHistogramSeries({
+          color: '#26a69a',
+          priceFormat: {
+            type: 'volume',
+          },
+          priceScaleId: '',
+          scaleMargins: {
+            top: 0.82,
+            bottom: 0,
+          },
         });
 
         // Clean 2-Indicator Setup: 50 EMA (Purple) & 200 EMA (Sky Blue)
         ema50Series = priceChart.addLineSeries({ color: '#a855f7', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
         ema200Series = priceChart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+
+        startCandleCountdownTimer();
 
         priceEl.style.position = 'relative';
         let rrCanvas = document.getElementById('rrBoxOverlay');
@@ -2531,6 +2601,189 @@ TELEGRAM_MIN_SCORE=90</pre>
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, rect.width, rect.height);
 
+      function drawRoundRect(rx, ry, rw, rh, rad) {
+        ctx.beginPath();
+        ctx.moveTo(rx + rad, ry);
+        ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, rad);
+        ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, rad);
+        ctx.arcTo(rx, ry + rh, rx, ry, rad);
+        ctx.arcTo(rx, ry, rx + rw, ry, rad);
+        ctx.closePath();
+      }
+
+      function resolveY(price) {
+        if (price == null || price === 0) return null;
+        const y = candleSeries.priceToCoordinate(price);
+        if (typeof y === 'number' && !isNaN(y)) return y;
+        return null;
+      }
+
+      const plotWidth = priceChart.timeScale().width() || (rect.width - 65);
+
+      // --- 1. Asian Session Range Band ---
+      if (showSessions && currentAnalysis && currentAnalysis.liquidityLevels) {
+        const aHigh = currentAnalysis.liquidityLevels.asianHigh;
+        const aLow = currentAnalysis.liquidityLevels.asianLow;
+        if (aHigh && aLow && aHigh > aLow) {
+          const yAh = resolveY(aHigh);
+          const yAl = resolveY(aLow);
+          if (yAh !== null && yAl !== null) {
+            const yTop = Math.min(yAh, yAl);
+            const bH = Math.max(3, Math.abs(yAl - yAh));
+            const sX = 12;
+            const sW = Math.max(50, plotWidth - sX);
+
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.05)';
+            ctx.fillRect(sX, yTop, sW, bH);
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 4]);
+            ctx.strokeRect(sX, yTop, sW, bH);
+            ctx.setLineDash([]);
+
+            ctx.font = 'bold 8.5px JetBrains Mono, monospace';
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
+            ctx.textAlign = 'right';
+            ctx.fillText('⚡ ASIAN HIGH $' + aHigh.toFixed(2), sX + sW - 8, yAh - 4);
+            ctx.fillText('⚡ ASIAN LOW $' + aLow.toFixed(2), sX + sW - 8, yAl + 11);
+          }
+        }
+      }
+
+      // --- 2. Dealing Range (Swing High / Swing Low) Markers ---
+      if (currentAnalysis && currentAnalysis.ictStructure) {
+        const sh = currentAnalysis.ictStructure.lastSwingHigh;
+        const sl = currentAnalysis.ictStructure.lastSwingLow;
+        if (sh) {
+          const ySh = resolveY(sh);
+          if (ySh !== null && ySh > 5 && ySh < rect.height - 5) {
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            ctx.moveTo(12, ySh);
+            ctx.lineTo(plotWidth, ySh);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = 'bold 8.5px JetBrains Mono, monospace';
+            ctx.fillStyle = '#f43f5e';
+            ctx.textAlign = 'left';
+            ctx.fillText('🔴 SWING HIGH $' + sh.toFixed(2), 16, ySh - 4);
+          }
+        }
+        if (sl) {
+          const ySl = resolveY(sl);
+          if (ySl !== null && ySl > 5 && ySl < rect.height - 5) {
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            ctx.moveTo(12, ySl);
+            ctx.lineTo(plotWidth, ySl);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = 'bold 8.5px JetBrains Mono, monospace';
+            ctx.fillStyle = '#10b981';
+            ctx.textAlign = 'left';
+            ctx.fillText('🟢 SWING LOW $' + sl.toFixed(2), 16, ySl + 11);
+          }
+        }
+      }
+
+      // --- 3. Active Fair Value Gap (FVG) Shaded Zone ---
+      if (showFvgZones && currentAnalysis) {
+        const fvgPro = currentAnalysis.ictStructure?.sweepBosFvgPro?.fvgPro;
+        const activeFvg = currentAnalysis.smartMoney?.activeFvg;
+        const fvgZone = currentAnalysis.ictStructure?.activeFvgZone;
+
+        const fTop = fvgZone ? fvgZone.top : (activeFvg ? activeFvg.top : (fvgPro?.detected ? fvgPro.fvgTop : null));
+        const fBottom = fvgZone ? fvgZone.bottom : (activeFvg ? activeFvg.bottom : (fvgPro?.detected ? fvgPro.fvgBottom : null));
+        const fCe = (fTop != null && fBottom != null) ? (fTop + fBottom) / 2 : (activeFvg ? activeFvg.cePrice : (fvgPro?.consequentEncroachment || null));
+        const fType = fvgZone?.type || activeFvg?.direction || fvgPro?.type || 'BULLISH';
+        const isBullFvg = String(fType).toUpperCase().includes('BULL');
+
+        if (fTop != null && fBottom != null && fTop > 0 && fBottom > 0) {
+          const yFvgTop = resolveY(Math.max(fTop, fBottom));
+          const yFvgBottom = resolveY(Math.min(fTop, fBottom));
+          const yFvgCe = fCe != null ? resolveY(fCe) : null;
+
+          if (yFvgTop !== null && yFvgBottom !== null) {
+            const fH = Math.max(3, Math.abs(yFvgBottom - yFvgTop));
+            const fY = Math.min(yFvgTop, yFvgBottom);
+            const fvgX = 12;
+            const fvgW = Math.max(50, plotWidth - fvgX);
+
+            ctx.fillStyle = isBullFvg ? 'rgba(16, 185, 129, 0.14)' : 'rgba(244, 63, 94, 0.14)';
+            ctx.fillRect(fvgX, fY, fvgW, fH);
+            ctx.strokeStyle = isBullFvg ? 'rgba(16, 185, 129, 0.55)' : 'rgba(244, 63, 94, 0.55)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 2]);
+            ctx.strokeRect(fvgX, fY, fvgW, fH);
+            ctx.setLineDash([]);
+
+            if (yFvgCe !== null && yFvgCe >= fY && yFvgCe <= fY + fH) {
+              ctx.strokeStyle = isBullFvg ? '#34d399' : '#fb7185';
+              ctx.lineWidth = 1.2;
+              ctx.setLineDash([3, 3]);
+              ctx.beginPath();
+              ctx.moveTo(fvgX, yFvgCe);
+              ctx.lineTo(fvgX + fvgW, yFvgCe);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              ctx.font = 'bold 9px JetBrains Mono, monospace';
+              ctx.fillStyle = isBullFvg ? '#10b981' : '#f43f5e';
+              ctx.textAlign = 'left';
+              ctx.fillText((isBullFvg ? '🟢 +FVG PRO CE ' : '🔴 -FVG PRO CE ') + '$' + (fCe ? fCe.toFixed(2) : ''), fvgX + 6, yFvgCe - 3);
+            }
+          }
+        }
+      }
+
+      // --- 4. Active Order Block (OB) Shaded Zone ---
+      if (showObZones && currentAnalysis) {
+        const obData = currentAnalysis.smartMoney?.activeOrderBlock || currentAnalysis.ictStructure?.activeOrderBlock;
+        if (obData && obData.top && (obData.bottom || obData.low)) {
+          const obLow = obData.bottom || obData.low;
+          const yObTop = resolveY(Math.max(obData.top, obLow));
+          const yObBottom = resolveY(Math.min(obData.top, obLow));
+          const obMean = (obData.top + obLow) / 2;
+          const yObMean = resolveY(obMean);
+
+          if (yObTop !== null && yObBottom !== null) {
+            const obH = Math.max(3, Math.abs(yObBottom - yObTop));
+            const obY = Math.min(yObTop, yObBottom);
+            const obX = 12;
+            const obW = Math.max(50, plotWidth - obX);
+
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.14)';
+            ctx.fillRect(obX, obY, obW, obH);
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 2]);
+            ctx.strokeRect(obX, obY, obW, obH);
+            ctx.setLineDash([]);
+
+            if (yObMean !== null) {
+              ctx.strokeStyle = '#c084fc';
+              ctx.lineWidth = 1;
+              ctx.setLineDash([2, 2]);
+              ctx.beginPath();
+              ctx.moveTo(obX, yObMean);
+              ctx.lineTo(obX + obW, yObMean);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              ctx.font = 'bold 9px JetBrains Mono, monospace';
+              ctx.fillStyle = '#c084fc';
+              ctx.textAlign = 'left';
+              ctx.fillText('🧱 ' + (obData.type || 'ORDER BLOCK') + ' MEAN $' + obMean.toFixed(2), obX + 6, yObMean - 3);
+            }
+          }
+        }
+      }
+
+      // --- 5. Risk:Reward Position Tool Box ---
       if (!showRRBox) {
         ctx.restore();
         return;
@@ -2562,20 +2815,6 @@ TELEGRAM_MIN_SCORE=90</pre>
       if (yEntry === null || typeof yEntry !== 'number' || isNaN(yEntry)) {
         ctx.restore();
         return;
-      }
-
-      function resolveY(price) {
-        if (price == null || price === 0) return null;
-        const y = candleSeries.priceToCoordinate(price);
-        if (typeof y === 'number' && !isNaN(y)) return y;
-        if (typeof lastKnownBid === 'number' && Math.abs(lastKnownBid - entryPrice) > 0.05) {
-          const yBid = candleSeries.priceToCoordinate(lastKnownBid);
-          if (typeof yBid === 'number' && !isNaN(yBid)) {
-            const pxPerUnit = (yEntry - yBid) / (lastKnownBid - entryPrice);
-            return yEntry - (price - entryPrice) * pxPerUnit;
-          }
-        }
-        return null;
       }
 
       let yStop = resolveY(stopLoss);
@@ -3307,16 +3546,31 @@ TELEGRAM_MIN_SCORE=90</pre>
       if (chartTfLabel) chartTfLabel.textContent = data.timeframe.toUpperCase();
       if (candleSeries && ema50Series && ema200Series && data.series) {
         try {
-          const candles = [], ema50 = [], ema200 = [];
+          const candles = [], ema50 = [], ema200 = [], volumes = [];
           data.series.forEach((pt) => {
             candles.push({ time: pt.time, open: pt.open, high: pt.high, low: pt.low, close: pt.close });
             if (pt.ema50 !== null) ema50.push({ time: pt.time, value: pt.ema50 });
             if (pt.ema200 !== null) ema200.push({ time: pt.time, value: pt.ema200 });
+            const isUp = pt.close >= pt.open;
+            volumes.push({
+              time: pt.time,
+              value: pt.volume || 100,
+              color: isUp ? 'rgba(16, 185, 129, 0.35)' : 'rgba(244, 63, 94, 0.35)',
+            });
           });
 
+          lastKnownVolumeData = volumes;
           candleSeries.setData(candles);
-          ema50Series.setData(ema50);
-          ema200Series.setData(ema200);
+          if (showEmaLines) {
+            ema50Series.setData(ema50);
+            ema200Series.setData(ema200);
+          } else {
+            ema50Series.setData([]);
+            ema200Series.setData([]);
+          }
+          if (volumeSeries) {
+            volumeSeries.setData(showVolume ? volumes : []);
+          }
           lastCandleBar = candles[candles.length - 1] ? { ...candles[candles.length - 1] } : null;
 
           updateChartSmartMoneyMarkers(data);
@@ -4750,12 +5004,125 @@ TELEGRAM_MIN_SCORE=90</pre>
       selectedRRSetup = null;
       ['1m', '5m', '15m', '30m', '1h', '4h'].forEach((id) => {
         const btn = document.getElementById('tf-' + id);
-        if (!btn) return;
-        btn.className = id === tf
-          ? 'px-2.5 py-1.5 rounded-md text-xs font-bold transition-all bg-amber-400 text-slate-950'
-          : 'px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white';
+        if (btn) {
+          btn.className = id === tf
+            ? 'px-2.5 py-1.5 rounded-md text-xs font-bold transition-all bg-amber-400 text-slate-950'
+            : 'px-2.5 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white';
+        }
+        const chartBtn = document.getElementById('chart-tf-' + id);
+        if (chartBtn) {
+          chartBtn.className = id === tf
+            ? 'px-1.5 py-0.5 rounded font-black bg-amber-400 text-slate-950 transition'
+            : 'px-1.5 py-0.5 rounded font-bold text-slate-400 hover:text-white transition';
+        }
       });
       loadSignalData();
+    }
+
+    function toggleVolume() {
+      showVolume = !showVolume;
+      const btn = document.getElementById('toggleVolumeBtn');
+      if (btn) {
+        btn.textContent = '📊 Vol: ' + (showVolume ? 'ON' : 'OFF');
+        btn.className = showVolume
+          ? 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 transition hover:bg-teal-500/30'
+          : 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 transition hover:bg-slate-700';
+      }
+      if (volumeSeries) {
+        volumeSeries.setData(showVolume ? lastKnownVolumeData : []);
+      }
+      showToast('📊 Volume Histogram: ' + (showVolume ? 'ON' : 'OFF'));
+    }
+
+    function toggleFvgZones() {
+      showFvgZones = !showFvgZones;
+      const btn = document.getElementById('toggleFvgBtn');
+      if (btn) {
+        btn.textContent = '📦 FVG: ' + (showFvgZones ? 'ON' : 'OFF');
+        btn.className = showFvgZones
+          ? 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition hover:bg-emerald-500/30'
+          : 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 transition hover:bg-slate-700';
+      }
+      scheduleRRBoxOverlay();
+      showToast('📦 FVG Shaded Zones: ' + (showFvgZones ? 'ON' : 'OFF'));
+    }
+
+    function toggleObZones() {
+      showObZones = !showObZones;
+      const btn = document.getElementById('toggleObBtn');
+      if (btn) {
+        btn.textContent = '🧱 OB: ' + (showObZones ? 'ON' : 'OFF');
+        btn.className = showObZones
+          ? 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 transition hover:bg-purple-500/30'
+          : 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 transition hover:bg-slate-700';
+      }
+      scheduleRRBoxOverlay();
+      showToast('🧱 Order Block Zones: ' + (showObZones ? 'ON' : 'OFF'));
+    }
+
+    function toggleEmaLines() {
+      showEmaLines = !showEmaLines;
+      const btn = document.getElementById('toggleEmaBtn');
+      if (btn) {
+        btn.textContent = '📈 EMA: ' + (showEmaLines ? 'ON' : 'OFF');
+        btn.className = showEmaLines
+          ? 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 transition hover:bg-sky-500/30'
+          : 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 transition hover:bg-slate-700';
+      }
+      if (currentAnalysis && currentAnalysis.series) {
+        if (showEmaLines) {
+          const ema50 = [], ema200 = [];
+          currentAnalysis.series.forEach(pt => {
+            if (pt.ema50 !== null) ema50.push({ time: pt.time, value: pt.ema50 });
+            if (pt.ema200 !== null) ema200.push({ time: pt.time, value: pt.ema200 });
+          });
+          if (ema50Series) ema50Series.setData(ema50);
+          if (ema200Series) ema200Series.setData(ema200);
+        } else {
+          if (ema50Series) ema50Series.setData([]);
+          if (ema200Series) ema200Series.setData([]);
+        }
+      }
+      showToast('📈 50/200 EMA Lines: ' + (showEmaLines ? 'ON' : 'OFF'));
+    }
+
+    function toggleSessions() {
+      showSessions = !showSessions;
+      const btn = document.getElementById('toggleSessionsBtn');
+      if (btn) {
+        btn.textContent = '🌏 Sessions: ' + (showSessions ? 'ON' : 'OFF');
+        btn.className = showSessions
+          ? 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 transition hover:bg-amber-500/30'
+          : 'px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 transition hover:bg-slate-700';
+      }
+      scheduleRRBoxOverlay();
+      showToast('🌏 Asian / Killzone Sessions: ' + (showSessions ? 'ON' : 'OFF'));
+    }
+
+    function zoomChartDays(days) {
+      if (!priceChart) return;
+      const now = Math.floor(Date.now() / 1000);
+      const from = now - days * 86400;
+      priceChart.timeScale().setVisibleRange({ from, to: now + 1800 });
+      scheduleRRBoxOverlay();
+      showToast('🔍 Zoomed: ' + days + ' Day' + (days > 1 ? 's' : ''));
+    }
+
+    function startCandleCountdownTimer() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      function updateTimer() {
+        const el = document.getElementById('countdownTimerText');
+        if (!el) return;
+        const stepSec = currentTf === '1m' ? 60 : currentTf === '5m' ? 300 : currentTf === '15m' ? 900 : currentTf === '30m' ? 1800 : currentTf === '1h' ? 3600 : 14400;
+        const nowSec = Math.floor(Date.now() / 1000);
+        const secLeft = Math.max(0, stepSec - (nowSec % stepSec));
+        const m = Math.floor(secLeft / 60);
+        const s = secLeft % 60;
+        const timeStr = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        el.textContent = '⏳ ' + currentTf.toUpperCase() + ': ' + timeStr;
+      }
+      updateTimer();
+      countdownInterval = setInterval(updateTimer, 1000);
     }
 
     function togglePriceLines() {
