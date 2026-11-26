@@ -13,17 +13,17 @@ if sys.platform == "win32":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 # --- Configuration ---
-API_URL = "http://127.0.0.1:3000/api/scalp"
+API_URL = "https://indecator-lke5.vercel.app/api/scalp"
 SYMBOL = "XAUUSD"                 # Strictly Gold (XAUUSD -> XAUUSDc)
 TIMEFRAMES = ["1m"]               # 1-Minute Quick Trade Focus
 LOT_SIZE = 0.01                   # Fixed Micro-Lot: 0.01
 MAX_OPEN_TRADES = 5               # Up to 5 Concurrent Entries
-MIN_SPACING = 0.35                # Minimum $0.35 spacing between entries
-ENTRY_COOLDOWN = 12               # Smooth 12s interval between scale-in entries
+MIN_SPACING = 0.80                # Minimum $0.80 spacing between entries (immune to $0.20 spread)
+ENTRY_COOLDOWN = 15               # 15s cooldown between entries
 BE_PROFIT_TRIGGER = 0.10          # Fast BE Trigger: +$0.10 profit moves SL to +$0.05
 BE_BUFFER = 0.05                  # Guaranteed Profit locked in (+5 cents)
 TEST_MODE = False                 # Live MT5 Real Execution
-MIN_SCORE = 50                    # Minimum Quality Score
+MIN_SCORE = 65                    # Minimum Quality Score (65%+)
 if "--min-score" in sys.argv:
     try:
         MIN_SCORE = int(sys.argv[sys.argv.index("--min-score") + 1])
@@ -67,13 +67,13 @@ def check_and_manage_breakeven(broker_sym):
         if p.type == mt5.POSITION_TYPE_BUY:
             gain = cur_price - p.price_open
             if gain >= 0.50:
-                target_sl = round(p.price_open + 0.20, digits)
+                target_sl = round(max(p.price_open + 0.20, cur_price - 0.30), digits)
             elif gain >= 0.15:
                 target_sl = round(p.price_open + 0.10, digits)
             elif gain >= 0.10:
                 target_sl = round(p.price_open + 0.05, digits)
 
-            if target_sl and target_sl > p.sl + 0.005:
+            if target_sl and (p.sl == 0 or target_sl > p.sl + 0.005):
                 req = {
                     "action": mt5.TRADE_ACTION_SLTP,
                     "position": p.ticket,
@@ -83,12 +83,12 @@ def check_and_manage_breakeven(broker_sym):
                 }
                 res = mt5.order_send(req)
                 if res.retcode == mt5.TRADE_RETCODE_DONE:
-                    print(f"\n[TIER-BE] BUY #{p.ticket} Gain: +${gain:.2f} -> SL moved to {target_sl} (+${target_sl - p.price_open:.2f} locked)")
+                    print(f"\n[ALWAYS-TRAIL] BUY #{p.ticket} Gain: +${gain:.2f} -> SL ratcheted to {target_sl} (+${target_sl - p.price_open:.2f} locked)")
 
         elif p.type == mt5.POSITION_TYPE_SELL:
             gain = p.price_open - cur_price
             if gain >= 0.50:
-                target_sl = round(p.price_open - 0.20, digits)
+                target_sl = round(min(p.price_open - 0.20, cur_price + 0.30), digits)
             elif gain >= 0.15:
                 target_sl = round(p.price_open - 0.10, digits)
             elif gain >= 0.10:
@@ -104,7 +104,7 @@ def check_and_manage_breakeven(broker_sym):
                 }
                 res = mt5.order_send(req)
                 if res.retcode == mt5.TRADE_RETCODE_DONE:
-                    print(f"\n[TIER-BE] SELL #{p.ticket} Gain: +${gain:.2f} -> SL moved to {target_sl} (+${p.price_open - target_sl:.2f} locked)")
+                    print(f"\n[ALWAYS-TRAIL] SELL #{p.ticket} Gain: +${gain:.2f} -> SL ratcheted to {target_sl} (+${p.price_open - target_sl:.2f} locked)")
 
 def is_far_enough_from_existing(price, active_positions, min_spacing):
     for p in active_positions:
@@ -213,7 +213,7 @@ def main():
                     tp2 = data.get('tp2', 0)
                     spot = data.get('currentPrice', spot)
 
-                    can_enter = (is_actionable or timing_state in ['ENTER_NOW', 'ZONE_ENTRY', 'TRIGGERED_ZONE', 'WAIT_CONFIRMATION'])
+                    can_enter = data.get('canExecute', False) or (is_actionable or timing_state in ['ENTER_NOW', 'ZONE_ENTRY', 'TRIGGERED_ZONE', 'WAIT_CONFIRMATION'])
                     if can_enter and score >= MIN_SCORE and direction in ['LONG', 'SHORT', 'BUY', 'SELL']:
                         # Verify price spacing from existing trades
                         if is_far_enough_from_existing(spot, active_positions, MIN_SPACING):
