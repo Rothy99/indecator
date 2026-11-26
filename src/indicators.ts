@@ -2372,7 +2372,7 @@ function scanMasterStrategySignals(
     const testHigh = isNewBar ? lastBar.high : curPrice;
     const testLow = isNewBar ? lastBar.low : curPrice;
 
-    const tfSec = timeframe === '1m' ? 60 : timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : timeframe === '30m' ? 1800 : timeframe === '1h' ? 3600 : 14400;
+    const tfSec = timeframe === '1m' ? 60 : timeframe === '3m' ? 180 : timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : timeframe === '30m' ? 1800 : timeframe === '1h' ? 3600 : 14400;
     const barsElapsed = Math.floor((lastBar.time - locked.time) / tfSec);
 
     // Auto-archive if TP1 already hit and > 1 bar passed, or if expired (> 6 bars)
@@ -3259,28 +3259,28 @@ export function analyzeGoldCandles(
   }
 
   // V3.0: Dynamic Stop-Loss Rule adapted to sweep extreme + 0.2x ATR buffer
-  let minSlDollars = timeframe === '1m' ? 2.5 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
-  let maxSlDollars = timeframe === '1m' ? 5.0 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
+  let minSlDollars = (timeframe === '1m' || timeframe === '3m') ? 2.5 : timeframe === '5m' ? 3.0 : timeframe === '15m' ? 3.5 : 4.0;
+  let maxSlDollars = (timeframe === '1m' || timeframe === '3m') ? 5.0 : timeframe === '5m' ? 6.5 : timeframe === '15m' ? 7.5 : timeframe === '30m' ? 10.0 : timeframe === '1h' ? 14.0 : 25.0;
 
   let spreadPips = 6.0;
   let maxAllowedSpreadPips = 25.0;
   let spreadBufferDollars = 0.35;
 
   if (isBtc) {
-    minSlDollars = timeframe === '1m' ? 50.0 : timeframe === '5m' ? 80.0 : timeframe === '15m' ? 120.0 : 180.0;
-    maxSlDollars = timeframe === '1m' ? 120.0 : timeframe === '5m' ? 200.0 : timeframe === '15m' ? 350.0 : timeframe === '30m' ? 500.0 : timeframe === '1h' ? 800.0 : 1500.0;
+    minSlDollars = (timeframe === '1m' || timeframe === '3m') ? 50.0 : timeframe === '5m' ? 80.0 : timeframe === '15m' ? 120.0 : 180.0;
+    maxSlDollars = (timeframe === '1m' || timeframe === '3m') ? 120.0 : timeframe === '5m' ? 200.0 : timeframe === '15m' ? 350.0 : timeframe === '30m' ? 500.0 : timeframe === '1h' ? 800.0 : 1500.0;
     spreadPips = 2.0;
     maxAllowedSpreadPips = 10.0;
     spreadBufferDollars = 2.0;
   } else if (isEth) {
-    minSlDollars = timeframe === '1m' ? 3.0 : timeframe === '5m' ? 5.0 : timeframe === '15m' ? 8.0 : 12.0;
-    maxSlDollars = timeframe === '1m' ? 12.0 : timeframe === '5m' ? 20.0 : timeframe === '15m' ? 35.0 : timeframe === '30m' ? 50.0 : timeframe === '1h' ? 80.0 : 150.0;
+    minSlDollars = (timeframe === '1m' || timeframe === '3m') ? 3.0 : timeframe === '5m' ? 5.0 : timeframe === '15m' ? 8.0 : 12.0;
+    maxSlDollars = (timeframe === '1m' || timeframe === '3m') ? 12.0 : timeframe === '5m' ? 20.0 : timeframe === '15m' ? 35.0 : timeframe === '30m' ? 50.0 : timeframe === '1h' ? 80.0 : 150.0;
     spreadPips = 3.0;
     maxAllowedSpreadPips = 15.0;
     spreadBufferDollars = 0.30;
   } else if (isSol) {
-    minSlDollars = timeframe === '1m' ? 0.3 : timeframe === '5m' ? 0.5 : timeframe === '15m' ? 0.8 : 1.2;
-    maxSlDollars = timeframe === '1m' ? 1.0 : timeframe === '5m' ? 1.8 : timeframe === '15m' ? 3.0 : timeframe === '30m' ? 4.5 : timeframe === '1h' ? 7.0 : 12.0;
+    minSlDollars = (timeframe === '1m' || timeframe === '3m') ? 0.3 : timeframe === '5m' ? 0.5 : timeframe === '15m' ? 0.8 : 1.2;
+    maxSlDollars = (timeframe === '1m' || timeframe === '3m') ? 1.0 : timeframe === '5m' ? 1.8 : timeframe === '15m' ? 3.0 : timeframe === '30m' ? 4.5 : timeframe === '1h' ? 7.0 : 12.0;
     spreadPips = 2.0;
     maxAllowedSpreadPips = 10.0;
     spreadBufferDollars = 0.05;

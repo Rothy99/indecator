@@ -1,7 +1,7 @@
 import { Candle } from './indicators.js';
 
-export type SupportedTimeframe = '1m' | '5m' | '15m' | '30m' | '1h' | '4h';
-export const ALL_TIMEFRAMES: SupportedTimeframe[] = ['1m', '5m', '15m', '30m', '1h', '4h'];
+export type SupportedTimeframe = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '4h';
+export const ALL_TIMEFRAMES: SupportedTimeframe[] = ['1m', '3m', '5m', '15m', '30m', '1h', '4h'];
 
 export type SupportedSymbol = 'XAUUSD' | 'BTCUSD' | 'ETHUSD' | 'SOLUSD';
 export const ALL_SYMBOLS: SupportedSymbol[] = ['XAUUSD', 'BTCUSD', 'ETHUSD', 'SOLUSD'];
@@ -158,6 +158,7 @@ export function parseMt5Symbol(raw: any): SupportedSymbol {
 export function parseMt5Timeframe(raw: any): SupportedTimeframe {
   const s = String(raw || '15m').toUpperCase().trim();
   if (s.includes('1M') || s.includes('M1') || s === '1' || s.endsWith('_M1')) return '1m';
+  if (s.includes('3M') || s.includes('M3') || s === '3' || s.endsWith('_M3')) return '3m';
   if (s.includes('5M') || s.includes('M5') || s === '5' || s.endsWith('_M5')) return '5m';
   if (s.includes('15M') || s.includes('M15') || s === '15' || s.endsWith('_M15')) return '15m';
   if (s.includes('30M') || s.includes('M30') || s === '30' || s.endsWith('_M30')) return '30m';
