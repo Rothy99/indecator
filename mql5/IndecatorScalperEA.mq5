@@ -26,7 +26,7 @@ input string         InpServerUrl       = "https://indecator-lke5.vercel.app/api
 input ENUM_LOT_MODE  InpLotMode         = LOT_FIXED;                          // Lot Sizing Mode
 input double         InpFixedLot        = 0.01;                               // Fixed Lot Size (0.01)
 input double         InpRiskPercent     = 0.5;                                // Risk % per trade (if Risk Mode selected)
-input int            InpMinScore        = 90;                                 // Minimum Confluence Score (90 = Strict 90%+ A+ Institutional Setup)
+input int            InpMinScore        = 65;                                 // Minimum Confluence Score (65 = High-Probability 65%+ Setup)
 input int            InpMaxOpenTrades   = 5;                                  // Max Concurrent Trades (5 Entries Max)
 input double         InpMinSpacing      = 0.80;                               // Spacing Between Entries ($0.80 = Prevents Spread Overlap)
 input int            InpTradeCooldown   = 15;                                 // Cooldown Between New Setups (15 Seconds)

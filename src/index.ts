@@ -180,25 +180,24 @@ app.get('/api/scalp', async (c: any) => {
     ? Math.round((price + actualSlDist * 3.0) * 100) / 100  // 1:3 PnL Runner
     : Math.round((price - actualSlDist * 3.0) * 100) / 100;
 
-  // --- Strict 90%+ Institutional High-Confidence Confluence Gates ---
+  // --- Strict 65%+ High-Confidence Confluence Gates for 1M Scalps ---
   const rsi = analysis.indicators?.rsi14 || 50;
   const timingState: string = (timing?.state || 'WAIT') as string;
-  // Trigger only on genuine actionable states, NOT passive WAIT
+  // Trigger on genuine actionable states (ENTER_NOW, ZONE_ENTRY, TRIGGERED_ZONE)
   const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE';
   
   // RSI Exhaustion Gates: never buy above 68 RSI or sell below 32 RSI
   const rsiOk = (dir === 'LONG' || dir === 'BUY') ? rsi <= 68 : (dir === 'SHORT' || dir === 'SELL') ? rsi >= 32 : false;
   
-  // Strict 90%+ Institutional Confidence Requirement:
-  // Requires Score >= 90 (Grade A+ Institutional Setup) or Grade A (>=85) with HTF confluence
-  const minRequiredScore = Number(c.req.query('minScore')) || 90;
+  // High-Confidence 65%+ Requirement (Grade B+ / Grade A / Grade A+):
+  const minRequiredScore = Number(c.req.query('minScore')) || 65;
   const confidence = Math.round((analysis.confidence || analysis.score) * 10) / 10;
-  const isHighConfidence = analysis.score >= minRequiredScore && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A');
+  const isHighConfidence = analysis.score >= minRequiredScore && (analysis.setupGrade === 'A+' || analysis.setupGrade === 'A' || analysis.setupGrade === 'B');
 
-  // No chop allowed: market regime must be clean trend
-  const regimeOk = analysis.marketRegime !== 'RANGING / CHOPPY';
+  // Market regime: avoid severe choppy whipsaw unless strong confluence
+  const regimeOk = analysis.marketRegime !== 'RANGING / CHOPPY' || analysis.score >= 75;
 
-  // canExecute requires ALL gates + 90%+ Confidence score
+  // canExecute requires ALL gates + 65%+ Confidence score
   const canExecute = dir !== 'NONE' && htfAligned && rsiOk && regimeOk && isHighConfidence && (hasTimingTrigger || ts?.isActionable === true);
 
   return c.json({
