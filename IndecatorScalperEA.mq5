@@ -137,27 +137,23 @@ void ManageAllPositions()
          if(type == POSITION_TYPE_BUY)
          {
             double gain = curPrice - openPrice;
-            if(gain >= 0.50)
-            {
-               targetSl = openPrice + 0.20; // +0.50 profit -> SL to +0.20
-            }
-            else if(gain >= 0.15)
-            {
-               targetSl = openPrice + 0.10; // +0.15 profit -> SL to +0.10
-            }
-            else if(gain >= 0.10)
-            {
-               targetSl = openPrice + 0.05; // +0.10 profit -> SL to +0.05
-            }
+            if(gain >= 2.50)      targetSl = openPrice + (gain - 0.50); // Trail closely until TP
+            else if(gain >= 2.00) targetSl = openPrice + 1.50;          // +2.00 -> Lock +1.50
+            else if(gain >= 1.50) targetSl = openPrice + 1.00;          // +1.50 -> Lock +1.00
+            else if(gain >= 1.00) targetSl = openPrice + 0.60;          // +1.00 -> Lock +0.60
+            else if(gain >= 0.75) targetSl = openPrice + 0.40;          // +0.75 -> Lock +0.40
+            else if(gain >= 0.50) targetSl = openPrice + 0.20;          // +0.50 -> Lock +0.20
+            else if(gain >= 0.15) targetSl = openPrice + 0.10;          // +0.15 -> Lock +0.10
+            else if(gain >= 0.10) targetSl = openPrice + 0.05;          // +0.10 -> Lock +0.05
 
             if(targetSl > 0)
             {
                targetSl = NormalizeDouble(targetSl, digits);
-               if(targetSl > curSl + 0.005)
+               if(curSl == 0 || targetSl > curSl + 0.005)
                {
                   if(m_trade.PositionModify(ticket, targetSl, curTp))
                   {
-                     PrintFormat("[TIER-BE] BUY #%d Gain: +$%.2f -> SL moved to %.3f (+%.2f locked)",
+                     PrintFormat("[STEP-BE] BUY #%d Gain: +$%.2f -> SL moved to %.3f (+%.2f locked)",
                         ticket, gain, targetSl, targetSl - openPrice);
                   }
                }
@@ -166,18 +162,14 @@ void ManageAllPositions()
          else if(type == POSITION_TYPE_SELL)
          {
             double gain = openPrice - curPrice;
-            if(gain >= 0.50)
-            {
-               targetSl = openPrice - 0.20; // +0.50 profit -> SL to +0.20
-            }
-            else if(gain >= 0.15)
-            {
-               targetSl = openPrice - 0.10; // +0.15 profit -> SL to +0.10
-            }
-            else if(gain >= 0.10)
-            {
-               targetSl = openPrice - 0.05; // +0.10 profit -> SL to +0.05
-            }
+            if(gain >= 2.50)      targetSl = openPrice - (gain - 0.50); // Trail closely until TP
+            else if(gain >= 2.00) targetSl = openPrice - 1.50;          // +2.00 -> Lock +1.50
+            else if(gain >= 1.50) targetSl = openPrice - 1.00;          // +1.50 -> Lock +1.00
+            else if(gain >= 1.00) targetSl = openPrice - 0.60;          // +1.00 -> Lock +0.60
+            else if(gain >= 0.75) targetSl = openPrice - 0.40;          // +0.75 -> Lock +0.40
+            else if(gain >= 0.50) targetSl = openPrice - 0.20;          // +0.50 -> Lock +0.20
+            else if(gain >= 0.15) targetSl = openPrice - 0.10;          // +0.15 -> Lock +0.10
+            else if(gain >= 0.10) targetSl = openPrice - 0.05;          // +0.10 -> Lock +0.05
 
             if(targetSl > 0)
             {
@@ -186,7 +178,7 @@ void ManageAllPositions()
                {
                   if(m_trade.PositionModify(ticket, targetSl, curTp))
                   {
-                     PrintFormat("[TIER-BE] SELL #%d Gain: +$%.2f -> SL moved to %.3f (+%.2f locked)",
+                     PrintFormat("[STEP-BE] SELL #%d Gain: +$%.2f -> SL moved to %.3f (+%.2f locked)",
                         ticket, gain, targetSl, openPrice - targetSl);
                   }
                }
