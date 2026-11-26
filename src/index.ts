@@ -144,7 +144,9 @@ app.get('/api/scalp', async (c: any) => {
   let safeTp1 = ts?.tp1 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp1Dist : price - defaultTp1Dist);
   let safeTp2 = ts?.tp2 || (dir === 'LONG' || dir === 'BUY' ? price + defaultTp2Dist : price - defaultTp2Dist);
 
-  const canExecute = (analysis.signal === 'BUY' || analysis.signal === 'SELL' || ts?.isActionable === true) && analysis.score >= 70;
+  const timingState: string = (timing?.state || 'WAIT') as string;
+  const hasTimingTrigger = timingState === 'ENTER_NOW' || timingState === 'ZONE_ENTRY' || timingState === 'TRIGGERED_ZONE';
+  const canExecute = (analysis.signal === 'BUY' || analysis.signal === 'SELL' || ts?.isActionable === true || hasTimingTrigger) && dir !== 'NONE' && analysis.score >= 55;
 
   return c.json({
     symbol,
@@ -154,7 +156,7 @@ app.get('/api/scalp', async (c: any) => {
     grade: analysis.setupGrade,
     isActionable: ts?.isActionable || false,
     canExecute,
-    timingState: timing?.state || 'WAIT',
+    timingState,
     currentPrice: price,
     entry: ts?.entry || price,
     stopLoss: safeSl,
