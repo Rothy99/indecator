@@ -19,6 +19,11 @@ TIMEFRAMES = ["1m", "3m"]         # Scalping Timeframes scanned simultaneously
 LOT_SIZE = 0.01                   # Fixed Micro-Lot Size: 0.01
 TEST_MODE = False                 # False = Live MT5 Real Execution | True = Simulation / Dry Run
 MIN_SCORE = 80                    # Minimum SMC Confluence Score (80+ for Quality Scalps)
+if "--min-score" in sys.argv:
+    try:
+        MIN_SCORE = int(sys.argv[sys.argv.index("--min-score") + 1])
+    except Exception:
+        pass
 MAGIC_NUMBER = 992601
 
 def get_broker_symbol(target):
@@ -169,11 +174,10 @@ def main():
             if active_pos:
                 status_text = f"ACTIVE POSITION #{active_pos.ticket} ({'BUY' if active_pos.type == 0 else 'SELL'} {active_pos.volume} lots) PnL: ${active_pos.profit:+.2f}"
             else:
-                status_text = "SCANNING FOR ENTRY"
-
+                tf_status = []
                 # Check 1m and 3m for actionable scalping setups
                 for tf in TIMEFRAMES:
-                    res = requests.get(f"{API_URL}?symbol={SYMBOL}&timeframe={tf}", timeout=2.0)
+                    res = requests.get(f"{API_URL}?symbol={SYMBOL}&tf={tf}", timeout=2.0)
                     if res.status_code == 200:
                         data = res.json()
                         ts = data.get('tradeSetup', {})
@@ -181,13 +185,15 @@ def main():
                         grade = data.get('setupGrade', '')
                         is_actionable = ts.get('isActionable', False)
                         entry_timing = ts.get('entryTiming', {})
-                        timing_state = entry_timing.get('state', '')
+                        timing_state = entry_timing.get('state', 'WAIT')
                         direction = ts.get('direction', 'NONE')
-                        entry = ts.get('entry', 0)
+                        entry = ts.get('entry', 0) or data.get('currentPrice', 0)
                         sl = ts.get('stopLoss', 0)
                         tp1 = ts.get('tp1', 0)
                         tp2 = ts.get('tp2', 0)
-                        spot = data.get('currentPrice', 0)
+                        spot = data.get('currentPrice', spot)
+
+                        tf_status.append(f"{tf}: {score}/100 [{timing_state}]")
 
                         # Scalper trigger: timingState == ENTER_NOW or isActionable, with Score >= MIN_SCORE
                         can_enter = (is_actionable or timing_state in ['ENTER_NOW', 'ZONE_ENTRY', 'TRIGGERED_ZONE'])
@@ -199,8 +205,10 @@ def main():
                                 execute_order(broker_sym, direction, entry, sl, tp1, tp2, tf)
                                 break
 
+                status_text = " | ".join(tf_status) if tf_status else "SCANNING..."
+
             # Heartbeat print
-            print(f"\r[{time.strftime('%H:%M:%S')}] {broker_sym} Spot: ${spot:.2f} | Lot: {LOT_SIZE} | {status_text}   ", end="", flush=True)
+            print(f"\r[{time.strftime('%H:%M:%S')}] {broker_sym} ${spot:.2f} | Lot: {LOT_SIZE} | {status_text} | Min: {MIN_SCORE}   ", end="", flush=True)
 
         except Exception as e:
             pass
