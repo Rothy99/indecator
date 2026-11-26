@@ -129,9 +129,9 @@ app.get('/api/scalp', async (c: any) => {
   const dir: string = ts?.direction || 'NONE';
 
   const is1m = tf === '1m';
-  const defaultSlDist = is1m ? 2.50 : 3.50;
-  const defaultTp1Dist = is1m ? 3.50 : 4.50;
-  const defaultTp2Dist = is1m ? 6.00 : 8.00;
+  const defaultSlDist = is1m ? 1.80 : 3.00;
+  const defaultTp1Dist = is1m ? 2.20 : 4.00;
+  const defaultTp2Dist = is1m ? 4.00 : 7.00;
 
   // Safeguard: For BUY SL must be below price, for SELL SL must be above price
   let safeSl = ts?.stopLoss || (dir === 'LONG' || dir === 'BUY' ? price - defaultSlDist : price + defaultSlDist);
